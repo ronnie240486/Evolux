@@ -100,3 +100,11 @@ app/src/main/java/com/evolux/tv/
     ├── GamesScreen.kt
     └── SettingsScreen.kt
 ```
+
+## Fluxo de navegação e sugestões
+
+A navegação do Evolux mantém o visual próprio do aplicativo, mas segue o fluxo de referência do Maximus Player: o botão Voltar fecha o player antes de sair da categoria; em uma categoria, retorna à Home; somente na Home o Back pode encerrar a atividade. As categorias reais do `group-title` do M3U são preservadas nos itens e exibidas como filtros nas telas de Filmes, Séries e Favoritos.
+
+A Home escolhe os cards de sugestão a partir do catálogo autorizado. Quando a fonte fornece `rating`, `vote_average`, `popularity`, `vote_count`, `views` ou `view_count`, esses campos são usados para priorizar o conteúdo em alta; sem esses metadados, o aplicativo não inventa ranking e exibe somente itens reais com stream e imagem válidos. A reprodução acontece no Media3/ExoPlayer interno do Evolux.
+
+A análise estática do APK de referência está registrada em `reference_maximus/reference-findings.md` no ambiente de desenvolvimento; o projeto não depende de código proprietário do APK analisado.

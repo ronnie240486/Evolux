@@ -6,6 +6,7 @@ import android.content.Context
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -79,6 +80,14 @@ fun EvoluxApp() {
     var estadoLogin by remember { mutableStateOf<EstadoLoginMac>(EstadoLoginMac.Ocioso) }
     var validacaoEmAndamento by remember { mutableStateOf(false) }
     var reproducao by remember { mutableStateOf<Reproducao?>(null) }
+
+    BackHandler(enabled = reproducao != null || telaAtual != Tela.INICIO) {
+        if (reproducao != null) {
+            reproducao = null
+        } else {
+            telaAtual = Tela.INICIO
+        }
+    }
 
     suspend fun carregarCatalogo(configuracao: EvoluxConfig): String? {
         val urlPlaylist = configuracao.primeiraPlaylistValida

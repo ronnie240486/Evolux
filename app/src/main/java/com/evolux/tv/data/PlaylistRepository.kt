@@ -183,7 +183,9 @@ class PlaylistRepository {
                 primeiraString(item, "category_name", "group-title", "group", "category")
             ).joinToString(" | ")
             val logo = primeiraString(item, "stream_icon", "logo", "tvg-logo", "icon") ?: ""
-            if (!adicionarEntrada(indice, titulo, grupo, logo, url, canais, filmes, series)) {
+            val nota = primeiraDouble(item, "rating", "vote_average", "rating_imdb", "imdb_rating")
+            val popularidade = primeiraLong(item, "popularity", "vote_count", "views", "view_count")
+            if (!adicionarEntrada(indice, titulo, grupo, logo, url, canais, filmes, series, nota, popularidade)) {
                 truncado = true
             }
         }
@@ -237,7 +239,9 @@ class PlaylistRepository {
         url: String,
         canais: MutableList<Canal>,
         filmes: MutableList<Midia>,
-        series: MutableList<Midia>
+        series: MutableList<Midia>,
+        nota: Double? = null,
+        popularidade: Long? = null
     ): Boolean {
         val grupoNormalizado = normalizarTexto("$grupo $titulo")
         val id = "playlist_${indice}_${titulo.hashCode().toUInt()}"
@@ -250,7 +254,9 @@ class PlaylistRepository {
                         imagemUrl = logo,
                         tipo = TipoMidia.SERIE,
                         streamUrl = url,
-                        categoria = grupo.ifBlank { "Sem categoria" }
+                        categoria = grupo.ifBlank { "Sem categoria" },
+                        nota = nota,
+                        popularidade = popularidade
                     )
                     true
                 }
@@ -263,7 +269,9 @@ class PlaylistRepository {
                         imagemUrl = logo,
                         tipo = TipoMidia.FILME,
                         streamUrl = url,
-                        categoria = grupo.ifBlank { "Sem categoria" }
+                        categoria = grupo.ifBlank { "Sem categoria" },
+                        nota = nota,
+                        popularidade = popularidade
                     )
                     true
                 }
@@ -291,14 +299,39 @@ class PlaylistRepository {
         }
     }
 
-    private fun primeiraString(objeto: JSONObject, vararg chaves: String): String? =
-        chaves.asSequence()
+    private fun primeiraDouble(objeto: JSONObject, vararg chaves: String): Double? {
+        return chaves.asSequence()
+            .mapNotNull { chave ->
+                when (val valor = objeto.opt(chave)) {
+                    is Number -> valor.toDouble()
+                    is String -> valor.toDoubleOrNull()
+                    else -> null
+                }
+            }
+            .firstOrNull { it.isFinite() }
+    }
+
+    private fun primeiraLong(objeto: JSONObject, vararg chaves: String): Long? {
+        return chaves.asSequence()
+            .mapNotNull { chave ->
+                when (val valor = objeto.opt(chave)) {
+                    is Number -> valor.toLong()
+                    is String -> valor.toLongOrNull()
+                    else -> null
+                }
+            }
+            .firstOrNull()
+    }
+
+    private fun primeiraString(objeto: JSONObject, vararg chaves: String): String? {
+        return chaves.asSequence()
             .mapNotNull { chave ->
                 val valor = objeto.opt(chave)
                 if (valor == null || valor == JSONObject.NULL) null
                 else valor.toString().trim().ifBlank { null }
             }
             .firstOrNull()
+    }
 
     private companion object {
         const val PREFIX_BYTES = 4 * 1024
