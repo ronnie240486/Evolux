@@ -53,7 +53,7 @@ Jogos do Dia, Favoritos e Configurações**.
 ## Login por MAC
 Na abertura, o Evolux consulta a configuração em `https://renciaapp.manus.space/api/v5/apps/evolux/config?mac=...` somente depois que o MAC é informado ou detectado. O aplicativo exige `registered = true`, `allowed = true` e uma primeira URL HTTP/HTTPS de playlist que responda sem erro, sem HTML e sem `Content-Type: text/html`.
 
-O MAC autorizado é salvo localmente para revalidação na próxima abertura. URLs de playlist não são persistidas, pois podem conter credenciais. Se o backend responder com dados nulos, HTML, HTTP 403 ou playlist vazia, o Evolux mostra `Lista indisponível ou credenciais inválidas` sem travar.
+O MAC autorizado é salvo localmente para revalidação na próxima abertura. URLs de playlist não são persistidas, pois podem conter credenciais. Se o backend responder com dados nulos, HTML, HTTP 403 ou playlist vazia, o Evolux mostra `Lista indisponível ou credenciais inválidas` sem travar. Por compatibilidade com fontes legadas, o APK aceita playlist HTTP; para produção, prefira sempre HTTPS.
 
 Os requisitos detalhados estão em [`docs/login-mac-requirements.md`](docs/login-mac-requirements.md).
 
