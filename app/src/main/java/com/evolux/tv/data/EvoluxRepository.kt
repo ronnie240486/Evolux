@@ -4,8 +4,6 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.SocketTimeoutException
 import java.net.URL
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -136,7 +134,9 @@ class EvoluxRepository(
     }
 
     private fun requisitarConfiguracao(mac: String): String {
-        val url = URL("$baseUrl?mac=${URLEncoder.encode(mac, StandardCharsets.UTF_8.name())}")
+        // O endpoint do painel identifica o MAC no formato literal AA:BB:CC:DD:EE:FF.
+        // Codificar os dois-pontos como %3A faz este painel responder registered=false.
+        val url = URL("$baseUrl?mac=$mac")
         val conexao = (url.openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             connectTimeout = 6_000
