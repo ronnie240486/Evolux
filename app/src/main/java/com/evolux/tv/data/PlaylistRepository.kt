@@ -94,7 +94,7 @@ class PlaylistRepository {
     }
 
     private fun parseM3u(leitor: Reader): PlaylistCatalog {
-        data class Entrada(val titulo: String, val grupo: String, val logo: String)
+        data class Entrada(val titulo: String, val grupo: String, val logo: String, val tipoHint: String?)
 
         val canais = mutableListOf<Canal>()
         val filmes = mutableListOf<Midia>()
@@ -127,7 +127,11 @@ class PlaylistRepository {
                                 atributos["stream-icon"],
                                 atributos["icon"]
                             ).firstOrNull { it.isNotBlank() }.orEmpty()
-                        )
+                        ),
+                        tipoHint = atributos["stream_type"]
+                            ?: atributos["tvg-type"]
+                            ?: atributos["type"]
+                            ?: atributos["kind"]
                     )
                 }
 
@@ -137,7 +141,7 @@ class PlaylistRepository {
                         truncado = true
                         break
                     }
-                    val entrada = pendente ?: Entrada("Item $totalItens", "", "")
+                    val entrada = pendente ?: Entrada("Item $totalItens", "", "", null)
                     if (!adicionarEntrada(
                             indice = totalItens - 1,
                             titulo = entrada.titulo,
@@ -146,7 +150,8 @@ class PlaylistRepository {
                             url = linha,
                             canais = canais,
                             filmes = filmes,
-                            series = series
+                            series = series,
+                            tipoHint = entrada.tipoHint
                         )
                     ) {
                         truncado = true
@@ -187,11 +192,16 @@ class PlaylistRepository {
             if (!urlsVistas.add(url)) continue
 
             val titulo = primeiraString(item, "name", "title", "stream_display_name") ?: "Item ${indice + 1}"
-            val grupo = listOfNotNull(
-                entrada.dicaTipo,
-                primeiraString(item, "stream_type", "type", "kind"),
-                primeiraString(item, "category_name", "group-title", "group", "category")
-            ).joinToString(" | ")
+            val tipoHint = entrada.dicaTipo
+                ?: primeiraString(item, "stream_type", "type", "kind")
+            val grupo = primeiraString(
+                item,
+                "category_name",
+                "group-title",
+                "group",
+                "category",
+                "category_name_en"
+            ).orEmpty()
             val logo = normalizarImagemUrl(
                 primeiraString(
                     item,
@@ -210,7 +220,7 @@ class PlaylistRepository {
             )
             val nota = primeiraDouble(item, "rating", "vote_average", "rating_imdb", "imdb_rating")
             val popularidade = primeiraLong(item, "popularity", "vote_count", "views", "view_count")
-            if (!adicionarEntrada(indice, titulo, grupo, logo, url, canais, filmes, series, nota, popularidade)) {
+            if (!adicionarEntrada(indice, titulo, grupo, logo, url, canais, filmes, series, nota, popularidade, tipoHint)) {
                 truncado = true
             }
         }
@@ -266,12 +276,28 @@ class PlaylistRepository {
         filmes: MutableList<Midia>,
         series: MutableList<Midia>,
         nota: Double? = null,
-        popularidade: Long? = null
+        popularidade: Long? = null,
+        tipoHint: String? = null
     ): Boolean {
-        val grupoNormalizado = normalizarTexto("$grupo $titulo")
+        val tipoNormalizado = normalizarTexto(tipoHint.orEmpty())
+        val grupoNormalizado = normalizarTexto(grupo)
         val id = "playlist_${indice}_${titulo.hashCode().toUInt()}"
+        val tipoFoiInformado = tipoNormalizado.isNotBlank()
+        val ehSeriePorTipo = tipoNormalizado.containsAny("series", "serie", "show")
+        val ehFilmePorTipo = tipoNormalizado.containsAny("movie", "movies", "filme", "filmes", "vod")
+        val ehSerie = if (tipoFoiInformado) {
+            ehSeriePorTipo
+        } else {
+            grupoNormalizado.containsAny("series", "serie", "show", "novela", "anime") &&
+                !grupoNormalizado.containsAny("filme", "filmes", "movie", "movies", "vod")
+        }
+        val ehFilme = if (tipoFoiInformado) {
+            ehFilmePorTipo
+        } else {
+            grupoNormalizado.containsAny("filme", "filmes", "movie", "movies", "vod", "cinema")
+        }
         return when {
-            grupoNormalizado.containsAny("series", "serie", "show", "novela", "anime", "desenho") -> {
+            ehSerie -> {
                 if (series.size >= MAX_ITEMS_PER_CATEGORY) false else {
                     series += Midia(
                         id = id,
@@ -286,7 +312,7 @@ class PlaylistRepository {
                     true
                 }
             }
-            grupoNormalizado.containsAny("filme", "filmes", "movie", "movies", "vod", "cinema") -> {
+            ehFilme -> {
                 if (filmes.size >= MAX_ITEMS_PER_CATEGORY) false else {
                     filmes += Midia(
                         id = id,
@@ -302,6 +328,8 @@ class PlaylistRepository {
                 }
             }
             else -> {
+                // Sem tipo/grupo explícito, só um stream claramente ao vivo cai em canais.
+                // Itens ambíguos não são promovidos a séries por causa do título.
                 if (canais.size >= MAX_ITEMS_PER_CATEGORY) false else {
                     canais += Canal(id, titulo, logo, url, grupo.ifBlank { "TV ao vivo" })
                     true

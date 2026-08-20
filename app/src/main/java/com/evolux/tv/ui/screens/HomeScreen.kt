@@ -26,6 +26,7 @@ fun HomeScreen(
     seriesCount: Int,
     filmes: List<Midia>,
     series: List<Midia>,
+    fileirasEspeciais: List<com.evolux.tv.data.FileiraCatalogo>,
     aoAbrirMidia: (Midia) -> Unit,
     aoAssistirDestaque: (Destaque) -> Unit,
     aoAbrirCanais: () -> Unit,
@@ -100,6 +101,17 @@ fun HomeScreen(
                             modifier = Modifier.fillMaxWidth(0.32f)
                         )
                     }
+                }
+            }
+            fileirasEspeciais.forEach { fileira ->
+                item {
+                    MediaRow(
+                        titulo = fileira.titulo,
+                        itens = fileira.itens,
+                        aoSelecionar = aoAbrirMidia,
+                        ehFavorito = ehFavorito,
+                        aoAlternarFavorito = aoAlternarFavorito
+                    )
                 }
             }
             item {

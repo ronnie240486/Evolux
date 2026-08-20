@@ -23,6 +23,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -36,6 +37,7 @@ import androidx.tv.foundation.lazy.list.TvLazyRow
 import androidx.tv.foundation.lazy.list.items as tvRowItems
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.evolux.tv.R
 import com.evolux.tv.data.Midia
 import com.evolux.tv.ui.components.EvoluxClickableSurface
 import com.evolux.tv.ui.theme.Dourado
@@ -155,7 +157,10 @@ private fun CardPoster(
         ) {
             Column {
                 AsyncImage(
-                    model = midia.imagemUrl,
+                    model = midia.imagemUrl.takeIf { it.isNotBlank() },
+                    placeholder = painterResource(R.drawable.evolux_logo),
+                    error = painterResource(R.drawable.evolux_logo),
+                    fallback = painterResource(R.drawable.evolux_logo),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier

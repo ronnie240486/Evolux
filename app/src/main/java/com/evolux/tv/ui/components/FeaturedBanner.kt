@@ -14,9 +14,13 @@ import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.evolux.tv.R
 import com.evolux.tv.data.Destaque
 import com.evolux.tv.ui.theme.Dourado
 import com.evolux.tv.ui.theme.FundoCard
@@ -52,6 +56,20 @@ fun FeaturedBanner(
                 .background(FundoCard),
             contentAlignment = Alignment.BottomStart
         ) {
+            AsyncImage(
+                model = destaque.imagemUrl.takeIf { it.isNotBlank() },
+                placeholder = painterResource(R.drawable.evolux_logo),
+                error = painterResource(R.drawable.evolux_logo),
+                fallback = painterResource(R.drawable.evolux_logo),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.58f))
+            )
             Column(
                 modifier = Modifier.padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
