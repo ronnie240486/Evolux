@@ -102,12 +102,15 @@ fun EvoluxApp() {
     }
 
     suspend fun validarAcesso(macInformado: String, mostrarCarregando: Boolean = true) {
-        if (validacaoEmAndamento || macAutorizado.isNotBlank()) return
+        if (validacaoEmAndamento) return
         validacaoEmAndamento = true
-        if (mostrarCarregando) estadoLogin = EstadoLoginMac.Carregando
+        if (mostrarCarregando || macAutorizado.isBlank()) estadoLogin = EstadoLoginMac.Carregando()
         try {
             when (val resultado = repository.buscarConfiguracao(macInformado)) {
                 is ResultadoConfiguracao.Sucesso -> {
+                    if (estadoLogin is EstadoLoginMac.Carregando) {
+                        estadoLogin = EstadoLoginMac.Carregando(porcentagem = 35, segundos = (estadoLogin as EstadoLoginMac.Carregando).segundos)
+                    }
                     val erroCatalogo = carregarCatalogo(resultado.configuracao)
                     if (erroCatalogo == null) {
                         macAutorizado = resultado.configuracao.mac
@@ -139,14 +142,29 @@ fun EvoluxApp() {
         }
     }
 
-    LaunchedEffect(macLogico, macAutorizado) {
-        if (macAutorizado.isBlank()) {
-            while (isActive) {
-                delay(5_000)
-                if (macAutorizado.isBlank()) {
-                    validarAcesso(macLogico, mostrarCarregando = false)
-                } else {
-                    break
+    LaunchedEffect(macLogico) {
+        while (isActive) {
+            if (macAutorizado.isBlank()) {
+                validarAcesso(macLogico, mostrarCarregando = true)
+            } else {
+                // Revalida a configuração e a playlist para reconhecer troca no painel.
+                validarAcesso(macLogico, mostrarCarregando = false)
+            }
+            delay(5_000)
+        }
+    }
+
+    LaunchedEffect(validacaoEmAndamento) {
+        if (validacaoEmAndamento) {
+            var segundos = 0
+            while (isActive && validacaoEmAndamento) {
+                delay(1_000)
+                segundos++
+                if (estadoLogin is EstadoLoginMac.Carregando) {
+                    estadoLogin = EstadoLoginMac.Carregando(
+                        porcentagem = minOf(99, maxOf(1, segundos * 5)),
+                        segundos = segundos
+                    )
                 }
             }
         }
@@ -169,9 +187,9 @@ fun EvoluxApp() {
         MacLoginScreen(
             estado = estadoLogin,
             macInicial = macInicial,
-            aoCopiarMac = {
+            aoCopiarMac = { macParaCopiar ->
                 val clipboard = contexto.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                clipboard.setPrimaryClip(ClipData.newPlainText("MAC do Evolux", macInicial))
+                clipboard.setPrimaryClip(ClipData.newPlainText("MAC do Evolux", macParaCopiar))
                 Toast.makeText(contexto, "MAC copiado", Toast.LENGTH_SHORT).show()
             },
             aoTentarLogin = aoTentarLogin

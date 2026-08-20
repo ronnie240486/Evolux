@@ -1,6 +1,13 @@
 package com.evolux.tv.ui.screens
 
 import androidx.compose.foundation.Image
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -54,7 +63,7 @@ import com.evolux.tv.ui.theme.TextoClaro
 
 sealed interface EstadoLoginMac {
     data object Ocioso : EstadoLoginMac
-    data object Carregando : EstadoLoginMac
+    data class Carregando(val porcentagem: Int = 1, val segundos: Int = 0) : EstadoLoginMac
     data class Erro(val mensagem: String, val detalhe: String? = null) : EstadoLoginMac
 }
 
@@ -62,7 +71,7 @@ sealed interface EstadoLoginMac {
 fun MacLoginScreen(
     estado: EstadoLoginMac,
     macInicial: String = "",
-    aoCopiarMac: () -> Unit,
+    aoCopiarMac: (String) -> Unit,
     aoTentarLogin: (String) -> Unit
 ) {
     var macDigitado by remember(macInicial) { mutableStateOf(macInicial) }
@@ -191,7 +200,7 @@ fun MacLoginScreen(
                         AcaoLogin(
                             texto = "COPIAR MAC",
                             habilitada = estado !is EstadoLoginMac.Carregando,
-                            aoClicar = aoCopiarMac
+                            aoClicar = { aoCopiarMac(macDigitado) }
                         )
                         AcaoLogin(
                             texto = if (estado is EstadoLoginMac.Carregando) "VALIDANDO..." else "VALIDAR APARELHO",
@@ -207,7 +216,7 @@ fun MacLoginScreen(
                         AcaoLogin(
                             texto = "COPIAR MAC",
                             habilitada = estado !is EstadoLoginMac.Carregando,
-                            aoClicar = aoCopiarMac,
+                            aoClicar = { aoCopiarMac(macDigitado) },
                             modifier = Modifier.weight(1f)
                         )
                         AcaoLogin(
@@ -221,11 +230,20 @@ fun MacLoginScreen(
 
                 when (val estadoAtual = estado) {
                     EstadoLoginMac.Ocioso -> Unit
-                    EstadoLoginMac.Carregando -> {
-                        Spacer(Modifier.height(12.dp))
+                    is EstadoLoginMac.Carregando -> {
+                        Spacer(Modifier.height(16.dp))
+                        EvoluxLoadingSpinner()
+                        Spacer(Modifier.height(8.dp))
                         Text(
-                            "Consultando configuração segura...",
-                            color = TextoCinza,
+                            "Carregando conteúdo, canais, filmes e séries",
+                            color = TextoClaro,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "${estadoAtual.porcentagem}% concluído • ${estadoAtual.segundos}s",
+                            color = Dourado,
                             textAlign = TextAlign.Center
                         )
                     }
@@ -272,6 +290,34 @@ fun MacLoginScreen(
     }
 }
 
+
+@Composable
+private fun EvoluxLoadingSpinner() {
+    val transicao = rememberInfiniteTransition(label = "carregando_evolux")
+    val rotacao by transicao.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "rotacao_spinner"
+    )
+    Canvas(
+        modifier = Modifier
+            .width(54.dp)
+            .height(54.dp)
+            .rotate(rotacao)
+    ) {
+        drawArc(
+            color = Dourado,
+            startAngle = 25f,
+            sweepAngle = 285f,
+            useCenter = false,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 6.dp.toPx())
+        )
+    }
+}
 
 @Composable
 private fun AcaoLogin(
