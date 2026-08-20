@@ -63,7 +63,7 @@ private fun LinhaConfig(
         shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
         colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF12172A)),
         modifier = Modifier
-            .fillMaxWidth(0.6f)
+            .fillMaxWidth()
             .onFocusChanged { focado = it.isFocused }
             .border(
                 width = if (focado) 2.dp else 0.dp,
@@ -74,7 +74,8 @@ private fun LinhaConfig(
                 contentDescription = "${opcao.titulo}. ${opcao.descricao}"
             }
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp)) {
+
             Text(opcao.titulo, color = TextoClaro, fontWeight = FontWeight.SemiBold)
             Text(opcao.descricao, color = TextoCinza, style = MaterialTheme.typography.bodySmall)
         }

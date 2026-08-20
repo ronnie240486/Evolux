@@ -3,19 +3,28 @@ package com.evolux.tv
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import com.evolux.tv.R
 import com.evolux.tv.data.EvoluxRepository
 import com.evolux.tv.data.EvoluxConfig
 import com.evolux.tv.data.MacAddressUtils
@@ -134,6 +143,23 @@ fun EvoluxApp() {
             validarAcesso(macInformado, mostrarCarregando = true)
         }
     }
+
+    val abrirConteudo: (String, String) -> Unit = { titulo, url ->
+        if (url.isBlank()) {
+            Toast.makeText(contexto, "$titulo ainda não possui stream configurado", Toast.LENGTH_SHORT).show()
+        } else {
+            try {
+                contexto.startActivity(
+                    Intent(Intent.ACTION_VIEW).apply {
+                        data = Uri.parse(url)
+                        type = "video/*"
+                    }
+                )
+            } catch (_: Exception) {
+                Toast.makeText(contexto, "Não há player compatível instalado", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
     if (macAutorizado.isBlank()) {
         MacLoginScreen(
             estado = estadoLogin,
@@ -172,35 +198,52 @@ fun EvoluxApp() {
             .apply()
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(FundoEscuro)
-    ) {
-        TopNavBar(
-            telaSelecionada = telaAtual,
-            aoSelecionar = { telaAtual = it }
+    Box(modifier = Modifier.fillMaxSize()) {
+        Image(
+            painter = painterResource(R.drawable.evolux_background_futurista),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxSize()
+                .alpha(0.82f)
         )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xC90A0E1A))
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Transparent)
+        ) {
+            TopNavBar(
+                telaSelecionada = telaAtual,
+                aoSelecionar = { telaAtual = it }
+            )
 
-        when (telaAtual) {
+            when (telaAtual) {
             Tela.INICIO -> HomeScreen(
                 filmes = catalogoAtual.filmes,
                 series = catalogoAtual.series,
-                aoAbrirMidia = { /* abrir player com midia.streamUrl */ },
-                aoAssistirDestaque = { /* abrir player com destaque.streamUrl */ },
+                aoAbrirMidia = { abrirConteudo(it.titulo, it.streamUrl) },
+                aoAssistirDestaque = { abrirConteudo(it.titulo, it.streamUrl) },
+                aoAbrirCanalDoJogo = {
+                    SampleData.jogosDoDia.firstOrNull()?.let { abrirConteudo("Jogo do dia", it.streamUrl) }
+                },
                 ehFavorito = ehFavorito,
                 aoAlternarFavorito = aoAlternarFavorito
             )
 
             Tela.TV_AO_VIVO -> LiveTvScreen(
                 canais = catalogoAtual.canais,
-                aoAbrirCanal = { /* abrir player com canal.streamUrl */ }
+                aoAbrirCanal = { abrirConteudo(it.nome, it.streamUrl) }
             )
 
             Tela.FILMES -> GradeMidiaScreen(
                 titulo = "Filmes",
                 itens = catalogoAtual.filmes,
-                aoSelecionar = { /* abrir player */ },
+                aoSelecionar = { abrirConteudo(it.titulo, it.streamUrl) },
                 ehFavorito = ehFavorito,
                 aoAlternarFavorito = aoAlternarFavorito
             )
@@ -208,19 +251,19 @@ fun EvoluxApp() {
             Tela.SERIES -> GradeMidiaScreen(
                 titulo = "Séries",
                 itens = catalogoAtual.series,
-                aoSelecionar = { /* abrir player */ },
+                aoSelecionar = { abrirConteudo(it.titulo, it.streamUrl) },
                 ehFavorito = ehFavorito,
                 aoAlternarFavorito = aoAlternarFavorito
             )
 
             Tela.JOGOS -> GamesScreen(
-                aoAbrirJogo = { /* abrir player com jogo.streamUrl */ }
+                aoAbrirJogo = { abrirConteudo("${it.timeCasaSigla} x ${it.timeVisitanteSigla}", it.streamUrl) }
             )
 
             Tela.FAVORITOS -> GradeMidiaScreen(
                 titulo = "Favoritos",
                 itens = favoritos,
-                aoSelecionar = { /* abrir player */ },
+                aoSelecionar = { abrirConteudo(it.titulo, it.streamUrl) },
                 ehFavorito = ehFavorito,
                 aoAlternarFavorito = aoAlternarFavorito,
                 mensagemVazio = "Você ainda não adicionou nada aos favoritos."
@@ -236,4 +279,5 @@ fun EvoluxApp() {
             )
         }
     }
+}
 }

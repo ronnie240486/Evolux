@@ -19,7 +19,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import androidx.tv.material3.Button
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
@@ -60,22 +59,32 @@ fun PainelJogosDoDia(
             }
             Spacer(Modifier.height(16.dp))
             jogos.forEach { jogo ->
-                LinhaJogo(jogo)
+                LinhaJogo(jogo, aoClicar = aoAbrirCanal)
                 Spacer(Modifier.height(12.dp))
             }
             Spacer(Modifier.height(4.dp))
-            Button(
+            Surface(
                 onClick = aoAbrirCanal,
-                modifier = Modifier.fillMaxWidth()
+                shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
+                colors = ClickableSurfaceDefaults.colors(containerColor = Dourado),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
             ) {
-                Text("ABRIR CANAL", fontWeight = FontWeight.Bold)
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        "ABRIR CANAL",
+                        color = Color(0xFF111111),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun LinhaJogo(jogo: Jogo) {
+private fun LinhaJogo(jogo: Jogo, aoClicar: () -> Unit) {
     var focado by remember { mutableStateOf(false) }
 
     // Uma frase só: "FLA vs PAL, 19:00, Campeonato Brasileiro" — em vez
@@ -84,7 +93,7 @@ private fun LinhaJogo(jogo: Jogo) {
         "às ${jogo.horario}, ${jogo.campeonato}"
 
     Surface(
-        onClick = {},
+        onClick = aoClicar,
         shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
         colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF12172A)),
         modifier = Modifier

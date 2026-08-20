@@ -27,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -73,10 +74,21 @@ fun MacLoginScreen(
     }
 
     BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(FundoEscuro)
+        modifier = Modifier.fillMaxSize()
     ) {
+        Image(
+            painter = painterResource(R.drawable.evolux_background_futurista),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxSize()
+                .alpha(0.52f)
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xD90A0E1A))
+        )
         val celular = maxWidth < 500.dp
         val espacamento = if (celular) 12.dp else 20.dp
         val alturaLogo = if (celular) 120.dp else 190.dp

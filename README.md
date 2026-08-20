@@ -31,6 +31,8 @@ Para gerar o APK Debug pelo GitHub, abra a aba **Actions**, execute o workflow *
 - Identidade visual futurista do Evolux integrada ao login, ao banner do Android TV e ao ícone do launcher.
 - Tela de login responsiva para celular, com rolagem vertical, MAC visível e botões empilhados para `COPIAR MAC` e `VALIDAR APARELHO`.
 - Diagnóstico seguro na tela: o usuário pode ver HTTP 403, HTML, JSON inválido, timeout, lista vazia ou falha de rede sem que URLs com credenciais sejam exibidas.
+- Redesign responsivo com fundo futurista do Evolux, navegação horizontal rolável no celular, grades adaptativas e cards com feedback de foco dourado.
+- Cards, linhas de jogos, canais e destaques agora possuem ações reais: quando há stream configurado, o app abre um player compatível do aparelho; quando não há URL, informa o motivo em vez de parecer um botão quebrado.
 
 ## Acessibilidade (TalkBack + D-pad)
 - **Foco inicial automático**: ao abrir o app, a aba selecionada na

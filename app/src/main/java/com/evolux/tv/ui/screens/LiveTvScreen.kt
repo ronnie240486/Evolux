@@ -41,13 +41,21 @@ fun LiveTvScreen(
             style = MaterialTheme.typography.headlineSmall
         )
         Spacer(Modifier.height(20.dp))
-        TvLazyVerticalGrid(
-            columns = TvGridCells.Fixed(5),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            items(canais) { canal ->
-                CardCanal(canal, aoClicar = { aoAbrirCanal(canal) })
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val colunas = when {
+                maxWidth < 420.dp -> 2
+                maxWidth < 760.dp -> 3
+                else -> 5
+            }
+            TvLazyVerticalGrid(
+                columns = TvGridCells.Fixed(colunas),
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(if (colunas == 2) 10.dp else 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                items(canais) { canal ->
+                    CardCanal(canal, aoClicar = { aoAbrirCanal(canal) })
+                }
             }
         }
     }

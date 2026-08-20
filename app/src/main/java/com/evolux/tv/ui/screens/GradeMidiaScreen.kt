@@ -56,18 +56,26 @@ fun GradeMidiaScreen(
             return@Column
         }
 
-        TvLazyVerticalGrid(
-            columns = TvGridCells.Fixed(6),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
-            items(itens) { midia ->
-                CardPoster(
-                    midia = midia,
-                    favorito = ehFavorito(midia),
-                    aoClicar = { aoSelecionar(midia) },
-                    aoAlternarFavorito = { aoAlternarFavorito(midia) }
-                )
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val colunas = when {
+                maxWidth < 420.dp -> 2
+                maxWidth < 760.dp -> 3
+                else -> 6
+            }
+            TvLazyVerticalGrid(
+                columns = TvGridCells.Fixed(colunas),
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(if (colunas == 2) 10.dp else 16.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                items(itens) { midia ->
+                    CardPoster(
+                        midia = midia,
+                        favorito = ehFavorito(midia),
+                        aoClicar = { aoSelecionar(midia) },
+                        aoAlternarFavorito = { aoAlternarFavorito(midia) }
+                    )
+                }
             }
         }
     }
