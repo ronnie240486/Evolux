@@ -123,7 +123,7 @@ class PlaylistRepository {
             when {
                 linha.startsWith("#EXTINF", ignoreCase = true) -> {
                     val atributos = atributosExtinf(linha)
-                    val titulo = linha.substringAfter(',', "Sem título").trim().ifBlank { "Sem título" }
+                    val titulo = extrairTituloExtinf(linha)
                     val grupo = listOfNotNull(
                             atributos["group-title"],
                             atributos["group"],
@@ -169,7 +169,8 @@ class PlaylistRepository {
                             tipoHint = entrada.tipoHint,
                             serieNome = entrada.serieNome,
                             temporadaNumero = entrada.temporadaNumero,
-                            episodioNumero = entrada.episodioNumero
+                            episodioNumero = entrada.episodioNumero,
+                            aplicarFamiliaM3u = true
                         )
                     ) {
                         truncado = true
@@ -255,7 +256,8 @@ class PlaylistRepository {
                     sinopse,
                     dadosSerie?.serieNome,
                     dadosSerie?.temporadaNumero,
-                    dadosSerie?.episodioNumero
+                    dadosSerie?.episodioNumero,
+                    aplicarFamiliaM3u = false
                 )
             ) {
                 truncado = true
@@ -318,17 +320,21 @@ class PlaylistRepository {
         sinopse: String = "",
         serieNome: String? = null,
         temporadaNumero: Int? = null,
-        episodioNumero: Int? = null
+        episodioNumero: Int? = null,
+        aplicarFamiliaM3u: Boolean = false
     ): Boolean {
         if (indice >= MAX_TOTAL_ITEMS) return false
         val tipoNormalizado = normalizarTexto(tipoHint.orEmpty())
         val grupoNormalizado = normalizarTexto(grupo)
+        val familiaGrupo = classificarFamiliaGrupo(grupoNormalizado, aplicarFamiliaM3u)
         val id = "playlist_${indice}_${titulo.hashCode().toUInt()}"
         val tipoPorUrl = detectarTipoPorUrl(url)
         val tipoExplicitoSerie = tipoNormalizado.containsAny("series", "serie", "show")
         val tipoExplicitoFilme = tipoNormalizado.containsAny("movie", "movies", "filme", "filmes", "vod")
         val tipoExplicitoCanal = tipoNormalizado.containsAny("live", "canal", "channel", "tv")
         val ehSerie = when {
+            familiaGrupo == FamiliaGrupo.SERIE -> true
+            familiaGrupo == FamiliaGrupo.FILME || familiaGrupo == FamiliaGrupo.CANAL -> false
             tipoExplicitoSerie -> true
             tipoExplicitoFilme || tipoExplicitoCanal -> false
             tipoPorUrl == TipoUrl.SERIE -> true
@@ -336,28 +342,14 @@ class PlaylistRepository {
             else -> grupoNormalizado.containsAny("series", "serie", "show", "novela", "anime") &&
                 !grupoNormalizado.containsAny("filme", "filmes", "movie", "movies", "vod")
         }
-        val grupoIndicaCanal = grupoNormalizado.containsAny(
-            "24h",
-            "24 horas",
-            "ao vivo",
-            "live",
-            "canal",
-            "channel",
-            "tv ao vivo"
-        )
         val ehFilme = when {
+            familiaGrupo == FamiliaGrupo.FILME -> true
+            familiaGrupo == FamiliaGrupo.SERIE || familiaGrupo == FamiliaGrupo.CANAL -> false
             tipoExplicitoFilme -> true
             tipoExplicitoSerie || tipoExplicitoCanal -> false
             tipoPorUrl == TipoUrl.FILME -> true
             tipoPorUrl == TipoUrl.SERIE || tipoPorUrl == TipoUrl.CANAL -> false
-            else -> !grupoIndicaCanal && grupoNormalizado.containsAny(
-                "filme",
-                "filmes",
-                "movie",
-                "movies",
-                "vod",
-                "cinema"
-            )
+            else -> grupoNormalizado.containsAny("filme", "filmes", "movie", "movies", "vod", "cinema")
         }
         return when {
             ehSerie -> {
@@ -422,6 +414,19 @@ class PlaylistRepository {
         }
     }
 
+    private fun extrairTituloExtinf(linha: String): String {
+        var dentroDeAspas = false
+        linha.forEachIndexed { indice, caractere ->
+            when {
+                caractere == '\"' -> dentroDeAspas = !dentroDeAspas
+                caractere == ',' && !dentroDeAspas -> {
+                    return linha.substring(indice + 1).trim().ifBlank { "Sem título" }
+                }
+            }
+        }
+        return "Sem título"
+    }
+
     private fun extrairDadosSerie(titulo: String, grupo: String): DadosSerie? {
         val padroes = listOf(
             Regex("(?i)^(.*?)[\\s._|:-]+s(?:eason)?\\s*0*(\\d{1,2})[\\s._|:-]*e(?:p(?:is[oó]dio)?)?\\s*0*(\\d{1,3}).*$"),
@@ -453,6 +458,17 @@ class PlaylistRepository {
     }
 
     private enum class TipoUrl { CANAL, FILME, SERIE }
+    private enum class FamiliaGrupo { DESCONHECIDA, CANAL, FILME, SERIE }
+
+    private fun classificarFamiliaGrupo(grupoNormalizado: String, aplicarFamiliaM3u: Boolean): FamiliaGrupo {
+        return when {
+            grupoNormalizado.startsWith("series |") || grupoNormalizado == "series" || grupoNormalizado.startsWith("series -") -> FamiliaGrupo.SERIE
+            grupoNormalizado.startsWith("filmes |") || grupoNormalizado == "filmes" || grupoNormalizado.startsWith("filmes -") -> FamiliaGrupo.FILME
+            grupoNormalizado.startsWith("24/7") || grupoNormalizado.contains("filmes e series") -> FamiliaGrupo.CANAL
+            aplicarFamiliaM3u -> FamiliaGrupo.CANAL
+            else -> FamiliaGrupo.DESCONHECIDA
+        }
+    }
 
     private fun detectarTipoPorUrl(url: String): TipoUrl? {
         val normalizada = url.lowercase(Locale.ROOT)
