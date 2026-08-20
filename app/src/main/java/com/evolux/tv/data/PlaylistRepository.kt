@@ -238,6 +238,7 @@ class PlaylistRepository {
             )
             val nota = primeiraDouble(item, "rating", "vote_average", "rating_imdb", "imdb_rating")
             val popularidade = primeiraLong(item, "popularity", "vote_count", "views", "view_count")
+            val sinopse = primeiraString(item, "plot", "description", "overview", "synopsis", "short_description").orEmpty()
             val dadosSerie = extrairDadosSerie(titulo, grupo)
             if (!adicionarEntrada(
                     indice,
@@ -251,6 +252,7 @@ class PlaylistRepository {
                     nota,
                     popularidade,
                     tipoHint,
+                    sinopse,
                     dadosSerie?.serieNome,
                     dadosSerie?.temporadaNumero,
                     dadosSerie?.episodioNumero
@@ -313,6 +315,7 @@ class PlaylistRepository {
         nota: Double? = null,
         popularidade: Long? = null,
         tipoHint: String? = null,
+        sinopse: String = "",
         serieNome: String? = null,
         temporadaNumero: Int? = null,
         episodioNumero: Int? = null
@@ -362,6 +365,7 @@ class PlaylistRepository {
                         categoria = grupo.ifBlank { "Sem categoria" },
                         nota = nota,
                         popularidade = popularidade,
+                        sinopse = sinopse,
                         serieId = serieNome?.let { normalizarTexto(it) },
                         serieNome = serieNome,
                         episodioNome = titulo,
@@ -381,7 +385,8 @@ class PlaylistRepository {
                         streamUrl = url,
                         categoria = grupo.ifBlank { "Sem categoria" },
                         nota = nota,
-                        popularidade = popularidade
+                        popularidade = popularidade,
+                        sinopse = sinopse
                     )
                     true
                 }

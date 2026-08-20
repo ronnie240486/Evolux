@@ -26,6 +26,7 @@ import kotlinx.coroutines.launch
 import com.evolux.tv.R
 import com.evolux.tv.data.EvoluxRepository
 import com.evolux.tv.data.EvoluxConfig
+import com.evolux.tv.data.CatalogoCache
 import com.evolux.tv.data.MacAddressUtils
 import com.evolux.tv.data.PlaylistCatalog
 import com.evolux.tv.data.PlaylistRepository
@@ -80,6 +81,7 @@ fun EvoluxApp() {
     var catalogo by remember { mutableStateOf<PlaylistCatalog?>(null) }
     var estadoLogin by remember { mutableStateOf<EstadoLoginMac>(EstadoLoginMac.Ocioso) }
     var validacaoEmAndamento by remember { mutableStateOf(false) }
+    var carregandoCatalogo by remember { mutableStateOf(false) }
     var reproducao by remember { mutableStateOf<Reproducao?>(null) }
 
     BackHandler(enabled = reproducao != null || telaAtual != Tela.INICIO) {
@@ -93,11 +95,22 @@ fun EvoluxApp() {
     suspend fun carregarCatalogo(configuracao: EvoluxConfig): String? {
         val urlPlaylist = configuracao.primeiraPlaylistValida
             ?: return "Nenhuma URL de playlist foi encontrada."
-        return try {
-            catalogo = playlistRepository.carregar(urlPlaylist)
-            null
+        val fingerprint = CatalogoCache.fingerprint(configuracao)
+        carregandoCatalogo = true
+        try {
+            val cache = CatalogoCache.carregar(contexto, fingerprint)
+            if (cache != null) {
+                catalogo = cache
+                return null
+            }
+            val novoCatalogo = playlistRepository.carregar(urlPlaylist)
+            catalogo = novoCatalogo
+            CatalogoCache.salvar(contexto, fingerprint, novoCatalogo)
+            return null
         } catch (erro: Exception) {
-            erro.message?.takeIf { it.isNotBlank() } ?: "Não foi possível interpretar o catálogo."
+            return erro.message?.takeIf { it.isNotBlank() } ?: "Não foi possível interpretar o catálogo."
+        } finally {
+            carregandoCatalogo = false
         }
     }
 
@@ -183,7 +196,7 @@ fun EvoluxApp() {
             reproducao = Reproducao(titulo = titulo, streamUrl = url)
         }
     }
-    if (macAutorizado.isBlank()) {
+    if (macAutorizado.isBlank() && estadoLogin !is EstadoLoginMac.Carregando) {
         MacLoginScreen(
             estado = estadoLogin,
             macInicial = macInicial,
@@ -194,6 +207,11 @@ fun EvoluxApp() {
             },
             aoTentarLogin = aoTentarLogin
         )
+        return
+    }
+
+    if (catalogo == null) {
+        CatalogoLoadingScreen(estadoLogin)
         return
     }
 

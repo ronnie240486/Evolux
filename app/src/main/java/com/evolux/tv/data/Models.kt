@@ -27,6 +27,7 @@ data class Midia(
     val categoria: String = "",
     val nota: Double? = null,
     val popularidade: Long? = null,
+    val sinopse: String = "",
     val serieId: String? = null,
     val serieNome: String? = null,
     val episodioNome: String? = null,

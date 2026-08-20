@@ -13,12 +13,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -32,7 +34,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -50,6 +54,7 @@ private data class GrupoSerie(
     val nome: String,
     val categoria: String,
     val capa: String,
+    val sinopse: String,
     val episodios: List<Midia>
 )
 
@@ -62,109 +67,116 @@ fun SeriesBrowserScreen(
         itens.groupBy { item ->
             item.serieId ?: normalizarChave(item.serieNome ?: removerMarcadorDeEpisodio(item.titulo))
         }.map { (chave, episodios) ->
+            val ordenados = episodios.sortedWith(
+                compareBy<Midia> { it.temporadaNumero ?: 1 }
+                    .thenBy { it.episodioNumero ?: Int.MAX_VALUE }
+                    .thenBy { it.titulo }
+            )
             GrupoSerie(
                 chave = chave,
-                nome = episodios.firstNotNullOfOrNull { it.serieNome } ?: removerMarcadorDeEpisodio(episodios.first().titulo),
-                categoria = episodios.firstOrNull()?.categoria.orEmpty(),
+                nome = episodios.firstNotNullOfOrNull { it.serieNome }
+                    ?: removerMarcadorDeEpisodio(episodios.first().titulo),
+                categoria = episodios.firstOrNull()?.categoria.orEmpty().ifBlank { "Séries" },
                 capa = episodios.firstOrNull { it.imagemUrl.isNotBlank() }?.imagemUrl.orEmpty(),
-                episodios = episodios.sortedWith(compareBy<Midia> { it.temporadaNumero ?: 1 }.thenBy { it.episodioNumero ?: Int.MAX_VALUE }.thenBy { it.titulo })
+                sinopse = episodios.firstOrNull { it.sinopse.isNotBlank() }?.sinopse.orEmpty(),
+                episodios = ordenados
             )
         }.sortedBy { it.nome.lowercase() }
     }
-
+    val categorias = remember(grupos) {
+        grupos.map { it.categoria }.distinct().sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it })
+    }
+    var categoriaSelecionada by remember(categorias) {
+        mutableStateOf(categorias.firstOrNull().orEmpty())
+    }
     var serieSelecionada by remember { mutableStateOf<GrupoSerie?>(null) }
-    var temporadaSelecionada by remember { mutableStateOf<Int?>(null) }
 
-    BackHandler(enabled = serieSelecionada != null || temporadaSelecionada != null) {
-        if (temporadaSelecionada != null) temporadaSelecionada = null else serieSelecionada = null
+    BackHandler(enabled = serieSelecionada != null) {
+        serieSelecionada = null
     }
 
-    val serieAtual = serieSelecionada
-    val temporadaAtual = temporadaSelecionada
-    val titulo = when {
-        serieAtual == null -> "SÉRIES"
-        temporadaAtual == null -> serieAtual.nome
-        else -> "${serieAtual.nome} • TEMPORADA $temporadaAtual"
-    }
-
+    val gruposDaCategoria = grupos.filter { it.categoria == categoriaSelecionada }
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 24.dp, vertical = 18.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            if (serieAtual != null) {
-                EvoluxClickableSurface(
-                    onClick = {
-                        if (temporadaAtual != null) temporadaSelecionada = null else serieSelecionada = null
-                    },
-                    containerColor = FundoCard,
-                    modifier = Modifier.width(58.dp).height(52.dp)
-                ) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Voltar", tint = TextoClaro)
+        Text(
+            text = "SÉRIES",
+            color = Dourado,
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.headlineSmall
+        )
+        Spacer(Modifier.height(12.dp))
+        if (categorias.isNotEmpty()) {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(end = 24.dp)
+            ) {
+                items(categorias, key = { it }) { categoria ->
+                    FiltroCategoria(
+                        nome = categoria,
+                        selecionada = categoria == categoriaSelecionada,
+                        aoClicar = { categoriaSelecionada = categoria }
+                    )
                 }
             }
-            Text(
-                text = titulo,
-                color = Dourado,
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.headlineSmall
-            )
+            Spacer(Modifier.height(16.dp))
         }
-        Spacer(Modifier.height(16.dp))
 
-        when {
-            serieAtual == null -> {
-                if (grupos.isEmpty()) {
-                    TextoVazioSeries("Nenhuma série foi encontrada na categoria Séries.")
-                } else {
-                    LazyColumn(
-                        contentPadding = PaddingValues(bottom = 32.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(grupos, key = { it.chave }) { grupo ->
-                            SerieCard(grupo) { serieSelecionada = grupo }
-                        }
-                    }
+        if (gruposDaCategoria.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    text = "Nenhuma série encontrada em ${categoriaSelecionada.ifBlank { "esta categoria" }}.",
+                    color = TextoCinza,
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                item {
+                    Text(
+                        text = "${categoriaSelecionada.ifBlank { "Séries" }} • ${gruposDaCategoria.size} séries",
+                        color = TextoCinza,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                items(gruposDaCategoria, key = { it.chave }) { grupo ->
+                    SerieCard(grupo) { serieSelecionada = grupo }
                 }
             }
-            temporadaAtual == null -> {
-                val temporadas = serieAtual.episodios.groupBy { it.temporadaNumero ?: 1 }.toSortedMap()
-                LazyColumn(
-                    contentPadding = PaddingValues(bottom = 32.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    item {
-                        Text(
-                            text = "${temporadas.size} temporada(s) • ${serieAtual.episodios.size} episódio(s)",
-                            color = TextoCinza,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                    items(temporadas.keys.toList(), key = { it }) { numero ->
-                        TemporadaCard(numero, temporadas[numero].orEmpty().size) {
-                            temporadaSelecionada = numero
-                        }
-                    }
-                }
-            }
-            else -> {
-                val episodios = serieAtual.episodios
-                    .filter { (it.temporadaNumero ?: 1) == temporadaAtual }
-                    .sortedWith(compareBy<Midia> { it.episodioNumero ?: Int.MAX_VALUE }.thenBy { it.titulo })
-                LazyColumn(
-                    contentPadding = PaddingValues(bottom = 32.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(episodios, key = { it.id }) { episodio ->
-                        EpisodioCard(episodio) { aoAssistir(episodio) }
-                    }
-                }
-            }
+        }
+    }
+
+    serieSelecionada?.let { grupo ->
+        SeriesDetailDialog(
+            grupo = grupo,
+            aoFechar = { serieSelecionada = null },
+            aoAssistir = aoAssistir
+        )
+    }
+}
+
+@Composable
+private fun FiltroCategoria(nome: String, selecionada: Boolean, aoClicar: () -> Unit) {
+    EvoluxClickableSurface(
+        onClick = aoClicar,
+        containerColor = if (selecionada) Dourado else FundoCard,
+        focusedColor = if (selecionada) Dourado else Color(0xFF2A3558),
+        modifier = Modifier.height(48.dp)
+    ) {
+        Box(
+            modifier = Modifier.padding(horizontal = 18.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = nome,
+                color = if (selecionada) Color(0xFF111111) else TextoClaro,
+                fontWeight = FontWeight.SemiBold
+            )
         }
     }
 }
@@ -174,54 +186,160 @@ private fun SerieCard(grupo: GrupoSerie, aoClicar: () -> Unit) {
     EvoluxClickableSurface(
         onClick = aoClicar,
         containerColor = FundoCard,
-        modifier = Modifier.fillMaxWidth().height(150.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .widthIn(max = 900.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
             AsyncImage(
                 model = grupo.capa.takeIf { it.isNotBlank() },
                 placeholder = painterResource(R.drawable.evolux_logo),
                 error = painterResource(R.drawable.evolux_logo),
                 fallback = painterResource(R.drawable.evolux_logo),
-                contentDescription = null,
+                contentDescription = grupo.nome,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.width(100.dp).fillMaxSize().clip(RoundedCornerShape(10.dp))
+                modifier = Modifier
+                    .width(126.dp)
+                    .height(160.dp)
+                    .clip(RoundedCornerShape(10.dp))
             )
-            Column(modifier = Modifier.padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(grupo.nome, color = TextoClaro, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
-                Text(grupo.categoria.ifBlank { "Série" }, color = Dourado, style = MaterialTheme.typography.bodyMedium)
-                Text("${grupo.episodios.map { it.temporadaNumero ?: 1 }.distinct().size} temporada(s) • ${grupo.episodios.size} episódio(s)", color = TextoCinza)
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = grupo.nome,
+                    color = TextoClaro,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleLarge,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = grupo.categoria,
+                    color = Dourado,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    text = grupo.sinopse.ifBlank { "Sinopse não fornecida pela lista." },
+                    color = TextoCinza,
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "${grupo.episodios.map { it.temporadaNumero ?: 1 }.distinct().size} temporada(s) • ${grupo.episodios.size} episódio(s)",
+                    color = TextoCinza,
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         }
     }
 }
 
 @Composable
-private fun TemporadaCard(numero: Int, quantidade: Int, aoClicar: () -> Unit) {
-    EvoluxClickableSurface(
-        onClick = aoClicar,
-        containerColor = FundoCard,
-        modifier = Modifier.fillMaxWidth().height(76.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+private fun SeriesDetailDialog(
+    grupo: GrupoSerie,
+    aoFechar: () -> Unit,
+    aoAssistir: (Midia) -> Unit
+) {
+    val temporadas = grupo.episodios.groupBy { it.temporadaNumero ?: 1 }.toSortedMap()
+    var temporadaSelecionada by remember(grupo.chave) {
+        mutableStateOf(temporadas.keys.firstOrNull() ?: 1)
+    }
+    val episodios = temporadas[temporadaSelecionada].orEmpty()
+        .sortedWith(compareBy<Midia> { it.episodioNumero ?: Int.MAX_VALUE }.thenBy { it.titulo })
+
+    Dialog(onDismissRequest = aoFechar) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.94f)
+                .height(620.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(Color(0xFF0B1020))
+                .padding(24.dp)
         ) {
-            Text("Temporada $numero", color = TextoClaro, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleMedium)
-            Text("$quantidade episódios", color = Dourado)
+            Column(modifier = Modifier.fillMaxSize()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        AsyncImage(
+                            model = grupo.capa.takeIf { it.isNotBlank() },
+                            placeholder = painterResource(R.drawable.evolux_logo),
+                            error = painterResource(R.drawable.evolux_logo),
+                            fallback = painterResource(R.drawable.evolux_logo),
+                            contentDescription = grupo.nome,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .width(120.dp)
+                                .height(150.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(grupo.nome, color = TextoClaro, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                            Text(grupo.categoria, color = Dourado)
+                            Text(
+                                grupo.sinopse.ifBlank { "Sinopse não fornecida pela lista." },
+                                color = TextoCinza,
+                                maxLines = 5,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                    EvoluxClickableSurface(
+                        onClick = aoFechar,
+                        containerColor = FundoCard,
+                        modifier = Modifier.width(54.dp).height(48.dp)
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Fechar", tint = TextoClaro)
+                    }
+                }
+                Spacer(Modifier.height(18.dp))
+                Text("Temporadas", color = TextoClaro, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    itemsIndexed(temporadas.keys.toList(), key = { _, numero -> numero }) { _, numero ->
+                        FiltroCategoria(
+                            nome = "Temporada $numero",
+                            selecionada = numero == temporadaSelecionada,
+                            aoClicar = { temporadaSelecionada = numero }
+                        )
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
+                Text("Episódios", color = TextoClaro, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(
+                    contentPadding = PaddingValues(bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(episodios, key = { it.id }) { episodio ->
+                        EpisodioRow(episodio) { aoAssistir(episodio) }
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun EpisodioCard(episodio: Midia, aoClicar: () -> Unit) {
+private fun EpisodioRow(episodio: Midia, aoClicar: () -> Unit) {
     EvoluxClickableSurface(
         onClick = aoClicar,
         containerColor = FundoCard,
-        modifier = Modifier.fillMaxWidth().height(82.dp)
+        modifier = Modifier.fillMaxWidth().height(70.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -231,21 +349,16 @@ private fun EpisodioCard(episodio: Midia, aoClicar: () -> Unit) {
                     text = episodio.episodioNome ?: episodio.titulo,
                     color = TextoClaro,
                     fontWeight = FontWeight.SemiBold,
-                    maxLines = 2
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = if (episodio.episodioNumero != null) "Episódio ${episodio.episodioNumero}" else "Assistir episódio",
-                    color = TextoCinza
+                    text = episodio.episodioNumero?.let { "Episódio $it" } ?: "Assistir episódio",
+                    color = TextoCinza,
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun TextoVazioSeries(texto: String) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(texto, color = TextoCinza, style = MaterialTheme.typography.titleMedium)
     }
 }
 
