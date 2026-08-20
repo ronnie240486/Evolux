@@ -57,8 +57,14 @@ object CatalogoCache {
         }
     }
 
-    fun fingerprint(configuracao: EvoluxConfig): String {
-        val entrada = configuracao.playlistUrls.joinToString("|")
+    fun fingerprint(configuracao: EvoluxConfig, urlAtiva: String? = null): String {
+        val entrada = buildString {
+            append(configuracao.playlistUrls.joinToString("|"))
+            append("|active=")
+            append(urlAtiva.orEmpty())
+            append("|app=")
+            append(configuracao.appId)
+        }
         val digest = MessageDigest.getInstance("SHA-256").digest(entrada.toByteArray())
         return digest.joinToString("") { "%02x".format(it) }
     }

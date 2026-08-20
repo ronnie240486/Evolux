@@ -31,6 +31,7 @@ import com.evolux.tv.data.MacAddressUtils
 import com.evolux.tv.data.PlaylistCatalog
 import com.evolux.tv.data.PlaylistRepository
 import com.evolux.tv.data.Midia
+import com.evolux.tv.data.OrdemCatalogo
 import com.evolux.tv.data.ResultadoConfiguracao
 import com.evolux.tv.data.gerarDestaques
 import com.evolux.tv.data.gerarFileirasEspeciais
@@ -43,11 +44,20 @@ import com.evolux.tv.ui.theme.EvoluxTheme
 private const val CHAVE_FAVORITOS = "favoritos_ids"
 private const val CHAVE_MAC_LOGICO = "mac_logico_evolux"
 private const val CHAVE_MAC_AUTORIZADO = "mac_autorizado_confirmado"
+private const val CHAVE_PLAYLIST_ATIVA = "playlist_ativa"
+private const val CHAVE_CATEGORIAS_OCULTAS = "categorias_ocultas"
+private const val CHAVE_ORDEM_CANAIS = "ordem_canais"
+private const val CHAVE_ORDEM_FILMES = "ordem_filmes"
+private const val CHAVE_ORDEM_SERIES = "ordem_series"
 
 private data class Reproducao(
     val titulo: String,
     val streamUrl: String
 )
+
+private fun lerOrdem(valor: String?): OrdemCatalogo = runCatching {
+    OrdemCatalogo.valueOf(valor.orEmpty())
+}.getOrDefault(OrdemCatalogo.PADRAO)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -79,6 +89,19 @@ fun EvoluxApp() {
     val escopo = rememberCoroutineScope()
     var macAutorizado by remember { mutableStateOf("") }
     var catalogo by remember { mutableStateOf<PlaylistCatalog?>(null) }
+    var configuracaoAtual by remember { mutableStateOf<EvoluxConfig?>(null) }
+    var fontesConfiguradas by remember { mutableStateOf<List<String>>(emptyList()) }
+    var playlistAtiva by remember { mutableStateOf(preferencias.getInt(CHAVE_PLAYLIST_ATIVA, 0)) }
+    var categoriasOcultas by remember { mutableStateOf(preferencias.getStringSet(CHAVE_CATEGORIAS_OCULTAS, emptySet()).orEmpty()) }
+    var ordens by remember {
+        mutableStateOf(
+            mapOf(
+                "canais" to lerOrdem(preferencias.getString(CHAVE_ORDEM_CANAIS, null)),
+                "filmes" to lerOrdem(preferencias.getString(CHAVE_ORDEM_FILMES, null)),
+                "series" to lerOrdem(preferencias.getString(CHAVE_ORDEM_SERIES, null))
+            )
+        )
+    }
     var estadoLogin by remember { mutableStateOf<EstadoLoginMac>(EstadoLoginMac.Ocioso) }
     var validacaoEmAndamento by remember { mutableStateOf(false) }
     var carregandoCatalogo by remember { mutableStateOf(false) }
@@ -92,19 +115,26 @@ fun EvoluxApp() {
         }
     }
 
-    suspend fun carregarCatalogo(configuracao: EvoluxConfig): String? {
-        val urlPlaylist = configuracao.primeiraPlaylistValida
-            ?: return "Nenhuma URL de playlist foi encontrada."
-        val fingerprint = CatalogoCache.fingerprint(configuracao)
+    suspend fun carregarCatalogo(configuracao: EvoluxConfig, indiceSolicitado: Int = playlistAtiva, forcar: Boolean = false): String? {
+        val fontes = configuracao.playlistUrls.filter { it.startsWith("http://") || it.startsWith("https://") }
+        if (fontes.isEmpty()) return "Nenhuma URL de playlist foi encontrada."
+        val indice = indiceSolicitado.coerceIn(0, fontes.lastIndex)
+        val urlPlaylist = fontes[indice]
+        val fingerprint = CatalogoCache.fingerprint(configuracao, urlPlaylist)
         carregandoCatalogo = true
         try {
-            val cache = CatalogoCache.carregar(contexto, fingerprint)
-            if (cache != null) {
-                catalogo = cache
-                return null
+            if (!forcar) {
+                val cache = CatalogoCache.carregar(contexto, fingerprint)
+                if (cache != null) {
+                    catalogo = cache
+                    playlistAtiva = indice
+                    return null
+                }
             }
             val novoCatalogo = playlistRepository.carregar(urlPlaylist)
             catalogo = novoCatalogo
+            playlistAtiva = indice
+            preferencias.edit().putInt(CHAVE_PLAYLIST_ATIVA, indice).apply()
             CatalogoCache.salvar(contexto, fingerprint, novoCatalogo)
             return null
         } catch (erro: Exception) {
@@ -121,10 +151,13 @@ fun EvoluxApp() {
         try {
             when (val resultado = repository.buscarConfiguracao(macInformado)) {
                 is ResultadoConfiguracao.Sucesso -> {
+                    configuracaoAtual = resultado.configuracao
+                    fontesConfiguradas = resultado.configuracao.playlistUrls.filter { it.startsWith("http://") || it.startsWith("https://") }
+                    playlistAtiva = playlistAtiva.coerceIn(0, (fontesConfiguradas.size - 1).coerceAtLeast(0))
                     if (estadoLogin is EstadoLoginMac.Carregando) {
                         estadoLogin = EstadoLoginMac.Carregando(porcentagem = 35, segundos = (estadoLogin as EstadoLoginMac.Carregando).segundos)
                     }
-                    val erroCatalogo = carregarCatalogo(resultado.configuracao)
+                    val erroCatalogo = carregarCatalogo(resultado.configuracao, playlistAtiva)
                     if (erroCatalogo == null) {
                         macAutorizado = resultado.configuracao.mac
                         preferencias.edit()
@@ -252,6 +285,42 @@ fun EvoluxApp() {
             .putStringSet(CHAVE_FAVORITOS, favoritos.map { it.id }.toSet())
             .apply()
     }
+    val ocultasLive = categoriasOcultas.filter { it.startsWith("live|") }.map { it.substringAfter('|') }.toSet()
+    val ocultasFilmes = categoriasOcultas.filter { it.startsWith("filmes|") }.map { it.substringAfter('|') }.toSet()
+    val ocultasSeries = categoriasOcultas.filter { it.startsWith("series|") }.map { it.substringAfter('|') }.toSet()
+    val categoriasCanais = catalogoAtual.canais.map { it.categoria.ifBlank { "TV ao vivo" } }.distinct().sorted()
+    val categoriasFilmes = catalogoAtual.filmes.map { it.categoria.ifBlank { "Sem categoria" } }.distinct().sorted()
+    val categoriasSeries = catalogoAtual.series.map { it.categoria.ifBlank { "Séries" } }.distinct().sorted()
+    val aoAlternarCategoriaOculta: (String, String) -> Unit = { secao, categoria ->
+        val chave = "$secao|$categoria"
+        categoriasOcultas = if (chave in categoriasOcultas) categoriasOcultas - chave else categoriasOcultas + chave
+        preferencias.edit().putStringSet(CHAVE_CATEGORIAS_OCULTAS, categoriasOcultas).apply()
+    }
+    val aoMudarOrdem: (String, OrdemCatalogo) -> Unit = { secao, ordem ->
+        ordens = ordens + (secao to ordem)
+        val chave = when (secao) {
+            "canais" -> CHAVE_ORDEM_CANAIS
+            "filmes" -> CHAVE_ORDEM_FILMES
+            else -> CHAVE_ORDEM_SERIES
+        }
+        preferencias.edit().putString(chave, ordem.name).apply()
+    }
+    val aoSelecionarPlaylist: (Int) -> Unit = { indice ->
+        configuracaoAtual?.let { configuracao ->
+            escopo.launch {
+                val erro = carregarCatalogo(configuracao, indice, forcar = true)
+                if (erro != null) Toast.makeText(contexto, erro, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+    val aoRecarregarCatalogo: () -> Unit = {
+        configuracaoAtual?.let { configuracao ->
+            escopo.launch {
+                val erro = carregarCatalogo(configuracao, playlistAtiva, forcar = true)
+                if (erro != null) Toast.makeText(contexto, erro, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Image(
@@ -297,7 +366,10 @@ fun EvoluxApp() {
 
             Tela.TV_AO_VIVO -> LiveTvScreen(
                 canais = catalogoAtual.canais,
-                aoAbrirCanal = { abrirConteudo(it.nome, it.streamUrl) }
+                aoAbrirCanal = { abrirConteudo(it.nome, it.streamUrl) },
+                categoriasOcultas = ocultasLive,
+                ordemInicial = ordens["canais"] ?: OrdemCatalogo.PADRAO,
+                aoMudarOrdem = { aoMudarOrdem("canais", it) }
             )
 
             Tela.FILMES -> GradeMidiaScreen(
@@ -305,12 +377,18 @@ fun EvoluxApp() {
                 itens = catalogoAtual.filmes,
                 aoSelecionar = { abrirConteudo(it.titulo, it.streamUrl) },
                 ehFavorito = ehFavorito,
-                aoAlternarFavorito = aoAlternarFavorito
+                aoAlternarFavorito = aoAlternarFavorito,
+                categoriasOcultas = ocultasFilmes,
+                ordemInicial = ordens["filmes"] ?: OrdemCatalogo.PADRAO,
+                aoMudarOrdem = { aoMudarOrdem("filmes", it) }
             )
 
             Tela.SERIES -> SeriesBrowserScreen(
                 itens = catalogoAtual.series,
-                aoAssistir = { abrirConteudo(it.episodioNome ?: it.titulo, it.streamUrl) }
+                aoAssistir = { abrirConteudo(it.episodioNome ?: it.titulo, it.streamUrl) },
+                categoriasOcultas = ocultasSeries,
+                ordemInicial = ordens["series"] ?: OrdemCatalogo.PADRAO,
+                aoMudarOrdem = { aoMudarOrdem("series", it) }
             )
 
             Tela.JOGOS -> GamesScreen(
@@ -328,6 +406,17 @@ fun EvoluxApp() {
             )
 
             Tela.CONFIGURACOES -> SettingsScreen(
+                playlistUrls = fontesConfiguradas,
+                playlistAtiva = playlistAtiva,
+                aoSelecionarPlaylist = aoSelecionarPlaylist,
+                aoRecarregarCatalogo = aoRecarregarCatalogo,
+                categoriasCanais = categoriasCanais,
+                categoriasFilmes = categoriasFilmes,
+                categoriasSeries = categoriasSeries,
+                categoriasOcultas = categoriasOcultas,
+                aoAlternarCategoriaOculta = aoAlternarCategoriaOculta,
+                ordens = ordens,
+                aoMudarOrdem = aoMudarOrdem,
                 aoTrocarMac = {
                     preferencias.edit().putBoolean(CHAVE_MAC_AUTORIZADO, false).apply()
                     macAutorizado = ""

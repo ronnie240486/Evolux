@@ -320,16 +320,20 @@ class PlaylistRepository {
         temporadaNumero: Int? = null,
         episodioNumero: Int? = null
     ): Boolean {
+        if (indice >= MAX_TOTAL_ITEMS) return false
         val tipoNormalizado = normalizarTexto(tipoHint.orEmpty())
         val grupoNormalizado = normalizarTexto(grupo)
         val id = "playlist_${indice}_${titulo.hashCode().toUInt()}"
-        val tipoFoiInformado = tipoNormalizado.isNotBlank()
-        val ehSeriePorTipo = tipoNormalizado.containsAny("series", "serie", "show")
-        val ehFilmePorTipo = tipoNormalizado.containsAny("movie", "movies", "filme", "filmes", "vod")
-        val ehSerie = if (tipoFoiInformado) {
-            ehSeriePorTipo
-        } else {
-            grupoNormalizado.containsAny("series", "serie", "show", "novela", "anime") &&
+        val tipoPorUrl = detectarTipoPorUrl(url)
+        val tipoExplicitoSerie = tipoNormalizado.containsAny("series", "serie", "show")
+        val tipoExplicitoFilme = tipoNormalizado.containsAny("movie", "movies", "filme", "filmes", "vod")
+        val tipoExplicitoCanal = tipoNormalizado.containsAny("live", "canal", "channel", "tv")
+        val ehSerie = when {
+            tipoExplicitoSerie -> true
+            tipoExplicitoFilme || tipoExplicitoCanal -> false
+            tipoPorUrl == TipoUrl.SERIE -> true
+            tipoPorUrl == TipoUrl.FILME || tipoPorUrl == TipoUrl.CANAL -> false
+            else -> grupoNormalizado.containsAny("series", "serie", "show", "novela", "anime") &&
                 !grupoNormalizado.containsAny("filme", "filmes", "movie", "movies", "vod")
         }
         val grupoIndicaCanal = grupoNormalizado.containsAny(
@@ -341,10 +345,12 @@ class PlaylistRepository {
             "channel",
             "tv ao vivo"
         )
-        val ehFilme = if (tipoFoiInformado) {
-            ehFilmePorTipo
-        } else {
-            !grupoIndicaCanal && grupoNormalizado.containsAny(
+        val ehFilme = when {
+            tipoExplicitoFilme -> true
+            tipoExplicitoSerie || tipoExplicitoCanal -> false
+            tipoPorUrl == TipoUrl.FILME -> true
+            tipoPorUrl == TipoUrl.SERIE || tipoPorUrl == TipoUrl.CANAL -> false
+            else -> !grupoIndicaCanal && grupoNormalizado.containsAny(
                 "filme",
                 "filmes",
                 "movie",
@@ -417,17 +423,20 @@ class PlaylistRepository {
     }
 
     private fun extrairDadosSerie(titulo: String, grupo: String): DadosSerie? {
-        val padrao = Regex(
-            "(?i)^(.*?)(?:\\s*[-_.| ]*\\s*(?:s|t|season|temporada)\\s*0*(\\d{1,2})(?:\\s*[-_.| ]*\\s*(?:e|ep|epis[oó]dio)?\\s*0*(\\d{1,3}))?.*)$"
+        val padroes = listOf(
+            Regex("(?i)^(.*?)[\\s._|:-]+s(?:eason)?\\s*0*(\\d{1,2})[\\s._|:-]*e(?:p(?:is[oó]dio)?)?\\s*0*(\\d{1,3}).*$"),
+            Regex("(?i)^(.*?)[\\s._|:-]+0*(\\d{1,2})x0*(\\d{1,3}).*$"),
+            Regex("(?i)^(.*?)(?:\\s*[-_.| ]*\\s*(?:s|t|season|temporada)\\s*0*(\\d{1,2})(?:\\s*[-_.| ]*\\s*(?:e|ep|epis[oó]dio)?\\s*0*(\\d{1,3}))?.*)$")
         )
-        val encontro = padrao.find(titulo)
-        if (encontro != null) {
+        for (padrao in padroes) {
+            val encontro = padrao.find(titulo) ?: continue
             val nome = encontro.groupValues[1].trim().trim('-', '.', '|', '_')
             if (nome.isNotBlank()) {
+                val numeros = encontro.groupValues.drop(2).mapNotNull { it.toIntOrNull() }
                 return DadosSerie(
                     serieNome = nome,
-                    temporadaNumero = encontro.groupValues[2].toIntOrNull() ?: 1,
-                    episodioNumero = encontro.groupValues.getOrNull(3)?.toIntOrNull()
+                    temporadaNumero = numeros.firstOrNull() ?: 1,
+                    episodioNumero = numeros.getOrNull(1)
                 )
             }
         }
@@ -441,6 +450,21 @@ class PlaylistRepository {
             )
         }
         return null
+    }
+
+    private enum class TipoUrl { CANAL, FILME, SERIE }
+
+    private fun detectarTipoPorUrl(url: String): TipoUrl? {
+        val normalizada = url.lowercase(Locale.ROOT)
+        val caminho = runCatching { URL(normalizada).path }.getOrDefault(normalizada)
+        return when {
+            caminho.contains("/series/") || normalizada.contains("series/") -> TipoUrl.SERIE
+            caminho.contains("/movie/") || caminho.contains("/movies/") ||
+                caminho.contains("/vod/") || caminho.contains("/video/") ||
+                normalizada.contains("=movie") || normalizada.contains("==movie") -> TipoUrl.FILME
+            caminho.contains("/live/") || caminho.contains("/channel/") -> TipoUrl.CANAL
+            else -> null
+        }
     }
 
     private fun normalizarImagemUrl(valor: String): String {
@@ -493,6 +517,5 @@ class PlaylistRepository {
         // Limites de proteção contra uma resposta malformada, não um corte normal do catálogo.
         // A playlist do usuário com cerca de 12 mil itens passa inteira.
         const val MAX_TOTAL_ITEMS = 100_000
-        const val MAX_ITEMS_PER_CATEGORY = 50_000
     }
 }

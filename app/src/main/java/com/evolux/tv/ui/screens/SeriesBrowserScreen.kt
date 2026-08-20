@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -30,11 +31,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.tv.material3.Icon
@@ -43,6 +48,8 @@ import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 import com.evolux.tv.R
 import com.evolux.tv.data.Midia
+import com.evolux.tv.data.OrdemCatalogo
+import com.evolux.tv.data.normalizarConsulta
 import com.evolux.tv.ui.components.EvoluxClickableSurface
 import com.evolux.tv.ui.theme.Dourado
 import com.evolux.tv.ui.theme.FundoCard
@@ -61,21 +68,29 @@ private data class GrupoSerie(
 @Composable
 fun SeriesBrowserScreen(
     itens: List<Midia>,
-    aoAssistir: (Midia) -> Unit
+    aoAssistir: (Midia) -> Unit,
+    categoriasOcultas: Set<String> = emptySet(),
+    ordemInicial: OrdemCatalogo = OrdemCatalogo.PADRAO,
+    aoMudarOrdem: (OrdemCatalogo) -> Unit = {}
 ) {
-    val categorias = remember(itens) {
+    val categorias = remember(itens, categoriasOcultas) {
         itens.asSequence()
             .map { it.categoria.ifBlank { "Séries" } }
             .distinct()
+            .filter { it !in categoriasOcultas }
             .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it })
             .toList()
     }
     var categoriaSelecionada by remember(categorias) {
         mutableStateOf(categorias.firstOrNull().orEmpty())
     }
-    val grupos = remember(itens, categoriaSelecionada) {
-        itens.asSequence()
+    var busca by remember(itens) { mutableStateOf("") }
+    var ordem by remember(itens, ordemInicial) { mutableStateOf(ordemInicial) }
+    val grupos = remember(itens, categoriaSelecionada, busca, ordem, categoriasOcultas) {
+        val consulta = normalizarConsulta(busca)
+        val resultado = itens.asSequence()
             .filter { it.categoria.ifBlank { "Séries" } == categoriaSelecionada }
+            .filter { it.categoria.ifBlank { "Séries" } !in categoriasOcultas }
             .groupBy { item ->
                 item.serieId ?: normalizarChave(item.serieNome ?: removerMarcadorDeEpisodio(item.titulo))
             }
@@ -95,7 +110,12 @@ fun SeriesBrowserScreen(
                     episodios = ordenados
                 )
             }
-            .sortedBy { it.nome.lowercase() }
+            .filter { grupo -> consulta.isBlank() || normalizarConsulta("${grupo.nome} ${grupo.categoria} ${grupo.sinopse}").contains(consulta) }
+            .toList()
+        when (ordem) {
+            OrdemCatalogo.NOME_ZA -> resultado.sortedByDescending { normalizarConsulta(it.nome) }
+            else -> resultado.sortedBy { normalizarConsulta(it.nome) }
+        }
     }
     var serieSelecionada by remember { mutableStateOf<GrupoSerie?>(null) }
 
@@ -115,6 +135,18 @@ fun SeriesBrowserScreen(
             fontWeight = FontWeight.Bold,
             style = MaterialTheme.typography.headlineSmall
         )
+        Spacer(Modifier.height(12.dp))
+        CampoBuscaSeries(valor = busca, aoMudar = { busca = it })
+        Spacer(Modifier.height(10.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(OrdemCatalogo.entries.toList(), key = { it.name }) { opcao ->
+                FiltroCategoria(
+                    nome = opcao.rotulo,
+                    selecionada = opcao == ordem,
+                    aoClicar = { ordem = opcao; aoMudarOrdem(opcao) }
+                )
+            }
+        }
         Spacer(Modifier.height(12.dp))
         if (categorias.isNotEmpty()) {
             LazyRow(
@@ -367,6 +399,31 @@ private fun EpisodioRow(episodio: Midia, aoClicar: () -> Unit) {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun CampoBuscaSeries(valor: String, aoMudar: (String) -> Unit) {
+    var focado by remember { mutableStateOf(false) }
+    EvoluxClickableSurface(
+        onClick = {},
+        containerColor = FundoCard,
+        modifier = Modifier.fillMaxWidth().onFocusChanged { focado = it.isFocused }
+    ) {
+        BasicTextField(
+            value = valor,
+            onValueChange = aoMudar,
+            singleLine = true,
+            textStyle = TextStyle(color = TextoClaro, fontSize = MaterialTheme.typography.bodyLarge.fontSize),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 13.dp),
+            decorationBox = { campo ->
+                Box {
+                    if (valor.isBlank()) Text("Buscar séries nesta categoria...", color = TextoCinza)
+                    campo()
+                }
+            }
+        )
     }
 }
 
