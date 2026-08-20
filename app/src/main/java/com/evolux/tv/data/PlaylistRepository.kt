@@ -1,8 +1,14 @@
 package com.evolux.tv.data
 
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.io.InputStream
+import java.io.Reader
+import java.io.SequenceInputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.nio.charset.StandardCharsets
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -28,27 +34,66 @@ class PlaylistRepository {
         try {
             val codigo = conexao.responseCode
             val contentType = conexao.contentType.orEmpty().lowercase(Locale.ROOT)
-            val corpo = (if (codigo in 200..299) conexao.inputStream else conexao.errorStream)
-                ?.bufferedReader()
-                ?.use { it.readText() }
-                .orEmpty()
-                .trim()
-
-            if (codigo !in 200..299 || corpo.isBlank() || corpo.startsWith("<") || "text/html" in contentType) {
-                throw IOException("Lista indisponível ou credenciais inválidas")
+            if (codigo !in 200..299) {
+                throw IOException("Playlist respondeu HTTP $codigo")
+            }
+            if ("text/html" in contentType) {
+                throw IOException("Playlist respondeu HTML")
             }
 
-            if (corpo.startsWith("{") || corpo.startsWith("[")) {
-                parseJson(corpo)
-            } else {
-                parseM3u(corpo)
+            val entrada = conexao.inputStream ?: throw IOException("Playlist sem conteúdo")
+            entrada.use { fluxo ->
+                val prefixo = lerPrefixo(fluxo)
+                val prefixoTrimmed = prefixo.toString(StandardCharsets.UTF_8).trimStart()
+                if (prefixoTrimmed.isBlank()) {
+                    throw IOException("Playlist vazia")
+                }
+                if (prefixoTrimmed.startsWith("<")) {
+                    throw IOException("Playlist respondeu HTML no corpo")
+                }
+
+                if (prefixoTrimmed.startsWith("{") || prefixoTrimmed.startsWith("[")) {
+                    parseJson(lerJsonLimitado(prefixo, fluxo))
+                } else {
+                    val fluxoCompleto = SequenceInputStream(ByteArrayInputStream(prefixo), fluxo)
+                    fluxoCompleto.bufferedReader(StandardCharsets.UTF_8).use { leitor ->
+                        parseM3u(leitor)
+                    }
+                }
             }
         } finally {
             conexao.disconnect()
         }
     }
 
-    private fun parseM3u(corpo: String): PlaylistCatalog {
+    private fun lerPrefixo(fluxo: InputStream): ByteArray {
+        val prefixo = ByteArray(PREFIX_BYTES)
+        val quantidade = fluxo.read(prefixo)
+        return if (quantidade <= 0) ByteArray(0) else prefixo.copyOf(quantidade)
+    }
+
+    private fun lerJsonLimitado(prefixo: ByteArray, fluxo: InputStream): String {
+        val saida = ByteArrayOutputStream(minOf(prefixo.size, MAX_PLAYLIST_BYTES.toInt()))
+        var total = 0L
+        if (prefixo.isNotEmpty()) {
+            saida.write(prefixo)
+            total += prefixo.size
+        }
+
+        val buffer = ByteArray(BUFFER_BYTES)
+        while (true) {
+            val quantidade = fluxo.read(buffer)
+            if (quantidade < 0) break
+            total += quantidade
+            if (total > MAX_PLAYLIST_BYTES) {
+                throw IOException("Playlist excede o limite seguro de ${MAX_PLAYLIST_BYTES / (1024 * 1024)} MB")
+            }
+            saida.write(buffer, 0, quantidade)
+        }
+        return saida.toString(StandardCharsets.UTF_8.name()).trim()
+    }
+
+    private fun parseM3u(leitor: Reader): PlaylistCatalog {
         data class Entrada(
             val titulo: String,
             val grupo: String,
@@ -61,7 +106,7 @@ class PlaylistRepository {
         var pendente: Entrada? = null
         var indice = 0
 
-        corpo.lineSequence().forEach { linhaOriginal ->
+        leitor.forEachLine { linhaOriginal ->
             val linha = linhaOriginal.trim()
             when {
                 linha.startsWith("#EXTINF", ignoreCase = true) -> {
@@ -75,6 +120,9 @@ class PlaylistRepository {
                 }
 
                 linha.isNotEmpty() && !linha.startsWith("#") -> {
+                    if (indice >= MAX_ITEMS) {
+                        throw IOException("Playlist excede o limite seguro de $MAX_ITEMS itens")
+                    }
                     val entrada = pendente ?: Entrada("Canal ${indice + 1}", "", "")
                     adicionarEntrada(
                         indice = indice++,
@@ -92,7 +140,7 @@ class PlaylistRepository {
         }
 
         if (canais.isEmpty() && filmes.isEmpty() && series.isEmpty()) {
-            throw IOException("Lista indisponível ou credenciais inválidas")
+            throw IOException("Playlist sem itens reconhecíveis")
         }
         return PlaylistCatalog(canais, filmes, series)
     }
@@ -106,13 +154,16 @@ class PlaylistRepository {
                 .asSequence()
                 .mapNotNull { raiz.optJSONArray(it) }
                 .firstOrNull()
-                ?: throw IOException("Lista indisponível ou credenciais inválidas")
+                ?: throw IOException("JSON sem uma lista de streams reconhecível")
         }
 
         val canais = mutableListOf<Canal>()
         val filmes = mutableListOf<Midia>()
         val series = mutableListOf<Midia>()
         for (indice in 0 until itens.length()) {
+            if (indice >= MAX_ITEMS) {
+                throw IOException("JSON excede o limite seguro de $MAX_ITEMS itens")
+            }
             val item = itens.optJSONObject(indice) ?: continue
             val url = primeiraString(item, "stream_url", "url", "direct_source") ?: continue
             val titulo = primeiraString(item, "name", "title", "stream_display_name") ?: "Sem título"
@@ -122,7 +173,7 @@ class PlaylistRepository {
         }
 
         if (canais.isEmpty() && filmes.isEmpty() && series.isEmpty()) {
-            throw IOException("Lista indisponível ou credenciais inválidas")
+            throw IOException("JSON sem itens reconhecíveis")
         }
         return PlaylistCatalog(canais, filmes, series)
     }
@@ -182,4 +233,11 @@ class PlaylistRepository {
                 if (valor == null || valor == JSONObject.NULL) null else valor.toString().trim().ifBlank { null }
             }
             .firstOrNull()
+
+    private companion object {
+        const val PREFIX_BYTES = 4 * 1024
+        const val BUFFER_BYTES = 8 * 1024
+        const val MAX_PLAYLIST_BYTES = 8L * 1024 * 1024
+        const val MAX_ITEMS = 10_000
+    }
 }

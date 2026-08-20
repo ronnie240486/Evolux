@@ -65,6 +65,9 @@ O MAC lógico é salvo localmente e permanece igual até a desinstalação do AP
 
 Os requisitos detalhados estão em [`docs/login-mac-requirements.md`](docs/login-mac-requirements.md).
 
+## Proteção contra playlists grandes
+O APK não usa mais `readText()` para carregar a playlist inteira. M3U é processada linha a linha; respostas JSON têm limite de 8 MB e o catálogo aceita no máximo 10.000 itens. Quando a fonte excede esses limites, o aplicativo recusa a lista com uma mensagem segura em vez de provocar `OutOfMemoryError` no celular.
+
 ## Próximas melhorias recomendadas
 A próxima etapa natural é substituir os callbacks vazios por um player Media3/ExoPlayer e trocar o estado de demonstração por um `ViewModel` com `StateFlow`. Também vale migrar a persistência de favoritos para DataStore quando o contrato de dados estiver definido. O carregamento de playlist válida deve alimentar o catálogo remoto antes de liberar as telas de conteúdo.
 

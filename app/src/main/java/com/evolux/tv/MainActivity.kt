@@ -67,14 +67,14 @@ fun EvoluxApp() {
     var estadoLogin by remember { mutableStateOf<EstadoLoginMac>(EstadoLoginMac.Ocioso) }
     var validacaoEmAndamento by remember { mutableStateOf(false) }
 
-    suspend fun carregarCatalogo(configuracao: EvoluxConfig): Boolean {
+    suspend fun carregarCatalogo(configuracao: EvoluxConfig): String? {
         val urlPlaylist = configuracao.primeiraPlaylistValida
-        if (urlPlaylist == null) return false
+            ?: return "Nenhuma URL de playlist foi encontrada."
         return try {
             catalogo = playlistRepository.carregar(urlPlaylist)
-            true
-        } catch (_: Exception) {
-            false
+            null
+        } catch (erro: Exception) {
+            erro.message?.takeIf { it.isNotBlank() } ?: "Não foi possível interpretar o catálogo."
         }
     }
 
@@ -85,7 +85,8 @@ fun EvoluxApp() {
         try {
             when (val resultado = repository.buscarConfiguracao(macInformado)) {
                 is ResultadoConfiguracao.Sucesso -> {
-                    if (carregarCatalogo(resultado.configuracao)) {
+                    val erroCatalogo = carregarCatalogo(resultado.configuracao)
+                    if (erroCatalogo == null) {
                         macAutorizado = resultado.configuracao.mac
                         preferencias.edit()
                             .putString(CHAVE_MAC_LOGICO, resultado.configuracao.mac)
@@ -95,7 +96,7 @@ fun EvoluxApp() {
                     } else {
                         estadoLogin = EstadoLoginMac.Erro(
                             "Lista indisponível ou credenciais inválidas",
-                            "A resposta não pôde ser interpretada como catálogo de canais, filmes ou séries."
+                            erroCatalogo
                         )
                     }
                 }
