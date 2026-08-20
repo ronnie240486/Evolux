@@ -106,7 +106,8 @@ fun HomeScreen(
                         itens = fileira.itens,
                         aoSelecionar = aoAbrirMidia,
                         ehFavorito = ehFavorito,
-                        aoAlternarFavorito = aoAlternarFavorito
+                        aoAlternarFavorito = aoAlternarFavorito,
+                        emblemaServico = fileira.servico
                     )
                 }
             }

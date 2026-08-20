@@ -70,6 +70,7 @@ private data class GrupoSerie(
 @Composable
 fun SeriesBrowserScreen(
     itens: List<Midia>,
+    categoriaInicial: String? = null,
     aoAssistir: (Midia) -> Unit,
     categoriasOcultas: Set<String> = emptySet(),
     ordemInicial: OrdemCatalogo = OrdemCatalogo.PADRAO,
@@ -84,8 +85,11 @@ fun SeriesBrowserScreen(
             .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it })
             .toList()
     }
-    var categoriaSelecionada by remember(categorias) {
-        mutableStateOf(categorias.firstOrNull().orEmpty())
+    var categoriaSelecionada by remember(categorias, categoriaInicial) {
+        mutableStateOf(
+            categoriaInicial?.takeIf { it in categorias }
+                ?: categorias.firstOrNull().orEmpty()
+        )
     }
     var busca by remember(itens) { mutableStateOf("") }
     var ordem by remember(itens, ordemInicial) { mutableStateOf(ordemInicial) }

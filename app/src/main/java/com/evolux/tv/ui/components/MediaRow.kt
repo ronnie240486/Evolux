@@ -35,16 +35,24 @@ fun MediaRow(
     aoSelecionar: (Midia) -> Unit,
     ehFavorito: (Midia) -> Boolean,
     aoAlternarFavorito: (Midia) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    emblemaServico: String? = null
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        Text(
-            text = titulo.uppercase(),
-            color = Dourado,
-            fontWeight = FontWeight.Bold,
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(start = 24.dp, bottom = 12.dp)
-        )
+        if (emblemaServico != null) {
+            EmblemaServico(
+                nome = emblemaServico,
+                modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 12.dp)
+            )
+        } else {
+            Text(
+                text = titulo.uppercase(),
+                color = Dourado,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(start = 24.dp, bottom = 12.dp)
+            )
+        }
         TvLazyRow(
             contentPadding = PaddingValues(horizontal = 24.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)

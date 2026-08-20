@@ -26,12 +26,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import com.evolux.tv.R
 import com.evolux.tv.data.EvoluxRepository
+import com.evolux.tv.data.Destaque
 import com.evolux.tv.data.EvoluxConfig
 import com.evolux.tv.data.CatalogoCache
 import com.evolux.tv.data.MacAddressUtils
 import com.evolux.tv.data.PlaylistCatalog
 import com.evolux.tv.data.PlaylistRepository
 import com.evolux.tv.data.Midia
+import com.evolux.tv.data.TipoMidia
 import com.evolux.tv.data.Jogo
 import com.evolux.tv.data.JogosDoDiaRepository
 import com.evolux.tv.data.OrdemCatalogo
@@ -114,6 +116,7 @@ fun EvoluxApp() {
     var carregandoCatalogo by remember { mutableStateOf(false) }
     var reproducao by remember { mutableStateOf<Reproducao?>(null) }
     var jogosDoDia by remember { mutableStateOf<List<Jogo>>(emptyList()) }
+    var categoriaInicialSeries by remember { mutableStateOf<String?>(null) }
 
     BackHandler(enabled = reproducao != null || telaAtual != Tela.INICIO) {
         if (reproducao != null) {
@@ -281,6 +284,22 @@ fun EvoluxApp() {
             reproducao = Reproducao(titulo = titulo, streamUrl = url)
         }
     }
+    val abrirMidiaDaHome: (Midia) -> Unit = { midia ->
+        if (midia.tipo == TipoMidia.SERIE) {
+            categoriaInicialSeries = midia.categoria
+            telaAtual = Tela.SERIES
+        } else {
+            abrirConteudo(midia.titulo, midia.streamUrl)
+        }
+    }
+    val abrirDestaqueDaHome: (Destaque) -> Unit = { destaque ->
+        if (destaque.tipo == TipoMidia.SERIE) {
+            categoriaInicialSeries = destaque.categoria
+            telaAtual = Tela.SERIES
+        } else {
+            abrirConteudo(destaque.titulo, destaque.streamUrl)
+        }
+    }
     if (macAutorizado.isBlank() && estadoLogin !is EstadoLoginMac.Carregando) {
         MacLoginScreen(
             estado = estadoLogin,
@@ -401,7 +420,10 @@ fun EvoluxApp() {
         ) {
             TopNavBar(
                 telaSelecionada = telaAtual,
-                aoSelecionar = { telaAtual = it }
+                aoSelecionar = {
+                    if (it == Tela.SERIES) categoriaInicialSeries = null
+                    telaAtual = it
+                }
             )
 
             when (telaAtual) {
@@ -413,8 +435,8 @@ fun EvoluxApp() {
                 filmes = catalogoApresentacao.filmes,
                 series = catalogoApresentacao.series,
                 fileirasEspeciais = fileirasEspeciais,
-                aoAbrirMidia = { abrirConteudo(it.titulo, it.streamUrl) },
-                aoAssistirDestaque = { abrirConteudo(it.titulo, it.streamUrl) },
+                aoAbrirMidia = abrirMidiaDaHome,
+                aoAssistirDestaque = abrirDestaqueDaHome,
                 aoAbrirCanais = { telaAtual = Tela.TV_AO_VIVO },
                 aoAbrirFilmes = { telaAtual = Tela.FILMES },
                 aoAbrirSeries = { telaAtual = Tela.SERIES },
@@ -445,6 +467,7 @@ fun EvoluxApp() {
 
             Tela.SERIES -> SeriesBrowserScreen(
                 itens = catalogoApresentacao.series,
+                categoriaInicial = categoriaInicialSeries,
                 aoAssistir = { abrirConteudo(it.episodioNome ?: it.titulo, it.streamUrl) },
                 categoriasOcultas = ocultasSeries,
                 ordemInicial = ordens["series"] ?: OrdemCatalogo.PADRAO,

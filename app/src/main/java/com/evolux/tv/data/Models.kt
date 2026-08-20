@@ -12,6 +12,8 @@ data class Destaque(
     val sinopse: String,
     val imagemUrl: String,
     val streamUrl: String,
+    val tipo: TipoMidia = TipoMidia.FILME,
+    val categoria: String = "",
     val trailerUrl: String? = null
 )
 

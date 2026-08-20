@@ -3,7 +3,8 @@ package com.evolux.tv.data
 /** Uma fileira de Home construída a partir de um grupo/categoria real do catálogo. */
 data class FileiraCatalogo(
     val titulo: String,
-    val itens: List<Midia>
+    val itens: List<Midia>,
+    val servico: String? = null
 )
 
 /**
@@ -39,7 +40,9 @@ fun gerarDestaques(catalogo: PlaylistCatalog, limite: Int = 8): List<Destaque> {
                 ano = midia.categoria.ifBlank { "Evolux" },
                 sinopse = "Disponível na sua lista autorizada.",
                 imagemUrl = midia.imagemUrl,
-                streamUrl = midia.streamUrl
+                streamUrl = midia.streamUrl,
+                tipo = midia.tipo,
+                categoria = midia.categoria
             )
         }
         .toList()
@@ -50,19 +53,49 @@ fun gerarDestaques(catalogo: PlaylistCatalog, limite: Int = 8): List<Destaque> {
  * Se a M3U não tiver determinado grupo, nenhuma fileira artificial é criada.
  */
 fun gerarFileirasEspeciais(catalogo: PlaylistCatalog): List<FileiraCatalogo> {
-    val grupos = (catalogo.filmes + catalogo.series)
+    val gruposSeries = catalogo.series
         .filter { it.categoria.isNotBlank() && it.imagemUrl.isNotBlank() && it.streamUrl.isNotBlank() }
         .groupBy { it.categoria }
 
-    val regras = listOf(
-        listOf("alta", "popular", "trending", "top") to "FILMES EM ALTA",
-        listOf("lancamento", "lancamentos", "novidade", "premiere", "new") to "LANÇAMENTOS",
-        listOf("disney") to "SÉRIES DA DISNEY",
-        listOf("asterisco", "estrela", "*") to "DESTAQUES"
+    val servicos = listOf(
+        listOf("disney") to "Disney+",
+        listOf("netflix") to "Netflix",
+        listOf("pluto") to "Pluto TV",
+        listOf("prime") to "Prime Video",
+        listOf("max", "hbo") to "Max",
+        listOf("globoplay") to "Globoplay",
+        listOf("paramount") to "Paramount+",
+        listOf("crunchyroll") to "Crunchyroll",
+        listOf("funimation") to "Funimation",
+        listOf("apple") to "Apple TV+",
+        listOf("discovery") to "Discovery+",
+        listOf("star plus") to "Star+"
     )
 
-    return regras.mapNotNull { (termos, tituloPadrao) ->
-        val itens = grupos
+    val fileirasDeServico = servicos.mapNotNull { (termos, nomeServico) ->
+        val itens = gruposSeries
+            .filter { (grupo, _) ->
+                val normalizado = normalizarGrupo(grupo)
+                termos.any { normalizado.contains(normalizarGrupo(it)) }
+            }
+            .flatMap { (_, itensDoGrupo) -> itensDoGrupo }
+            .distinctBy { it.id }
+            .take(40)
+        itens.takeIf { it.isNotEmpty() }?.let {
+            FileiraCatalogo(titulo = nomeServico, itens = it, servico = nomeServico)
+        }
+    }
+
+    val gruposTodos = (catalogo.filmes + catalogo.series)
+        .filter { it.categoria.isNotBlank() && it.imagemUrl.isNotBlank() && it.streamUrl.isNotBlank() }
+        .groupBy { it.categoria }
+    val regrasGerais = listOf(
+        listOf("alta", "popular", "trending", "top") to "FILMES EM ALTA",
+        listOf("lancamento", "lancamentos", "novidade", "premiere", "new") to "LANÇAMENTOS",
+        listOf("asterisco", "estrela", "*") to "DESTAQUES"
+    )
+    val fileirasGerais = regrasGerais.mapNotNull { (termos, tituloPadrao) ->
+        val itens = gruposTodos
             .filter { (grupo, _) ->
                 val grupoNormalizado = normalizarGrupo(grupo)
                 termos.any { termo ->
@@ -77,6 +110,7 @@ fun gerarFileirasEspeciais(catalogo: PlaylistCatalog): List<FileiraCatalogo> {
             FileiraCatalogo(titulo = tituloPadrao, itens = it)
         }
     }
+    return fileirasDeServico + fileirasGerais
 }
 
 private fun normalizarGrupo(valor: String): String {
