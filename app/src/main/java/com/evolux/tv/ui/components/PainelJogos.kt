@@ -56,7 +56,7 @@ fun PainelJogosDoDia(
             if (jogos.isEmpty()) {
                 val transicao = rememberInfiniteTransition(label = "futebol_vazio")
                 val brilho by transicao.animateFloat(
-                    initialValue = 0.76f,
+                    initialValue = 0.94f,
                     targetValue = 1f,
                     animationSpec = infiniteRepeatable(
                         animation = tween(durationMillis = 2400),
@@ -77,7 +77,7 @@ fun PainelJogosDoDia(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(245.dp)
-                        .background(Color(0xA80A0E1A))
+                        .background(Color(0x350A0E1A))
                 )
             }
             Column(modifier = Modifier.padding(20.dp)) {
@@ -121,16 +121,20 @@ fun PainelJogosDoDia(
             ) {
                 EvoluxClickableSurface(
                     onClick = aoAbrirCanal,
-                    containerColor = Color(0xFF111A2B),
+                    containerColor = Color.Transparent,
+                    focusedColor = Color.Transparent,
                     modifier = Modifier
-                        .widthIn(min = 220.dp, max = 290.dp)
-                        .height(38.dp)
+                        .widthIn(min = 270.dp, max = 330.dp)
+                        .height(42.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
-                            "VER JOGOS DO DIA",
+                            text = "VER JOGOS DO DIA",
                             color = TextoClaro,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false,
+                            modifier = Modifier.padding(horizontal = 18.dp)
                         )
                     }
                 }
