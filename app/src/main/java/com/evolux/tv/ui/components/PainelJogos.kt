@@ -125,12 +125,11 @@ fun PainelJogosDoDia(
                     modifier = Modifier
                         .widthIn(min = 220.dp, max = 290.dp)
                         .height(38.dp)
-                        .border(1.dp, Dourado.copy(alpha = 0.85f), RoundedCornerShape(10.dp))
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
                             "VER JOGOS DO DIA",
-                            color = Dourado,
+                            color = TextoClaro,
                             fontWeight = FontWeight.Bold
                         )
                     }
