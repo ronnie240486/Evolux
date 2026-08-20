@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import com.evolux.tv.data.EvoluxRepository
 import com.evolux.tv.data.EvoluxConfig
@@ -63,6 +65,7 @@ fun EvoluxApp() {
     var macAutorizado by remember { mutableStateOf("") }
     var catalogo by remember { mutableStateOf<PlaylistCatalog?>(null) }
     var estadoLogin by remember { mutableStateOf<EstadoLoginMac>(EstadoLoginMac.Ocioso) }
+    var validacaoEmAndamento by remember { mutableStateOf(false) }
 
     suspend fun carregarCatalogo(configuracao: EvoluxConfig): Boolean {
         val urlPlaylist = configuracao.primeiraPlaylistValida
@@ -75,35 +78,11 @@ fun EvoluxApp() {
         }
     }
 
-    LaunchedEffect(Unit) {
-        if (macJaAutorizado && macLogico.isNotBlank()) {
-            estadoLogin = EstadoLoginMac.Carregando
-            when (val resultado = repository.buscarConfiguracao(macLogico)) {
-                is ResultadoConfiguracao.Sucesso -> {
-                    if (carregarCatalogo(resultado.configuracao)) {
-                        macAutorizado = resultado.configuracao.mac
-                        preferencias.edit()
-                            .putString(CHAVE_MAC_LOGICO, resultado.configuracao.mac)
-                            .putBoolean(CHAVE_MAC_AUTORIZADO, true)
-                            .apply()
-                        estadoLogin = EstadoLoginMac.Ocioso
-                    } else {
-                        estadoLogin = EstadoLoginMac.Erro(
-                            "Lista indisponível ou credenciais inválidas",
-                            "A resposta não pôde ser interpretada como catálogo de canais, filmes ou séries."
-                        )
-                    }
-                }
-                is ResultadoConfiguracao.Erro -> {
-                    estadoLogin = EstadoLoginMac.Erro(resultado.mensagem, resultado.detalhe)
-                }
-            }
-        }
-    }
-
-    val aoTentarLogin: (String) -> Unit = { macInformado ->
-        escopo.launch {
-            estadoLogin = EstadoLoginMac.Carregando
+    suspend fun validarAcesso(macInformado: String, mostrarCarregando: Boolean = true) {
+        if (validacaoEmAndamento || macAutorizado.isNotBlank()) return
+        validacaoEmAndamento = true
+        if (mostrarCarregando) estadoLogin = EstadoLoginMac.Carregando
+        try {
             when (val resultado = repository.buscarConfiguracao(macInformado)) {
                 is ResultadoConfiguracao.Sucesso -> {
                     if (carregarCatalogo(resultado.configuracao)) {
@@ -121,11 +100,37 @@ fun EvoluxApp() {
                     }
                 }
                 is ResultadoConfiguracao.Erro -> {
-                    macAutorizado = ""
                     preferencias.edit().putBoolean(CHAVE_MAC_AUTORIZADO, false).apply()
                     estadoLogin = EstadoLoginMac.Erro(resultado.mensagem, resultado.detalhe)
                 }
             }
+        } finally {
+            validacaoEmAndamento = false
+        }
+    }
+
+    LaunchedEffect(macJaAutorizado, macLogico) {
+        if (macJaAutorizado && macLogico.isNotBlank() && macAutorizado.isBlank()) {
+            validarAcesso(macLogico)
+        }
+    }
+
+    LaunchedEffect(macLogico, macAutorizado) {
+        if (macAutorizado.isBlank()) {
+            while (isActive) {
+                delay(5_000)
+                if (macAutorizado.isBlank()) {
+                    validarAcesso(macLogico, mostrarCarregando = false)
+                } else {
+                    break
+                }
+            }
+        }
+    }
+
+    val aoTentarLogin: (String) -> Unit = { macInformado ->
+        escopo.launch {
+            validarAcesso(macInformado, mostrarCarregando = true)
         }
     }
     if (macAutorizado.isBlank()) {

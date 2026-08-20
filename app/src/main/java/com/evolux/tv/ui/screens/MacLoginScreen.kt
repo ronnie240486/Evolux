@@ -38,7 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.tv.material3.Button
+import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.SurfaceDefaults
@@ -176,46 +176,34 @@ fun MacLoginScreen(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Button(
-                            onClick = aoCopiarMac,
-                            enabled = estado !is EstadoLoginMac.Carregando,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("COPIAR MAC", fontWeight = FontWeight.Bold)
-                        }
-                        Button(
-                            onClick = { aoTentarLogin(macDigitado) },
-                            enabled = estado !is EstadoLoginMac.Carregando,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = if (estado is EstadoLoginMac.Carregando) "VALIDANDO..." else "VALIDAR APARELHO",
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                        AcaoLogin(
+                            texto = "COPIAR MAC",
+                            habilitada = estado !is EstadoLoginMac.Carregando,
+                            aoClicar = aoCopiarMac
+                        )
+                        AcaoLogin(
+                            texto = if (estado is EstadoLoginMac.Carregando) "VALIDANDO..." else "VALIDAR APARELHO",
+                            habilitada = estado !is EstadoLoginMac.Carregando,
+                            aoClicar = { aoTentarLogin(macDigitado) }
+                        )
                     }
                 } else {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Button(
-                            onClick = aoCopiarMac,
-                            enabled = estado !is EstadoLoginMac.Carregando,
+                        AcaoLogin(
+                            texto = "COPIAR MAC",
+                            habilitada = estado !is EstadoLoginMac.Carregando,
+                            aoClicar = aoCopiarMac,
                             modifier = Modifier.weight(1f)
-                        ) {
-                            Text("COPIAR MAC", fontWeight = FontWeight.Bold)
-                        }
-                        Button(
-                            onClick = { aoTentarLogin(macDigitado) },
-                            enabled = estado !is EstadoLoginMac.Carregando,
+                        )
+                        AcaoLogin(
+                            texto = if (estado is EstadoLoginMac.Carregando) "VALIDANDO..." else "VALIDAR APARELHO",
+                            habilitada = estado !is EstadoLoginMac.Carregando,
+                            aoClicar = { aoTentarLogin(macDigitado) },
                             modifier = Modifier.weight(1f)
-                        ) {
-                            Text(
-                                text = if (estado is EstadoLoginMac.Carregando) "VALIDANDO..." else "VALIDAR APARELHO",
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                        )
                     }
                 }
 
@@ -268,6 +256,37 @@ fun MacLoginScreen(
                     )
                 }
             }
+        }
+    }
+}
+
+
+@Composable
+private fun AcaoLogin(
+    texto: String,
+    habilitada: Boolean,
+    aoClicar: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = aoClicar,
+        enabled = habilitada,
+        shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
+        colors = ClickableSurfaceDefaults.colors(containerColor = Dourado),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(52.dp)
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = texto,
+                color = Color(0xFF111111),
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
