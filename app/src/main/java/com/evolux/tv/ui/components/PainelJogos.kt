@@ -1,5 +1,11 @@
 package com.evolux.tv.ui.components
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -9,10 +15,12 @@ import androidx.compose.material.icons.filled.SportsSoccer
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -24,6 +32,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
+import com.evolux.tv.R
 import com.evolux.tv.data.Jogo
 import com.evolux.tv.ui.theme.Dourado
 import com.evolux.tv.ui.theme.TextoCinza
@@ -43,7 +52,35 @@ fun PainelJogosDoDia(
             .fillMaxWidth()
             .border(1.dp, Color(0xFF1F2740), RoundedCornerShape(16.dp))
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            if (jogos.isEmpty()) {
+                val transicao = rememberInfiniteTransition(label = "futebol_vazio")
+                val brilho by transicao.animateFloat(
+                    initialValue = 0.76f,
+                    targetValue = 1f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(durationMillis = 2400),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "brilho_futebol"
+                )
+                Image(
+                    painter = painterResource(R.drawable.evolux_no_games_football),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(245.dp)
+                        .alpha(brilho)
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(245.dp)
+                        .background(Color(0xA80A0E1A))
+                )
+            }
+            Column(modifier = Modifier.padding(20.dp)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.semantics { heading() }
@@ -61,8 +98,15 @@ fun PainelJogosDoDia(
             if (jogos.isEmpty()) {
                 Text(
                     text = "Nenhum jogo futuro encontrado hoje.",
-                    color = TextoCinza,
+                    color = TextoClaro,
+                    fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "A bola volta a rolar em breve.",
+                    color = Dourado,
+                    style = MaterialTheme.typography.bodySmall
                 )
             } else {
                 jogos.forEach { jogo ->
@@ -88,6 +132,7 @@ fun PainelJogosDoDia(
             }
         }
     }
+}
 }
 
 @Composable
