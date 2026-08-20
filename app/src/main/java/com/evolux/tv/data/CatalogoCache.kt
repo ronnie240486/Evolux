@@ -13,8 +13,9 @@ import java.io.FileOutputStream
 import java.security.MessageDigest
 
 object CatalogoCache {
-    private const val NOME_ARQUIVO = "evolux-catalogo-cache-v2.bin"
-    private const val MAGIC = "EVOLUX-CATALOG-2"
+    private const val NOME_ARQUIVO = "evolux-catalogo-cache-v3.bin"
+    private const val MAGIC = "EVOLUX-CATALOG-3"
+    private const val PARSER_VERSION = "m3u-group-family-v4"
     private const val MAX_CACHE_BYTES = 64L * 1024L * 1024L
 
     suspend fun carregar(contexto: Context, fingerprint: String): PlaylistCatalog? = withContext(Dispatchers.IO) {
@@ -64,6 +65,8 @@ object CatalogoCache {
             append(urlAtiva.orEmpty())
             append("|app=")
             append(configuracao.appId)
+            append("|parser=")
+            append(PARSER_VERSION)
         }
         val digest = MessageDigest.getInstance("SHA-256").digest(entrada.toByteArray())
         return digest.joinToString("") { "%02x".format(it) }

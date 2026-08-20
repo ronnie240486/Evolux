@@ -60,3 +60,11 @@ A entrada `The Hunt (2026)` possui uma capa TMDB cujo valor contém vírgulas. D
 Não há conflito equivalente para `Series |`: os 16.336 registros desse grupo estão no caminho de séries. Portanto, a regra final é **grupo primeiro; URL somente como confirmação**. Isso evita exatamente o erro de colocar `24/7 FILMES`, `FILMES E SÉRIES` ou `Reels Shorts` dentro de Filmes.
 
 Após corrigir a leitura da primeira vírgula fora das aspas — necessária porque algumas capas TMDB têm vírgulas no valor de `tvg-logo` — os totais de referência pela família do grupo são: **16.336 séries, 21.395 filmes e 2.771 canais**. A soma é 40.502 entradas.
+
+## Diagnóstico adicional do erro observado no aparelho
+
+O catálogo binário anterior usava o mesmo nome/magic e não incluía a versão das regras de classificação no fingerprint. Assim, uma atualização do APK podia continuar exibindo um catálogo antigo, no qual canais já haviam sido colocados em Filmes e séries haviam sido perdidas. A correção passa a usar `evolux-catalogo-cache-v3.bin`, magic `EVOLUX-CATALOG-3` e a versão do parser no fingerprint; o primeiro carregamento da nova versão força uma leitura nova da M3U.
+
+O teste temporário do parser sobre a cópia normalizada da M3U real passou com 2.771 canais, 21.395 filmes e 16.336 episódios de séries. O teste verificou AMC como canal, Reels Shorts como canal, Carrossel Mágico como filme e Reacher S04E04 como série.
+
+A busca literal pela palavra `Crushall` no arquivo da URL fornecida não encontrou entradas. O grupo semelhante presente nessa resposta é `Series | Crunchyroll`, com 12 entradas. Portanto, se o usuário espera mais de 200 itens nessa categoria, o aplicativo instalado está recebendo outra lista, uma versão diferente do painel ou um catálogo cacheado anterior; a nova versão invalida esse cache.

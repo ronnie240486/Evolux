@@ -257,14 +257,20 @@ fun EvoluxApp() {
         )
         return
     }
-    val todasAsMidias = remember(catalogoAtual) {
-        catalogoAtual.filmes + catalogoAtual.series
+    val catalogoApresentacao = remember(catalogoAtual) {
+        catalogoAtual.copy(
+            filmes = catalogoAtual.filmes.filter { pertenceAFamiliaFilmes(it.categoria) },
+            series = catalogoAtual.series.filter { pertenceAFamiliaSeries(it.categoria) }
+        )
     }
-    val destaques = remember(catalogoAtual) {
-        gerarDestaques(catalogoAtual)
+    val todasAsMidias = remember(catalogoApresentacao) {
+        catalogoApresentacao.filmes + catalogoApresentacao.series
     }
-    val fileirasEspeciais = remember(catalogoAtual) {
-        gerarFileirasEspeciais(catalogoAtual)
+    val destaques = remember(catalogoApresentacao) {
+        gerarDestaques(catalogoApresentacao)
+    }
+    val fileirasEspeciais = remember(catalogoApresentacao) {
+        gerarFileirasEspeciais(catalogoApresentacao)
     }
     val favoritos = remember { mutableStateListOf<Midia>() }
 
@@ -349,11 +355,11 @@ fun EvoluxApp() {
             when (telaAtual) {
             Tela.INICIO -> HomeScreen(
                 destaques = destaques,
-                canaisCount = catalogoAtual.canais.size,
-                filmesCount = catalogoAtual.filmes.size,
-                seriesCount = catalogoAtual.series.size,
-                filmes = catalogoAtual.filmes,
-                series = catalogoAtual.series,
+                canaisCount = catalogoApresentacao.canais.size,
+                filmesCount = catalogoApresentacao.filmes.size,
+                seriesCount = catalogoApresentacao.series.size,
+                filmes = catalogoApresentacao.filmes,
+                series = catalogoApresentacao.series,
                 fileirasEspeciais = fileirasEspeciais,
                 aoAbrirMidia = { abrirConteudo(it.titulo, it.streamUrl) },
                 aoAssistirDestaque = { abrirConteudo(it.titulo, it.streamUrl) },
@@ -374,7 +380,7 @@ fun EvoluxApp() {
 
             Tela.FILMES -> GradeMidiaScreen(
                 titulo = "Filmes",
-                itens = catalogoAtual.filmes,
+                itens = catalogoApresentacao.filmes,
                 aoSelecionar = { abrirConteudo(it.titulo, it.streamUrl) },
                 ehFavorito = ehFavorito,
                 aoAlternarFavorito = aoAlternarFavorito,
@@ -384,7 +390,7 @@ fun EvoluxApp() {
             )
 
             Tela.SERIES -> SeriesBrowserScreen(
-                itens = catalogoAtual.series,
+                itens = catalogoApresentacao.series,
                 aoAssistir = { abrirConteudo(it.episodioNome ?: it.titulo, it.streamUrl) },
                 categoriasOcultas = ocultasSeries,
                 ordemInicial = ordens["series"] ?: OrdemCatalogo.PADRAO,
@@ -427,4 +433,14 @@ fun EvoluxApp() {
         }
     }
 }
+}
+
+private fun pertenceAFamiliaFilmes(categoria: String): Boolean {
+    val normalizada = categoria.lowercase()
+    return normalizada == "filmes" || normalizada.startsWith("filmes |") || normalizada.startsWith("filmes -")
+}
+
+private fun pertenceAFamiliaSeries(categoria: String): Boolean {
+    val normalizada = categoria.lowercase()
+    return normalizada == "series" || normalizada.startsWith("series |") || normalizada.startsWith("series -")
 }
