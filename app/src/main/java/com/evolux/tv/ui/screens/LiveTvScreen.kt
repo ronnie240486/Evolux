@@ -24,13 +24,15 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Text
 import com.evolux.tv.data.Canal
-import com.evolux.tv.data.SampleData
 import com.evolux.tv.ui.theme.Dourado
 import com.evolux.tv.ui.theme.TextoCinza
 import com.evolux.tv.ui.theme.TextoClaro
 
 @Composable
-fun LiveTvScreen(aoAbrirCanal: (Canal) -> Unit) {
+fun LiveTvScreen(
+    canais: List<Canal>,
+    aoAbrirCanal: (Canal) -> Unit
+) {
     Column(modifier = Modifier.padding(24.dp)) {
         Text(
             "TV AO VIVO",
@@ -44,7 +46,7 @@ fun LiveTvScreen(aoAbrirCanal: (Canal) -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            items(SampleData.canaisAoVivo) { canal ->
+            items(canais) { canal ->
                 CardCanal(canal, aoClicar = { aoAbrirCanal(canal) })
             }
         }

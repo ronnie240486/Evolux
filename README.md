@@ -26,7 +26,7 @@ Para gerar o APK Debug pelo GitHub, abra a aba **Actions**, execute o workflow *
 - Tema de cores centralizado em `ui/theme/Theme.kt`.
 - Favoritos funcionais nas fileiras e grades: o usuário pode adicionar ou remover títulos pelo D-pad, e a seleção é persistida localmente entre sessões.
 - Permissão de internet declarada no manifesto para carregar as imagens HTTPS usadas pelos dados de demonstração.
-- Login por endereço MAC com detecção opcional do MAC de rede, entrada manual, validação do endpoint remoto e persistência apenas do MAC autorizado.
+- Login por MAC lógico: o app gera um valor novo na primeira instalação, exibe-o, permite copiá-lo para cadastro no painel e o mantém persistido durante a instalação.
 - Parser tolerante a campos nulos, incluindo `app_name`, e verificação da primeira playlist antes de liberar o acesso.
 - Identidade visual futurista do Evolux integrada ao login, ao banner do Android TV e ao ícone do launcher.
 
@@ -57,14 +57,14 @@ Para gerar o APK Debug pelo GitHub, abra a aba **Actions**, execute o workflow *
 Os assets finais estão em `assets/evolux_logo_futurista_final.png` e `assets/evolux_app_icon_futurista_final.png`. As cópias usadas pelo APK ficam em `app/src/main/res/drawable/evolux_logo.png` e `app/src/main/res/drawable/evolux_icon.png`.
 
 ## Login por MAC
-Na abertura, o Evolux consulta a configuração em `https://renciaapp.manus.space/api/v5/apps/evolux/config?mac=...` somente depois que o MAC é informado ou detectado. O aplicativo exige `registered = true`, `allowed = true` e uma primeira URL HTTP/HTTPS de playlist que responda sem erro, sem HTML e sem `Content-Type: text/html`.
+Na primeira abertura, o Evolux gera um MAC lógico novo no formato `AA:BB:CC:DD:EE:FF`, mostra o valor na tela e oferece `COPIAR MAC`. Depois de cadastrar esse MAC no painel, use `VALIDAR APARELHO`; então o app consulta `https://renciaapp.manus.space/api/v5/apps/evolux/config?mac=...`, exigindo `registered = true`, `allowed = true` e uma primeira URL HTTP/HTTPS de playlist que responda sem erro, sem HTML e sem `Content-Type: text/html`.
 
-O MAC autorizado é salvo localmente para revalidação na próxima abertura. URLs de playlist não são persistidas, pois podem conter credenciais. Se o backend responder com dados nulos, HTML, HTTP 403 ou playlist vazia, o Evolux mostra `Lista indisponível ou credenciais inválidas` sem travar. Por compatibilidade com fontes legadas, o APK aceita playlist HTTP; para produção, prefira sempre HTTPS.
+O MAC lógico é salvo localmente e permanece igual até a desinstalação do APK. URLs de playlist não são persistidas, pois podem conter credenciais. Se o backend responder com dados nulos, HTML, HTTP 403 ou playlist vazia, o Evolux mostra `Lista indisponível ou credenciais inválidas` sem travar. Por compatibilidade com fontes legadas, o APK aceita playlist HTTP; para produção, prefira sempre HTTPS.
 
 Os requisitos detalhados estão em [`docs/login-mac-requirements.md`](docs/login-mac-requirements.md).
 
 ## Próximas melhorias recomendadas
-A próxima etapa natural é substituir os callbacks vazios por um player Media3/ExoPlayer e trocar o estado de demonstração por um `ViewModel` com `StateFlow`. Também vale migrar a persistência de favoritos para DataStore quando o contrato de dados estiver definido.
+A próxima etapa natural é substituir os callbacks vazios por um player Media3/ExoPlayer e trocar o estado de demonstração por um `ViewModel` com `StateFlow`. Também vale migrar a persistência de favoritos para DataStore quando o contrato de dados estiver definido. O carregamento de playlist válida deve alimentar o catálogo remoto antes de liberar as telas de conteúdo.
 
 ## Onde plugar conteúdo de verdade
 Tudo hoje usa dados de exemplo em `data/SampleData.kt` (com imagens de

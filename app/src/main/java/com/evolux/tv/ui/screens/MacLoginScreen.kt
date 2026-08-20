@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -57,6 +58,7 @@ sealed interface EstadoLoginMac {
 fun MacLoginScreen(
     estado: EstadoLoginMac,
     macInicial: String = "",
+    aoCopiarMac: () -> Unit,
     aoTentarLogin: (String) -> Unit
 ) {
     var macDigitado by remember(macInicial) { mutableStateOf(macInicial) }
@@ -96,7 +98,7 @@ fun MacLoginScreen(
             )
             Spacer(Modifier.height(10.dp))
             Text(
-                text = "Informe o MAC autorizado para carregar a configuração do aparelho.",
+                text = "Este é o MAC lógico deste aparelho. Copie-o, cadastre-o no painel e depois valide o acesso.",
                 color = TextoCinza,
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center
@@ -123,6 +125,7 @@ fun MacLoginScreen(
                             .uppercase()
                     },
                     singleLine = true,
+                    readOnly = true,
                     textStyle = TextStyle(
                         color = TextoClaro,
                         fontSize = MaterialTheme.typography.titleLarge.fontSize,
@@ -152,19 +155,31 @@ fun MacLoginScreen(
             }
             Spacer(Modifier.height(18.dp))
 
-            Button(
-                onClick = { aoTentarLogin(macDigitado) },
-                enabled = estado !is EstadoLoginMac.Carregando,
-                modifier = Modifier.fillMaxWidth()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    text = if (estado is EstadoLoginMac.Carregando) {
-                        "VALIDANDO..."
-                    } else {
-                        "VALIDAR APARELHO"
-                    },
-                    fontWeight = FontWeight.Bold
-                )
+                Button(
+                    onClick = aoCopiarMac,
+                    enabled = estado !is EstadoLoginMac.Carregando,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("COPIAR MAC", fontWeight = FontWeight.Bold)
+                }
+                Button(
+                    onClick = { aoTentarLogin(macDigitado) },
+                    enabled = estado !is EstadoLoginMac.Carregando,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = if (estado is EstadoLoginMac.Carregando) {
+                            "VALIDANDO..."
+                        } else {
+                            "VALIDAR APARELHO"
+                        },
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
 
             when (val estadoAtual = estado) {
@@ -183,6 +198,14 @@ fun MacLoginScreen(
                     )
                 }
             }
+
+            Text(
+                text = "O MAC permanece o mesmo nesta instalação. Se reinstalar o APK, um novo MAC será gerado.",
+                color = TextoCinza,
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(8.dp))
 
             val macValido = MacAddressUtils.normalizar(macDigitado) != null
             if (macDigitado.isNotBlank() && !macValido && estado !is EstadoLoginMac.Carregando) {

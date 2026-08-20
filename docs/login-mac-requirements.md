@@ -2,7 +2,7 @@
 
 ## Endpoint de configuração
 
-O aplicativo deve consultar por `GET` a rota abaixo, substituindo o valor de `mac` pelo endereço informado ou detectado no aparelho:
+O aplicativo deve gerar um MAC lógico novo na primeira instalação, exibi-lo na tela de acesso e permitir que o usuário o copie para cadastro no painel. Depois do cadastro, o APK deve consultar por `GET` a rota abaixo usando sempre o mesmo valor persistido:
 
 ```text
 https://renciaapp.manus.space/api/v5/apps/evolux/config?mac=AA:BB:CC:DD:EE:FF
@@ -20,14 +20,14 @@ A primeira URL válida de `playlist_urls` deve ser escolhida. Respostas HTTP mal
 
 ## Fluxo esperado
 
-1. O usuário informa o MAC quando o sistema não conseguir detectá-lo automaticamente.
-2. O aplicativo normaliza o valor para o formato `AA:BB:CC:DD:EE:FF`.
-3. O Evolux consulta o endpoint de configuração.
-4. Se `registered` ou `allowed` forem falsos, o acesso é negado sem travamento.
-5. Se a resposta for válida, o MAC é salvo localmente e o aplicativo pode continuar usando a aparência padrão quando os assets vierem vazios.
-6. A playlist deverá ser carregada somente após validar status HTTP, conteúdo HTML e URL válida.
+1. Na primeira instalação, o Evolux gera um MAC lógico aleatório, localmente administrado, no formato `AA:BB:CC:DD:EE:FF`.
+2. A tela exibe esse MAC e oferece o botão `COPIAR MAC` para cadastro no painel.
+3. O valor permanece salvo nesta instalação; o APK não depende do MAC físico da rede.
+4. Depois do cadastro, o usuário aciona `VALIDAR APARELHO` e o Evolux consulta o endpoint de configuração.
+5. Se `registered` ou `allowed` forem falsos, o acesso é negado sem travamento.
+6. Se a resposta for válida, a primeira playlist válida é carregada somente após validar status HTTP, conteúdo HTML e URL válida.
 
-O MAC de teste informado no PDF foi `8C:97:31:CD:31:8A`. Ele não deve ser fixado no aplicativo.
+O MAC `8C:97:31:CD:31:8A` informado no PDF continua sendo o aparelho de teste do endpoint; o APK de distribuição gera um MAC lógico próprio para cada instalação, que deve ser cadastrado no painel antes da validação.
 
 ## Observação do endpoint real
 

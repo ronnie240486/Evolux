@@ -1,7 +1,10 @@
 package com.evolux.tv
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -12,7 +15,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
 import com.evolux.tv.data.EvoluxRepository
-import com.evolux.tv.data.MacAddressProvider
+import com.evolux.tv.data.EvoluxConfig
+import com.evolux.tv.data.MacAddressUtils
+import com.evolux.tv.data.PlaylistCatalog
+import com.evolux.tv.data.PlaylistRepository
 import com.evolux.tv.data.Midia
 import com.evolux.tv.data.ResultadoConfiguracao
 import com.evolux.tv.data.SampleData
@@ -23,7 +29,8 @@ import com.evolux.tv.ui.theme.FundoEscuro
 import com.evolux.tv.ui.theme.EvoluxTheme
 
 private const val CHAVE_FAVORITOS = "favoritos_ids"
-private const val CHAVE_MAC = "mac_autorizado"
+private const val CHAVE_MAC_LOGICO = "mac_logico_evolux"
+private const val CHAVE_MAC_AUTORIZADO = "mac_autorizado_confirmado"
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,24 +50,46 @@ fun EvoluxApp() {
     val preferencias = remember(contexto) {
         contexto.getSharedPreferences("evolux_preferencias", Context.MODE_PRIVATE)
     }
-    val macSalvo = preferencias.getString(CHAVE_MAC, "").orEmpty()
-    val macDetectado = remember { MacAddressProvider.detectar().orEmpty() }
-    val macInicial = macSalvo.ifBlank { macDetectado }
+    val macLogico = remember(preferencias) {
+        preferencias.getString(CHAVE_MAC_LOGICO, null) ?: MacAddressUtils.gerarMacLogico().also { novoMac ->
+            preferencias.edit().putString(CHAVE_MAC_LOGICO, novoMac).apply()
+        }
+    }
+    val macInicial = macLogico
+    val macJaAutorizado = preferencias.getBoolean(CHAVE_MAC_AUTORIZADO, false)
     val repository = remember { EvoluxRepository() }
+    val playlistRepository = remember { PlaylistRepository() }
     val escopo = rememberCoroutineScope()
     var macAutorizado by remember { mutableStateOf("") }
+    var catalogo by remember { mutableStateOf<PlaylistCatalog?>(null) }
     var estadoLogin by remember { mutableStateOf<EstadoLoginMac>(EstadoLoginMac.Ocioso) }
 
+    suspend fun carregarCatalogo(configuracao: EvoluxConfig): Boolean {
+        val urlPlaylist = configuracao.primeiraPlaylistValida
+        if (urlPlaylist == null) return false
+        return try {
+            catalogo = playlistRepository.carregar(urlPlaylist)
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     LaunchedEffect(Unit) {
-        if (macSalvo.isNotBlank()) {
+        if (macJaAutorizado && macLogico.isNotBlank()) {
             estadoLogin = EstadoLoginMac.Carregando
-            when (val resultado = repository.buscarConfiguracao(macSalvo)) {
+            when (val resultado = repository.buscarConfiguracao(macLogico)) {
                 is ResultadoConfiguracao.Sucesso -> {
-                    macAutorizado = resultado.configuracao.mac
-                    preferencias.edit()
-                        .putString(CHAVE_MAC, resultado.configuracao.mac)
-                        .apply()
-                    estadoLogin = EstadoLoginMac.Ocioso
+                    if (carregarCatalogo(resultado.configuracao)) {
+                        macAutorizado = resultado.configuracao.mac
+                        preferencias.edit()
+                            .putString(CHAVE_MAC_LOGICO, resultado.configuracao.mac)
+                            .putBoolean(CHAVE_MAC_AUTORIZADO, true)
+                            .apply()
+                        estadoLogin = EstadoLoginMac.Ocioso
+                    } else {
+                        estadoLogin = EstadoLoginMac.Erro("Lista indisponível ou credenciais inválidas")
+                    }
                 }
                 is ResultadoConfiguracao.Erro -> {
                     estadoLogin = EstadoLoginMac.Erro(resultado.mensagem)
@@ -74,14 +103,20 @@ fun EvoluxApp() {
             estadoLogin = EstadoLoginMac.Carregando
             when (val resultado = repository.buscarConfiguracao(macInformado)) {
                 is ResultadoConfiguracao.Sucesso -> {
-                    macAutorizado = resultado.configuracao.mac
-                    preferencias.edit()
-                        .putString(CHAVE_MAC, resultado.configuracao.mac)
-                        .apply()
-                    estadoLogin = EstadoLoginMac.Ocioso
+                    if (carregarCatalogo(resultado.configuracao)) {
+                        macAutorizado = resultado.configuracao.mac
+                        preferencias.edit()
+                            .putString(CHAVE_MAC_LOGICO, resultado.configuracao.mac)
+                            .putBoolean(CHAVE_MAC_AUTORIZADO, true)
+                            .apply()
+                        estadoLogin = EstadoLoginMac.Ocioso
+                    } else {
+                        estadoLogin = EstadoLoginMac.Erro("Lista indisponível ou credenciais inválidas")
+                    }
                 }
                 is ResultadoConfiguracao.Erro -> {
                     macAutorizado = ""
+                    preferencias.edit().putBoolean(CHAVE_MAC_AUTORIZADO, false).apply()
                     estadoLogin = EstadoLoginMac.Erro(resultado.mensagem)
                 }
             }
@@ -91,15 +126,19 @@ fun EvoluxApp() {
         MacLoginScreen(
             estado = estadoLogin,
             macInicial = macInicial,
+            aoCopiarMac = {
+                val clipboard = contexto.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("MAC do Evolux", macInicial))
+                Toast.makeText(contexto, "MAC copiado", Toast.LENGTH_SHORT).show()
+            },
             aoTentarLogin = aoTentarLogin
         )
         return
     }
 
-    val todasAsMidias = remember {
-        SampleData.lancamentosFilmes +
-            SampleData.lancamentosSeries +
-            SampleData.continuarAssistindo
+    val catalogoAtual = catalogo ?: return
+    val todasAsMidias = remember(catalogoAtual) {
+        catalogoAtual.filmes + catalogoAtual.series
     }
     val favoritos = remember { mutableStateListOf<Midia>() }
 
@@ -133,6 +172,8 @@ fun EvoluxApp() {
 
         when (telaAtual) {
             Tela.INICIO -> HomeScreen(
+                filmes = catalogoAtual.filmes,
+                series = catalogoAtual.series,
                 aoAbrirMidia = { /* abrir player com midia.streamUrl */ },
                 aoAssistirDestaque = { /* abrir player com destaque.streamUrl */ },
                 ehFavorito = ehFavorito,
@@ -140,12 +181,13 @@ fun EvoluxApp() {
             )
 
             Tela.TV_AO_VIVO -> LiveTvScreen(
+                canais = catalogoAtual.canais,
                 aoAbrirCanal = { /* abrir player com canal.streamUrl */ }
             )
 
             Tela.FILMES -> GradeMidiaScreen(
                 titulo = "Filmes",
-                itens = SampleData.lancamentosFilmes,
+                itens = catalogoAtual.filmes,
                 aoSelecionar = { /* abrir player */ },
                 ehFavorito = ehFavorito,
                 aoAlternarFavorito = aoAlternarFavorito
@@ -153,7 +195,7 @@ fun EvoluxApp() {
 
             Tela.SERIES -> GradeMidiaScreen(
                 titulo = "Séries",
-                itens = SampleData.lancamentosSeries,
+                itens = catalogoAtual.series,
                 aoSelecionar = { /* abrir player */ },
                 ehFavorito = ehFavorito,
                 aoAlternarFavorito = aoAlternarFavorito
@@ -174,8 +216,9 @@ fun EvoluxApp() {
 
             Tela.CONFIGURACOES -> SettingsScreen(
                 aoTrocarMac = {
-                    preferencias.edit().remove(CHAVE_MAC).apply()
+                    preferencias.edit().putBoolean(CHAVE_MAC_AUTORIZADO, false).apply()
                     macAutorizado = ""
+                    estadoLogin = EstadoLoginMac.Ocioso
                     telaAtual = Tela.INICIO
                 }
             )

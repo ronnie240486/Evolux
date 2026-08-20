@@ -14,6 +14,8 @@ import com.evolux.tv.ui.components.PainelJogosDoDia
 
 @Composable
 fun HomeScreen(
+    filmes: List<Midia>,
+    series: List<Midia>,
     aoAbrirMidia: (Midia) -> Unit,
     aoAssistirDestaque: (Destaque) -> Unit,
     ehFavorito: (Midia) -> Boolean,
@@ -46,7 +48,7 @@ fun HomeScreen(
         item {
             MediaRow(
                 titulo = "Lançamentos de Filmes 2026",
-                itens = SampleData.lancamentosFilmes,
+                itens = filmes,
                 aoSelecionar = aoAbrirMidia,
                 ehFavorito = ehFavorito,
                 aoAlternarFavorito = aoAlternarFavorito
@@ -55,16 +57,7 @@ fun HomeScreen(
         item {
             MediaRow(
                 titulo = "Lançamentos de Séries",
-                itens = SampleData.lancamentosSeries,
-                aoSelecionar = aoAbrirMidia,
-                ehFavorito = ehFavorito,
-                aoAlternarFavorito = aoAlternarFavorito
-            )
-        }
-        item {
-            MediaRow(
-                titulo = "Continue Assistindo",
-                itens = SampleData.continuarAssistindo,
+                itens = series,
                 aoSelecionar = aoAbrirMidia,
                 ehFavorito = ehFavorito,
                 aoAlternarFavorito = aoAlternarFavorito
