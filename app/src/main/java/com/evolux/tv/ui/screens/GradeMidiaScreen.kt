@@ -1,13 +1,24 @@
 package com.evolux.tv.ui.screens
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
@@ -21,17 +32,16 @@ import coil.compose.AsyncImage
 import androidx.tv.foundation.lazy.grid.TvGridCells
 import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
 import androidx.tv.foundation.lazy.grid.items
+import androidx.tv.foundation.lazy.list.TvLazyRow
+import androidx.tv.foundation.lazy.list.items as tvRowItems
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.evolux.tv.data.Midia
 import com.evolux.tv.ui.components.EvoluxClickableSurface
 import com.evolux.tv.ui.theme.Dourado
+import com.evolux.tv.ui.theme.TextoCinza
 import com.evolux.tv.ui.theme.TextoClaro
 
-/**
- * Grade reutilizável de pôsteres. Usada nas telas de Filmes, Séries e
- * Favoritos — basta passar títulos e listas diferentes.
- */
 @Composable
 fun GradeMidiaScreen(
     titulo: String,
@@ -41,17 +51,54 @@ fun GradeMidiaScreen(
     aoAlternarFavorito: (Midia) -> Unit,
     mensagemVazio: String = "Nada por aqui ainda."
 ) {
-    Column(modifier = Modifier.padding(24.dp)) {
+    val categorias = remember(itens) {
+        listOf("Todos") + itens
+            .map { it.categoria.ifBlank { "Sem categoria" } }
+            .distinct()
+            .sorted()
+    }
+    var categoriaSelecionada by remember(itens) { mutableStateOf("Todos") }
+    val itensFiltrados = if (categoriaSelecionada == "Todos") {
+        itens
+    } else {
+        itens.filter { it.categoria.ifBlank { "Sem categoria" } == categoriaSelecionada }
+    }
+
+    Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 18.dp)) {
         Text(
             titulo.uppercase(),
             color = Dourado,
             fontWeight = FontWeight.Black,
             style = MaterialTheme.typography.headlineSmall
         )
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(12.dp))
+        TvLazyRow(
+            contentPadding = PaddingValues(vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            tvRowItems(categorias) { categoria ->
+                EvoluxClickableSurface(
+                    onClick = { categoriaSelecionada = categoria },
+                    containerColor = if (categoria == categoriaSelecionada) Color(0xFF283454) else Color(0xFF12172A),
+                    borderColor = Dourado,
+                    modifier = Modifier
+                ) {
+                    Text(
+                        text = categoria,
+                        color = if (categoria == categoriaSelecionada) Dourado else TextoClaro,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 15.dp, vertical = 10.dp)
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(14.dp))
 
-        if (itens.isEmpty()) {
-            Text(mensagemVazio, color = TextoClaro)
+        if (itensFiltrados.isEmpty()) {
+            Text(
+                if (itens.isEmpty()) mensagemVazio else "Nenhum item nesta categoria.",
+                color = TextoCinza
+            )
             return@Column
         }
 
@@ -67,7 +114,7 @@ fun GradeMidiaScreen(
                 horizontalArrangement = Arrangement.spacedBy(if (colunas == 2) 10.dp else 16.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                items(itens) { midia ->
+                items(itensFiltrados) { midia ->
                     CardPoster(
                         midia = midia,
                         favorito = ehFavorito(midia),
@@ -100,9 +147,9 @@ private fun CardPoster(
                 .scale(if (focado) 1.06f else 1f)
                 .semantics(mergeDescendants = true) {
                     contentDescription = if (favorito) {
-                        "${midia.titulo}, está nos favoritos"
+                        "${midia.titulo}, ${midia.categoria}, está nos favoritos"
                     } else {
-                        "${midia.titulo}, não está nos favoritos"
+                        "${midia.titulo}, ${midia.categoria}, não está nos favoritos"
                     }
                 }
         ) {
@@ -125,7 +172,17 @@ private fun CardPoster(
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(8.dp)
+                        .padding(horizontal = 8.dp, vertical = 7.dp)
+                )
+                Text(
+                    text = midia.categoria,
+                    color = Dourado,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp)
                 )
             }
         }

@@ -244,13 +244,27 @@ class PlaylistRepository {
         return when {
             grupoNormalizado.containsAny("series", "serie", "show", "novela", "anime", "desenho") -> {
                 if (series.size >= MAX_ITEMS_PER_CATEGORY) false else {
-                    series += Midia(id, titulo, logo, TipoMidia.SERIE, url)
+                    series += Midia(
+                        id = id,
+                        titulo = titulo,
+                        imagemUrl = logo,
+                        tipo = TipoMidia.SERIE,
+                        streamUrl = url,
+                        categoria = grupo.ifBlank { "Sem categoria" }
+                    )
                     true
                 }
             }
             grupoNormalizado.containsAny("filme", "filmes", "movie", "movies", "vod", "cinema") -> {
                 if (filmes.size >= MAX_ITEMS_PER_CATEGORY) false else {
-                    filmes += Midia(id, titulo, logo, TipoMidia.FILME, url)
+                    filmes += Midia(
+                        id = id,
+                        titulo = titulo,
+                        imagemUrl = logo,
+                        tipo = TipoMidia.FILME,
+                        streamUrl = url,
+                        categoria = grupo.ifBlank { "Sem categoria" }
+                    )
                     true
                 }
             }
@@ -290,7 +304,9 @@ class PlaylistRepository {
         const val PREFIX_BYTES = 4 * 1024
         const val BUFFER_BYTES = 8 * 1024
         const val MAX_PLAYLIST_BYTES = 8L * 1024 * 1024
-        const val MAX_TOTAL_ITEMS = 20_000
-        const val MAX_ITEMS_PER_CATEGORY = 10_000
+        // Limites de proteção contra uma resposta malformada, não um corte normal do catálogo.
+        // A playlist do usuário com cerca de 12 mil itens passa inteira.
+        const val MAX_TOTAL_ITEMS = 100_000
+        const val MAX_ITEMS_PER_CATEGORY = 50_000
     }
 }

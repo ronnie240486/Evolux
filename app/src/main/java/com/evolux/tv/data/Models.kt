@@ -23,7 +23,8 @@ data class Midia(
     val imagemUrl: String,
     val tipo: TipoMidia,
     val streamUrl: String,
-    val progresso: Float? = null // 0f..1f, usado em "Continue assistindo"
+    val progresso: Float? = null, // 0f..1f, usado em "Continue assistindo"
+    val categoria: String = ""
 )
 
 data class Canal(
