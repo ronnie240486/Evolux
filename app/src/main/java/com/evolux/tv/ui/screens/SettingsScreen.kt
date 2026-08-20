@@ -23,7 +23,7 @@ import com.evolux.tv.ui.theme.TextoClaro
 data class OpcaoConfig(val titulo: String, val descricao: String)
 
 private val opcoes = listOf(
-    OpcaoConfig("Conta", "Dados de login e assinatura"),
+    OpcaoConfig("Conta", "MAC autorizado e sessão do aparelho"),
     OpcaoConfig("Qualidade de vídeo", "Automática, 480p, 720p, 1080p, 4K"),
     OpcaoConfig("Legendas e áudio", "Idioma padrão de legenda e faixa de áudio"),
     OpcaoConfig("Controle parental", "Bloqueio por classificação indicativa"),
@@ -31,7 +31,9 @@ private val opcoes = listOf(
 )
 
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(
+    aoTrocarMac: () -> Unit
+) {
     Column(modifier = Modifier.padding(24.dp)) {
         Text(
             "CONFIGURAÇÕES",
@@ -41,17 +43,23 @@ fun SettingsScreen() {
         )
         Spacer(Modifier.height(20.dp))
         opcoes.forEach { opcao ->
-            LinhaConfig(opcao)
+            LinhaConfig(
+                opcao = opcao,
+                aoClicar = if (opcao.titulo == "Conta") aoTrocarMac else {}
+            )
             Spacer(Modifier.height(12.dp))
         }
     }
 }
 
 @Composable
-private fun LinhaConfig(opcao: OpcaoConfig) {
+private fun LinhaConfig(
+    opcao: OpcaoConfig,
+    aoClicar: () -> Unit
+) {
     var focado by remember { mutableStateOf(false) }
     Surface(
-        onClick = {},
+        onClick = aoClicar,
         shape = RoundedCornerShape(10.dp),
         colors = SurfaceDefaults.colors(containerColor = Color(0xFF12172A)),
         modifier = Modifier

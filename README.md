@@ -24,6 +24,8 @@ Jogos do Dia, Favoritos e Configurações**.
 - Tema de cores centralizado em `ui/theme/Theme.kt`.
 - Favoritos funcionais nas fileiras e grades: o usuário pode adicionar ou remover títulos pelo D-pad, e a seleção é persistida localmente entre sessões.
 - Permissão de internet declarada no manifesto para carregar as imagens HTTPS usadas pelos dados de demonstração.
+- Login por endereço MAC com detecção opcional do MAC de rede, entrada manual, validação do endpoint remoto e persistência apenas do MAC autorizado.
+- Parser tolerante a campos nulos, incluindo `app_name`, e verificação da primeira playlist antes de liberar o acesso.
 
 ## Acessibilidade (TalkBack + D-pad)
 - **Foco inicial automático**: ao abrir o app, a aba selecionada na
@@ -47,6 +49,13 @@ Jogos do Dia, Favoritos e Configurações**.
 - **Contraste**: a paleta atual (dourado/branco sobre `#0A0E1A`) já passa
   em WCAG AA/AAA para texto — inclusive o cinza secundário (`TextoCinza`)
   dá ~7.6:1 de contraste. Não precisa trocar cores.
+
+## Login por MAC
+Na abertura, o Evolux consulta a configuração em `https://renciaapp.manus.space/api/v5/apps/evolux/config?mac=...` somente depois que o MAC é informado ou detectado. O aplicativo exige `registered = true`, `allowed = true` e uma primeira URL HTTP/HTTPS de playlist que responda sem erro, sem HTML e sem `Content-Type: text/html`.
+
+O MAC autorizado é salvo localmente para revalidação na próxima abertura. URLs de playlist não são persistidas, pois podem conter credenciais. Se o backend responder com dados nulos, HTML, HTTP 403 ou playlist vazia, o Evolux mostra `Lista indisponível ou credenciais inválidas` sem travar.
+
+Os requisitos detalhados estão em [`docs/login-mac-requirements.md`](docs/login-mac-requirements.md).
 
 ## Próximas melhorias recomendadas
 A próxima etapa natural é substituir os callbacks vazios por um player Media3/ExoPlayer e trocar o estado de demonstração por um `ViewModel` com `StateFlow`. Também vale migrar a persistência de favoritos para DataStore quando o contrato de dados estiver definido.
@@ -78,7 +87,7 @@ maioria dos países.
 
 ## Estrutura
 ```
-app/src/main/java/com/imperioplay/tv/
+app/src/main/java/com/evolux/tv/
 ├── MainActivity.kt              # ponto de entrada + navegação entre telas
 ├── data/
 │   ├── Models.kt                 # Destaque, Midia, Canal, Jogo

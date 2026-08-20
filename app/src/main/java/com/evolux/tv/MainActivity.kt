@@ -10,7 +10,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import com.evolux.tv.data.EvoluxRepository
+import com.evolux.tv.data.MacAddressProvider
 import com.evolux.tv.data.Midia
+import com.evolux.tv.data.ResultadoConfiguracao
 import com.evolux.tv.data.SampleData
 import com.evolux.tv.ui.components.Tela
 import com.evolux.tv.ui.components.TopNavBar
@@ -19,6 +22,7 @@ import com.evolux.tv.ui.theme.FundoEscuro
 import com.evolux.tv.ui.theme.EvoluxTheme
 
 private const val CHAVE_FAVORITOS = "favoritos_ids"
+private const val CHAVE_MAC = "mac_autorizado"
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -38,6 +42,59 @@ fun EvoluxApp() {
     val preferencias = remember(contexto) {
         contexto.getSharedPreferences("evolux_preferencias", Context.MODE_PRIVATE)
     }
+    val macSalvo = preferencias.getString(CHAVE_MAC, "").orEmpty()
+    val macDetectado = remember { MacAddressProvider.detectar().orEmpty() }
+    val macInicial = macSalvo.ifBlank { macDetectado }
+    val repository = remember { EvoluxRepository() }
+    val escopo = rememberCoroutineScope()
+    var macAutorizado by remember { mutableStateOf("") }
+    var estadoLogin by remember { mutableStateOf<EstadoLoginMac>(EstadoLoginMac.Ocioso) }
+
+    LaunchedEffect(Unit) {
+        if (macSalvo.isNotBlank()) {
+            estadoLogin = EstadoLoginMac.Carregando
+            when (val resultado = repository.buscarConfiguracao(macSalvo)) {
+                is ResultadoConfiguracao.Sucesso -> {
+                    macAutorizado = resultado.configuracao.mac
+                    preferencias.edit()
+                        .putString(CHAVE_MAC, resultado.configuracao.mac)
+                        .apply()
+                    estadoLogin = EstadoLoginMac.Ocioso
+                }
+                is ResultadoConfiguracao.Erro -> {
+                    estadoLogin = EstadoLoginMac.Erro(resultado.mensagem)
+                }
+            }
+        }
+    }
+
+    val aoTentarLogin: (String) -> Unit = { macInformado ->
+        escopo.launch {
+            estadoLogin = EstadoLoginMac.Carregando
+            when (val resultado = repository.buscarConfiguracao(macInformado)) {
+                is ResultadoConfiguracao.Sucesso -> {
+                    macAutorizado = resultado.configuracao.mac
+                    preferencias.edit()
+                        .putString(CHAVE_MAC, resultado.configuracao.mac)
+                        .apply()
+                    estadoLogin = EstadoLoginMac.Ocioso
+                }
+                is ResultadoConfiguracao.Erro -> {
+                    macAutorizado = ""
+                    estadoLogin = EstadoLoginMac.Erro(resultado.mensagem)
+                }
+            }
+        }
+    }
+    if (macAutorizado.isBlank()) {
+        MacLoginScreen(
+            estado = estadoLogin,
+            macInicial = macInicial,
+            aoTentarLogin = aoTentarLogin
+        )
+        return
+    }
+
     val todasAsMidias = remember {
         SampleData.lancamentosFilmes +
             SampleData.lancamentosSeries +
@@ -114,7 +171,13 @@ fun EvoluxApp() {
                 mensagemVazio = "Você ainda não adicionou nada aos favoritos."
             )
 
-            Tela.CONFIGURACOES -> SettingsScreen()
+            Tela.CONFIGURACOES -> SettingsScreen(
+                aoTrocarMac = {
+                    preferencias.edit().remove(CHAVE_MAC).apply()
+                    macAutorizado = ""
+                    telaAtual = Tela.INICIO
+                }
+            )
         }
     }
 }
