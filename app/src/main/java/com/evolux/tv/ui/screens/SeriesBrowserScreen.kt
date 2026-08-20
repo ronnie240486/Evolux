@@ -63,31 +63,39 @@ fun SeriesBrowserScreen(
     itens: List<Midia>,
     aoAssistir: (Midia) -> Unit
 ) {
-    val grupos = remember(itens) {
-        itens.groupBy { item ->
-            item.serieId ?: normalizarChave(item.serieNome ?: removerMarcadorDeEpisodio(item.titulo))
-        }.map { (chave, episodios) ->
-            val ordenados = episodios.sortedWith(
-                compareBy<Midia> { it.temporadaNumero ?: 1 }
-                    .thenBy { it.episodioNumero ?: Int.MAX_VALUE }
-                    .thenBy { it.titulo }
-            )
-            GrupoSerie(
-                chave = chave,
-                nome = episodios.firstNotNullOfOrNull { it.serieNome }
-                    ?: removerMarcadorDeEpisodio(episodios.first().titulo),
-                categoria = episodios.firstOrNull()?.categoria.orEmpty().ifBlank { "Séries" },
-                capa = episodios.firstOrNull { it.imagemUrl.isNotBlank() }?.imagemUrl.orEmpty(),
-                sinopse = episodios.firstOrNull { it.sinopse.isNotBlank() }?.sinopse.orEmpty(),
-                episodios = ordenados
-            )
-        }.sortedBy { it.nome.lowercase() }
-    }
-    val categorias = remember(grupos) {
-        grupos.map { it.categoria }.distinct().sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it })
+    val categorias = remember(itens) {
+        itens.asSequence()
+            .map { it.categoria.ifBlank { "Séries" } }
+            .distinct()
+            .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it })
+            .toList()
     }
     var categoriaSelecionada by remember(categorias) {
         mutableStateOf(categorias.firstOrNull().orEmpty())
+    }
+    val grupos = remember(itens, categoriaSelecionada) {
+        itens.asSequence()
+            .filter { it.categoria.ifBlank { "Séries" } == categoriaSelecionada }
+            .groupBy { item ->
+                item.serieId ?: normalizarChave(item.serieNome ?: removerMarcadorDeEpisodio(item.titulo))
+            }
+            .map { (chave, episodios) ->
+                val ordenados = episodios.sortedWith(
+                    compareBy<Midia> { it.temporadaNumero ?: 1 }
+                        .thenBy { it.episodioNumero ?: Int.MAX_VALUE }
+                        .thenBy { it.titulo }
+                )
+                GrupoSerie(
+                    chave = chave,
+                    nome = episodios.firstNotNullOfOrNull { it.serieNome }
+                        ?: removerMarcadorDeEpisodio(episodios.first().titulo),
+                    categoria = episodios.firstOrNull()?.categoria.orEmpty().ifBlank { "Séries" },
+                    capa = episodios.firstOrNull { it.imagemUrl.isNotBlank() }?.imagemUrl.orEmpty(),
+                    sinopse = episodios.firstOrNull { it.sinopse.isNotBlank() }?.sinopse.orEmpty(),
+                    episodios = ordenados
+                )
+            }
+            .sortedBy { it.nome.lowercase() }
     }
     var serieSelecionada by remember { mutableStateOf<GrupoSerie?>(null) }
 
