@@ -256,7 +256,8 @@ fun EvoluxApp() {
                             Toast.LENGTH_LONG
                         ).show()
                     } else if (precisaCarregar) {
-                        catalogo = PlaylistCatalog(emptyList(), emptyList(), emptyList())
+                        // Não mostrar a Home com contadores zerados enquanto a playlist é baixada.
+                        catalogo = null
                         escopo.launch {
                             val erroCatalogo = carregarCatalogo(resultado.configuracao, playlistAtiva)
                             if (erroCatalogo != null) {
