@@ -37,6 +37,7 @@ fun HomeScreen(
     aoAbrirSeries: () -> Unit,
     jogosDoDia: List<Jogo> = emptyList(),
     aoAbrirJogos: () -> Unit = {},
+    aoAbrirJogo: (Jogo) -> Unit = {},
     ehFavorito: (Midia) -> Boolean,
     aoAlternarFavorito: (Midia) -> Unit
 ) {
@@ -75,7 +76,8 @@ fun HomeScreen(
                         )
                         PainelJogosDoDia(
                             jogos = jogosDoDia,
-                            aoAbrirCanal = aoAbrirJogos,
+                            aoAbrirJogo = aoAbrirJogo,
+                            aoAbrirTodos = aoAbrirJogos,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -95,7 +97,8 @@ fun HomeScreen(
                         )
                         PainelJogosDoDia(
                             jogos = jogosDoDia,
-                            aoAbrirCanal = aoAbrirJogos,
+                            aoAbrirJogo = aoAbrirJogo,
+                            aoAbrirTodos = aoAbrirJogos,
                             modifier = Modifier.fillMaxWidth(0.32f)
                         )
                     }

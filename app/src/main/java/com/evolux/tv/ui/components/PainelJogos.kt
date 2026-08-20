@@ -41,7 +41,8 @@ import com.evolux.tv.ui.theme.TextoClaro
 @Composable
 fun PainelJogosDoDia(
     jogos: List<Jogo>,
-    aoAbrirCanal: () -> Unit,
+    aoAbrirJogo: (Jogo) -> Unit,
+    aoAbrirTodos: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -110,7 +111,7 @@ fun PainelJogosDoDia(
                 )
             } else {
                 jogos.forEach { jogo ->
-                    LinhaJogo(jogo, aoClicar = aoAbrirCanal)
+                    LinhaJogo(jogo, aoClicar = { aoAbrirJogo(jogo) })
                     Spacer(Modifier.height(12.dp))
                 }
             }
@@ -120,7 +121,7 @@ fun PainelJogosDoDia(
                 contentAlignment = Alignment.Center
             ) {
                 EvoluxClickableSurface(
-                    onClick = aoAbrirCanal,
+                    onClick = aoAbrirTodos,
                     containerColor = Color.Transparent,
                     focusedColor = Color.Transparent,
                     modifier = Modifier

@@ -118,6 +118,54 @@ fun EvoluxApp() {
     var jogosDoDia by remember { mutableStateOf<List<Jogo>>(emptyList()) }
     var categoriaInicialSeries by remember { mutableStateOf<String?>(null) }
 
+    fun abreviarEquipe(nome: String): String {
+        val limpo = nome.replace(Regex("[^A-Za-zÀ-ÿ0-9 ]"), " ")
+            .trim()
+            .split(Regex("\\s+"))
+            .filter { it.isNotBlank() }
+        if (limpo.isEmpty()) return "---"
+        if (limpo.size == 1) return limpo.first().take(4).uppercase()
+        return limpo.take(3).joinToString("") { it.first().uppercase() }.take(4)
+    }
+
+    fun extrairHorarioJogo(nome: String): String {
+        return Regex("\\b([01]?\\d|2[0-3]):[0-5]\\d\\b").find(nome)?.value ?: "Hoje"
+    }
+
+    fun jogosDaPlaylist(canais: List<com.evolux.tv.data.Canal>): List<Jogo> {
+        return canais.asSequence()
+            .filter { canal ->
+                val categoria = canal.categoria.trim().lowercase()
+                categoria == "jogos do dia" || categoria.contains("jogos do dia")
+            }
+            .take(8)
+            .mapIndexed { indice, canal ->
+                val nomeSemHorario = canal.nome
+                    .replace("⚽", "")
+                    .replace(Regex("\\b([01]?\\d|2[0-3]):[0-5]\\d\\b"), "")
+                    .trim()
+                val partes = nomeSemHorario
+                    .split(Regex("\\s+x\\s+|\\s+vs\\s+|\\s+v\\s+", RegexOption.IGNORE_CASE))
+                    .map { it.trim() }
+                    .filter { it.isNotBlank() }
+                val casa = partes.getOrNull(0) ?: canal.nome
+                val visitante = partes.getOrNull(1) ?: "Jogo"
+                Jogo(
+                    id = "playlist_jogo_${canal.id.ifBlank { indice.toString() }}",
+                    timeCasaSigla = abreviarEquipe(casa),
+                    timeCasaLogoUrl = canal.logoUrl,
+                    timeVisitanteSigla = abreviarEquipe(visitante),
+                    timeVisitanteLogoUrl = canal.logoUrl,
+                    horario = extrairHorarioJogo(canal.nome),
+                    campeonato = "Jogos do Dia",
+                    streamUrl = canal.streamUrl,
+                    status = "PROGRAMADO",
+                    dataHoraUtc = ""
+                )
+            }
+            .toList()
+    }
+
     BackHandler(enabled = reproducao != null || telaAtual != Tela.INICIO) {
         if (reproducao != null) {
             reproducao = null
@@ -246,10 +294,18 @@ fun EvoluxApp() {
         }
     }
 
-    LaunchedEffect(telaAtual) {
+    LaunchedEffect(telaAtual, catalogo) {
         if (telaAtual == Tela.INICIO) {
             while (isActive) {
-                jogosDoDia = jogosDoDiaRepository.carregarProximosJogos()
+                val jogosDaLista = jogosDaPlaylist(catalogo?.canais.orEmpty())
+                if (jogosDaLista.isNotEmpty()) {
+                    jogosDoDia = jogosDaLista
+                } else {
+                    val jogosApi = jogosDoDiaRepository.carregarProximosJogos()
+                    if (jogosDaPlaylist(catalogo?.canais.orEmpty()).isEmpty()) {
+                        jogosDoDia = jogosApi
+                    }
+                }
                 delay(30 * 60 * 1_000L)
             }
         }
@@ -442,6 +498,7 @@ fun EvoluxApp() {
                 aoAbrirSeries = { telaAtual = Tela.SERIES },
                 jogosDoDia = jogosDoDia,
                 aoAbrirJogos = { telaAtual = Tela.JOGOS },
+                aoAbrirJogo = { jogo -> abrirConteudo("${jogo.timeCasaSigla} x ${jogo.timeVisitanteSigla}", jogo.streamUrl) },
                 ehFavorito = ehFavorito,
                 aoAlternarFavorito = aoAlternarFavorito
             )
