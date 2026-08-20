@@ -21,3 +21,9 @@ Nenhuma credencial de playlist é registrada neste documento.
 ## Investigação do travamento após os escudos
 
 A comparação dos commits confirmou que a alteração dos escudos modificou apenas `PainelJogos.kt` e adicionou PNGs locais em `res/drawable`. Não há download dos escudos durante a autenticação ou o carregamento do catálogo. O travamento observado foi tratado no fluxo de catálogo: progresso próprio, timeout global de 60 segundos, estado de carregamento explícito e proteção contra regressão da porcentagem ao tentar fontes alternativas.
+
+## Causa provável do ANR no celular
+
+A tela de carregamento decodificava `evolux_background_futurista.png` (2560x1440) e `evolux_logo.png` (2304x1536) a partir de `drawable`, permitindo escala automática por densidade. Em um celular de alta densidade, esses bitmaps podiam ser ampliados para dezenas de milhões de pixels antes mesmo de o catálogo terminar, provocando pressão de memória e o alerta `Evolux não está respondendo`.
+
+A correção move esses recursos para `drawable-nodpi` e reduz apenas suas dimensões de armazenamento para 1280x720 e 768x512, mantendo os mesmos nomes, layout e aparência proporcional. Os escudos de 256x256 também foram movidos para `drawable-nodpi`, evitando ampliação desnecessária.
