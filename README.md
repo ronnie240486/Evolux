@@ -69,7 +69,7 @@ O MAC lógico é salvo localmente e permanece igual até a desinstalação do AP
 Os requisitos detalhados estão em [`docs/login-mac-requirements.md`](docs/login-mac-requirements.md).
 
 ## Proteção contra playlists grandes
-O APK não usa mais `readText()` para carregar a playlist inteira. M3U é processada linha a linha; respostas JSON têm limite de 8 MB e o catálogo carrega até 20.000 itens totais, com no máximo 10.000 por categoria. Se a fonte for maior, o app carrega uma parte controlada em vez de provocar `OutOfMemoryError` no celular.
+O APK não usa mais `readText()` para carregar a playlist inteira. M3U é processada linha a linha; respostas JSON têm limite de 8 MB e o catálogo suporta até 100.000 itens totais, com até 50.000 por categoria como proteção contra respostas malformadas. A playlist normal do usuário passa inteira sem o corte artificial de 10.000 filmes. O campo `group-title` é preservado em cada item e aparece como filtro real em Filmes, Séries e Favoritos.
 
 ## Próximas melhorias recomendadas
 O fluxo real já está ligado ao catálogo autorizado e ao player interno Media3. As próximas melhorias naturais são migrar o estado de catálogo e favoritos para um `ViewModel` com `StateFlow`, adicionar EPG quando o backend fornecer os dados e incluir suporte a múltiplas playlists autorizadas.
