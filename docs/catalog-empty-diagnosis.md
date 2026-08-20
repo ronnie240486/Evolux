@@ -17,3 +17,7 @@ Em `MainActivity.kt`, após a autorização, o app atribuía `PlaylistCatalog(em
 O catálogo vazio não será mais publicado como catálogo válido. Enquanto a playlist é carregada, a tela exibirá o carregamento; se houver falha, exibirá a causa e um botão para tentar novamente. Um cache só será aceito quando contiver pelo menos um item. O app continuará aceitando URLs `http` e `https`, mas não pode transformar uma resposta externa HTTP 403 em conteúdo válido; nesse caso, será necessário atualizar a URL autorizada no painel/provedor.
 
 Nenhuma credencial de playlist é registrada neste documento.
+
+## Investigação do travamento após os escudos
+
+A comparação dos commits confirmou que a alteração dos escudos modificou apenas `PainelJogos.kt` e adicionou PNGs locais em `res/drawable`. Não há download dos escudos durante a autenticação ou o carregamento do catálogo. O travamento observado foi tratado no fluxo de catálogo: progresso próprio, timeout global de 60 segundos, estado de carregamento explícito e proteção contra regressão da porcentagem ao tentar fontes alternativas.

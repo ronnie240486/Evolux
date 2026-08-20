@@ -114,6 +114,8 @@ fun EvoluxApp() {
     var estadoLogin by remember { mutableStateOf<EstadoLoginMac>(EstadoLoginMac.Ocioso) }
     var validacaoEmAndamento by remember { mutableStateOf(false) }
     var carregandoCatalogo by remember { mutableStateOf(false) }
+    var progressoCatalogo by remember { mutableStateOf(5) }
+    var segundosCatalogo by remember { mutableStateOf(0) }
     var erroCatalogo by remember { mutableStateOf<String?>(null) }
     var reproducao by remember { mutableStateOf<Reproducao?>(null) }
     var jogosDoDia by remember { mutableStateOf<List<Jogo>>(emptyList()) }
@@ -207,6 +209,8 @@ fun EvoluxApp() {
             fontes.indices.filter { it != indiceInicial }.forEach(::add)
         }
         carregandoCatalogo = true
+        progressoCatalogo = 5
+        segundosCatalogo = 0
         erroCatalogo = null
         estadoLogin = EstadoLoginMac.Carregando()
         var ultimoErro = "Não foi possível carregar nenhuma playlist autorizada."
@@ -231,7 +235,11 @@ fun EvoluxApp() {
                         }
                     }
 
-                    val catalogoM3u = playlistRepository.carregar(urlPlaylist)
+                    progressoCatalogo = maxOf(progressoCatalogo, minOf(35, 20 + indice * 10))
+                    val catalogoM3u = withTimeoutOrNull(60_000L) {
+                        playlistRepository.carregar(urlPlaylist)
+                    } ?: throw IllegalStateException("Tempo limite de 60 segundos ao carregar a playlist.")
+                    progressoCatalogo = maxOf(progressoCatalogo, 85)
                     if (catalogoM3u.canais.isEmpty() && catalogoM3u.filmes.isEmpty() && catalogoM3u.series.isEmpty()) {
                         throw IllegalStateException("A playlist não contém itens reconhecíveis.")
                     }
@@ -241,6 +249,7 @@ fun EvoluxApp() {
                     CatalogoCache.salvar(contexto, fingerprint, catalogoM3u)
                     carregarSeriesXtreamEmSegundoPlano(urlPlaylist, fingerprint, catalogoM3u)
                     erroCatalogo = null
+                    progressoCatalogo = 100
                     return null
                 } catch (erro: Exception) {
                     val detalhe = erro.message?.takeIf { it.isNotBlank() } ?: "resposta inválida"
@@ -294,6 +303,7 @@ fun EvoluxApp() {
                         // Isso fazia a Home parecer carregada com TV, filmes e séries em zero itens.
                         catalogo = null
                         erroCatalogo = null
+                        estadoLogin = EstadoLoginMac.Carregando()
                         escopo.launch {
                             val erro = carregarCatalogo(resultado.configuracao, playlistAtiva)
                             if (erro != null) {
@@ -348,6 +358,16 @@ fun EvoluxApp() {
                     }
                 }
                 delay(30 * 60 * 1_000L)
+            }
+        }
+    }
+
+    LaunchedEffect(carregandoCatalogo) {
+        if (carregandoCatalogo) {
+            while (isActive) {
+                delay(1_000)
+                segundosCatalogo++
+                progressoCatalogo = minOf(99, maxOf(progressoCatalogo, 5 + segundosCatalogo * 3))
             }
         }
     }
@@ -415,6 +435,9 @@ fun EvoluxApp() {
         CatalogoLoadingScreen(
             estado = estadoLogin,
             erro = erroCatalogo,
+            carregando = carregandoCatalogo || estadoLogin is EstadoLoginMac.Carregando,
+            progressoPercentual = progressoCatalogo,
+            segundosDecorridos = segundosCatalogo,
             aoTentarNovamente = if (!carregandoCatalogo) {
                 configuracaoAtual?.let { configuracao ->
                     {

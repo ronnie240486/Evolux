@@ -40,10 +40,15 @@ import com.evolux.tv.ui.theme.TextoClaro
 fun CatalogoLoadingScreen(
     estado: EstadoLoginMac,
     erro: String? = null,
+    carregando: Boolean = estado is EstadoLoginMac.Carregando,
+    progressoPercentual: Int? = null,
+    segundosDecorridos: Int? = null,
     aoTentarNovamente: (() -> Unit)? = null
 ) {
     val progresso = (estado as? EstadoLoginMac.Carregando) ?: EstadoLoginMac.Carregando()
-    val carregando = erro == null && estado is EstadoLoginMac.Carregando
+    val porcentagemAtual = progressoPercentual ?: progresso.porcentagem
+    val segundosAtual = segundosDecorridos ?: progresso.segundos
+    val carregandoVisual = erro == null && carregando
     Box(modifier = Modifier.fillMaxSize()) {
         Image(
             painter = painterResource(R.drawable.evolux_background_futurista),
@@ -63,7 +68,7 @@ fun CatalogoLoadingScreen(
                 modifier = Modifier.size(170.dp)
             )
             Spacer(Modifier.height(18.dp))
-            if (carregando) {
+            if (carregandoVisual) {
                 EvoluxCatalogSpinner()
                 Spacer(Modifier.height(18.dp))
                 Text(
@@ -73,7 +78,7 @@ fun CatalogoLoadingScreen(
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = "${progresso.porcentagem}% concluído • ${progresso.segundos}s",
+                        text = "${porcentagemAtual}% concluído • ${segundosAtual}s",
                     color = Dourado,
                     fontWeight = FontWeight.Bold
                 )
