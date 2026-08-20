@@ -1,4 +1,4 @@
-package com.imperioplay.tv.ui.components
+package com.evolux.tv.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -24,9 +24,9 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
-import com.imperioplay.tv.data.Midia
-import com.imperioplay.tv.ui.theme.Dourado
-import com.imperioplay.tv.ui.theme.TextoClaro
+import com.evolux.tv.data.Midia
+import com.evolux.tv.ui.theme.Dourado
+import com.evolux.tv.ui.theme.TextoClaro
 
 @Composable
 fun MediaRow(

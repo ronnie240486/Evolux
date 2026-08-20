@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "ImperioPlayTV"
+rootProject.name = "Evolux"
 include(":app")

@@ -1,4 +1,4 @@
-package com.imperioplay.tv.ui.theme
+package com.evolux.tv.ui.theme
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
@@ -23,7 +23,7 @@ private val ImperioColorScheme = darkColorScheme(
 )
 
 @Composable
-fun ImperioPlayTheme(content: @Composable () -> Unit) {
+fun EvoluxTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = ImperioColorScheme,
         content = content

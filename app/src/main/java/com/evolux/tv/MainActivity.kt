@@ -1,4 +1,4 @@
-package com.imperioplay.tv
+package com.evolux.tv
 
 import android.content.Context
 import android.os.Bundle
@@ -10,13 +10,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import com.imperioplay.tv.data.Midia
-import com.imperioplay.tv.data.SampleData
-import com.imperioplay.tv.ui.components.Tela
-import com.imperioplay.tv.ui.components.TopNavBar
-import com.imperioplay.tv.ui.screens.*
-import com.imperioplay.tv.ui.theme.FundoEscuro
-import com.imperioplay.tv.ui.theme.ImperioPlayTheme
+import com.evolux.tv.data.Midia
+import com.evolux.tv.data.SampleData
+import com.evolux.tv.ui.components.Tela
+import com.evolux.tv.ui.components.TopNavBar
+import com.evolux.tv.ui.screens.*
+import com.evolux.tv.ui.theme.FundoEscuro
+import com.evolux.tv.ui.theme.EvoluxTheme
 
 private const val CHAVE_FAVORITOS = "favoritos_ids"
 
@@ -24,19 +24,19 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            ImperioPlayTheme {
-                ImperioPlayApp()
+            EvoluxTheme {
+                EvoluxApp()
             }
         }
     }
 }
 
 @Composable
-fun ImperioPlayApp() {
+fun EvoluxApp() {
     var telaAtual by remember { mutableStateOf(Tela.INICIO) }
     val contexto = LocalContext.current
     val preferencias = remember(contexto) {
-        contexto.getSharedPreferences("imperio_play_preferencias", Context.MODE_PRIVATE)
+        contexto.getSharedPreferences("evolux_preferencias", Context.MODE_PRIVATE)
     }
     val todasAsMidias = remember {
         SampleData.lancamentosFilmes +

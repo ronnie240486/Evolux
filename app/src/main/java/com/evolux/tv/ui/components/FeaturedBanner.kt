@@ -1,4 +1,4 @@
-package com.imperioplay.tv.ui.components
+package com.evolux.tv.ui.components
 
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
@@ -29,9 +29,9 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.OutlinedButton
 import androidx.tv.material3.Text
-import com.imperioplay.tv.data.Destaque
-import com.imperioplay.tv.ui.theme.Dourado
-import com.imperioplay.tv.ui.theme.TextoClaro
+import com.evolux.tv.data.Destaque
+import com.evolux.tv.ui.theme.Dourado
+import com.evolux.tv.ui.theme.TextoClaro
 import kotlinx.coroutines.delay
 
 /**

@@ -1,4 +1,4 @@
-package com.imperioplay.tv.data
+package com.evolux.tv.data
 
 /**
  * NOTA IMPORTANTE:

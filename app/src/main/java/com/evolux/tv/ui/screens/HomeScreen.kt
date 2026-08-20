@@ -1,16 +1,16 @@
-package com.imperioplay.tv.ui.screens
+package com.evolux.tv.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.imperioplay.tv.data.Destaque
-import com.imperioplay.tv.data.Midia
-import com.imperioplay.tv.data.SampleData
-import com.imperioplay.tv.ui.components.FeaturedBanner
-import com.imperioplay.tv.ui.components.MediaRow
-import com.imperioplay.tv.ui.components.PainelJogosDoDia
+import com.evolux.tv.data.Destaque
+import com.evolux.tv.data.Midia
+import com.evolux.tv.data.SampleData
+import com.evolux.tv.ui.components.FeaturedBanner
+import com.evolux.tv.ui.components.MediaRow
+import com.evolux.tv.ui.components.PainelJogosDoDia
 
 @Composable
 fun HomeScreen(

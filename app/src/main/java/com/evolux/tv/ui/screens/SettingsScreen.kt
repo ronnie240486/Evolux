@@ -1,4 +1,4 @@
-package com.imperioplay.tv.ui.screens
+package com.evolux.tv.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -16,9 +16,9 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
-import com.imperioplay.tv.ui.theme.Dourado
-import com.imperioplay.tv.ui.theme.TextoCinza
-import com.imperioplay.tv.ui.theme.TextoClaro
+import com.evolux.tv.ui.theme.Dourado
+import com.evolux.tv.ui.theme.TextoCinza
+import com.evolux.tv.ui.theme.TextoClaro
 
 data class OpcaoConfig(val titulo: String, val descricao: String)
 
@@ -27,7 +27,7 @@ private val opcoes = listOf(
     OpcaoConfig("Qualidade de vídeo", "Automática, 480p, 720p, 1080p, 4K"),
     OpcaoConfig("Legendas e áudio", "Idioma padrão de legenda e faixa de áudio"),
     OpcaoConfig("Controle parental", "Bloqueio por classificação indicativa"),
-    OpcaoConfig("Sobre o aplicativo", "Versão e informações do Império Play")
+    OpcaoConfig("Sobre o aplicativo", "Versão e informações do Evolux")
 )
 
 @Composable

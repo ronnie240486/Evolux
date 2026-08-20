@@ -1,4 +1,4 @@
-package com.imperioplay.tv.ui.components
+package com.evolux.tv.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -31,8 +31,8 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
-import com.imperioplay.tv.ui.theme.Dourado
-import com.imperioplay.tv.ui.theme.TextoClaro
+import com.evolux.tv.ui.theme.Dourado
+import com.evolux.tv.ui.theme.TextoClaro
 
 enum class Tela(val rotulo: String, val icone: ImageVector) {
     INICIO("Início", Icons.Filled.Home),
@@ -65,7 +65,7 @@ fun TopNavBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        LogoImperioPlay()
+        LogoEvolux()
         Spacer(modifier = Modifier.width(24.dp))
         Tela.values().forEach { tela ->
             ItemNav(
@@ -79,11 +79,11 @@ fun TopNavBar(
 }
 
 @Composable
-private fun LogoImperioPlay() {
+private fun LogoEvolux() {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         // O logo é puramente decorativo — sem isso o TalkBack leria
-        // "I P, Império Play" como dois elementos separados e focáveis.
+        // "I P, Evolux" como dois elementos separados e focáveis.
         modifier = Modifier.clearAndSetSemantics {}
     ) {
         Surface(

@@ -1,4 +1,4 @@
-package com.imperioplay.tv.data
+package com.evolux.tv.data
 
 /**
  * Um item de destaque (o banner grande da Home, tipo "Legado Real 2026").

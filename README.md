@@ -1,4 +1,4 @@
-# Império Play — App Android TV (Kotlin nativo)
+# Evolux — App Android TV (Kotlin nativo)
 
 Projeto Android TV nativo usando **Jetpack Compose for TV** (`androidx.tv`), no
 mesmo estilo visual do print enviado: fundo azul-marinho, detalhes dourados,
@@ -6,7 +6,7 @@ barra de navegação no topo e telas: **Início, TV ao Vivo, Filmes, Séries,
 Jogos do Dia, Favoritos e Configurações**.
 
 ## Como abrir
-1. Abra a pasta `ImperioPlayTV` no **Android Studio** (versão Koala/2024.1+).
+1. Abra a pasta `Evolux` no **Android Studio** (versão Koala/2024.1+).
 2. Deixe o Gradle sincronizar (baixa as dependências do Compose for TV e Coil).
 3. Rode em um emulador de Android TV ou em uma TV Box com depuração USB/ADB
    (`adb connect <ip_da_tv_box>`).

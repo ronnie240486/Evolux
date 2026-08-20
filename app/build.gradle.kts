@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.imperioplay.tv"
+    namespace = "com.evolux.tv"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.imperioplay.tv"
+        applicationId = "com.evolux.tv"
         minSdk = 24
         targetSdk = 34
         versionCode = 1

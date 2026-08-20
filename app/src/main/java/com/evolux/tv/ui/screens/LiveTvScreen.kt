@@ -1,4 +1,4 @@
-package com.imperioplay.tv.ui.screens
+package com.evolux.tv.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,11 +23,11 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
-import com.imperioplay.tv.data.Canal
-import com.imperioplay.tv.data.SampleData
-import com.imperioplay.tv.ui.theme.Dourado
-import com.imperioplay.tv.ui.theme.TextoCinza
-import com.imperioplay.tv.ui.theme.TextoClaro
+import com.evolux.tv.data.Canal
+import com.evolux.tv.data.SampleData
+import com.evolux.tv.ui.theme.Dourado
+import com.evolux.tv.ui.theme.TextoCinza
+import com.evolux.tv.ui.theme.TextoClaro
 
 @Composable
 fun LiveTvScreen(aoAbrirCanal: (Canal) -> Unit) {
