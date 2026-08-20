@@ -26,7 +26,12 @@ data class Midia(
     val progresso: Float? = null, // 0f..1f, usado em "Continue assistindo"
     val categoria: String = "",
     val nota: Double? = null,
-    val popularidade: Long? = null
+    val popularidade: Long? = null,
+    val serieId: String? = null,
+    val serieNome: String? = null,
+    val episodioNome: String? = null,
+    val temporadaNumero: Int? = null,
+    val episodioNumero: Int? = null
 )
 
 data class Canal(

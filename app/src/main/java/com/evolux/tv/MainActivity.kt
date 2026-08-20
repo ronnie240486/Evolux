@@ -272,12 +272,9 @@ fun EvoluxApp() {
                 aoAlternarFavorito = aoAlternarFavorito
             )
 
-            Tela.SERIES -> GradeMidiaScreen(
-                titulo = "Séries",
+            Tela.SERIES -> SeriesBrowserScreen(
                 itens = catalogoAtual.series,
-                aoSelecionar = { abrirConteudo(it.titulo, it.streamUrl) },
-                ehFavorito = ehFavorito,
-                aoAlternarFavorito = aoAlternarFavorito
+                aoAssistir = { abrirConteudo(it.episodioNome ?: it.titulo, it.streamUrl) }
             )
 
             Tela.JOGOS -> GamesScreen(

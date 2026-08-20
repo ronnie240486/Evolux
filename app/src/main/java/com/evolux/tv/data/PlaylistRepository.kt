@@ -25,6 +25,12 @@ data class PlaylistCatalog(
 )
 
 class PlaylistRepository {
+    private data class DadosSerie(
+        val serieNome: String,
+        val temporadaNumero: Int,
+        val episodioNumero: Int?
+    )
+
     suspend fun carregar(urlPlaylist: String): PlaylistCatalog = withContext(Dispatchers.IO) {
         val conexao = (URL(urlPlaylist).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
@@ -94,7 +100,15 @@ class PlaylistRepository {
     }
 
     private fun parseM3u(leitor: Reader): PlaylistCatalog {
-        data class Entrada(val titulo: String, val grupo: String, val logo: String, val tipoHint: String?)
+        data class Entrada(
+            val titulo: String,
+            val grupo: String,
+            val logo: String,
+            val tipoHint: String?,
+            val serieNome: String?,
+            val temporadaNumero: Int?,
+            val episodioNumero: Int?
+        )
 
         val canais = mutableListOf<Canal>()
         val filmes = mutableListOf<Midia>()
@@ -110,13 +124,15 @@ class PlaylistRepository {
                 linha.startsWith("#EXTINF", ignoreCase = true) -> {
                     val atributos = atributosExtinf(linha)
                     val titulo = linha.substringAfter(',', "Sem título").trim().ifBlank { "Sem título" }
-                    pendente = Entrada(
-                        titulo = titulo,
-                        grupo = listOfNotNull(
+                    val grupo = listOfNotNull(
                             atributos["group-title"],
                             atributos["group"],
                             atributos["category"]
-                        ).joinToString(" | "),
+                        ).joinToString(" | ")
+                    val dadosSerie = extrairDadosSerie(titulo, grupo)
+                    pendente = Entrada(
+                        titulo = titulo,
+                        grupo = grupo,
                         logo = normalizarImagemUrl(
                             listOfNotNull(
                                 atributos["tvg-logo"],
@@ -131,17 +147,16 @@ class PlaylistRepository {
                         tipoHint = atributos["stream_type"]
                             ?: atributos["tvg-type"]
                             ?: atributos["type"]
-                            ?: atributos["kind"]
+                            ?: atributos["kind"],
+                        serieNome = dadosSerie?.serieNome,
+                        temporadaNumero = dadosSerie?.temporadaNumero,
+                        episodioNumero = dadosSerie?.episodioNumero
                     )
                 }
 
                 linha.isNotEmpty() && !linha.startsWith("#") -> {
                     totalItens++
-                    if (totalItens > MAX_TOTAL_ITEMS) {
-                        truncado = true
-                        break
-                    }
-                    val entrada = pendente ?: Entrada("Item $totalItens", "", "", null)
+                    val entrada = pendente ?: Entrada("Item $totalItens", "", "", null, null, null, null)
                     if (!adicionarEntrada(
                             indice = totalItens - 1,
                             titulo = entrada.titulo,
@@ -151,7 +166,10 @@ class PlaylistRepository {
                             canais = canais,
                             filmes = filmes,
                             series = series,
-                            tipoHint = entrada.tipoHint
+                            tipoHint = entrada.tipoHint,
+                            serieNome = entrada.serieNome,
+                            temporadaNumero = entrada.temporadaNumero,
+                            episodioNumero = entrada.episodioNumero
                         )
                     ) {
                         truncado = true
@@ -177,9 +195,9 @@ class PlaylistRepository {
         val filmes = mutableListOf<Midia>()
         val series = mutableListOf<Midia>()
         val urlsVistas = mutableSetOf<String>()
-        var truncado = itens.size > MAX_TOTAL_ITEMS
+        var truncado = false
 
-        for ((indice, entrada) in itens.take(MAX_TOTAL_ITEMS).withIndex()) {
+        for ((indice, entrada) in itens.withIndex()) {
             val item = entrada.objeto
             val url = primeiraString(
                 item,
@@ -220,7 +238,24 @@ class PlaylistRepository {
             )
             val nota = primeiraDouble(item, "rating", "vote_average", "rating_imdb", "imdb_rating")
             val popularidade = primeiraLong(item, "popularity", "vote_count", "views", "view_count")
-            if (!adicionarEntrada(indice, titulo, grupo, logo, url, canais, filmes, series, nota, popularidade, tipoHint)) {
+            val dadosSerie = extrairDadosSerie(titulo, grupo)
+            if (!adicionarEntrada(
+                    indice,
+                    titulo,
+                    grupo,
+                    logo,
+                    url,
+                    canais,
+                    filmes,
+                    series,
+                    nota,
+                    popularidade,
+                    tipoHint,
+                    dadosSerie?.serieNome,
+                    dadosSerie?.temporadaNumero,
+                    dadosSerie?.episodioNumero
+                )
+            ) {
                 truncado = true
             }
         }
@@ -277,7 +312,10 @@ class PlaylistRepository {
         series: MutableList<Midia>,
         nota: Double? = null,
         popularidade: Long? = null,
-        tipoHint: String? = null
+        tipoHint: String? = null,
+        serieNome: String? = null,
+        temporadaNumero: Int? = null,
+        episodioNumero: Int? = null
     ): Boolean {
         val tipoNormalizado = normalizarTexto(tipoHint.orEmpty())
         val grupoNormalizado = normalizarTexto(grupo)
@@ -291,14 +329,30 @@ class PlaylistRepository {
             grupoNormalizado.containsAny("series", "serie", "show", "novela", "anime") &&
                 !grupoNormalizado.containsAny("filme", "filmes", "movie", "movies", "vod")
         }
+        val grupoIndicaCanal = grupoNormalizado.containsAny(
+            "24h",
+            "24 horas",
+            "ao vivo",
+            "live",
+            "canal",
+            "channel",
+            "tv ao vivo"
+        )
         val ehFilme = if (tipoFoiInformado) {
             ehFilmePorTipo
         } else {
-            grupoNormalizado.containsAny("filme", "filmes", "movie", "movies", "vod", "cinema")
+            !grupoIndicaCanal && grupoNormalizado.containsAny(
+                "filme",
+                "filmes",
+                "movie",
+                "movies",
+                "vod",
+                "cinema"
+            )
         }
         return when {
             ehSerie -> {
-                if (series.size >= MAX_ITEMS_PER_CATEGORY) false else {
+                run {
                     series += Midia(
                         id = id,
                         titulo = titulo,
@@ -307,13 +361,18 @@ class PlaylistRepository {
                         streamUrl = url,
                         categoria = grupo.ifBlank { "Sem categoria" },
                         nota = nota,
-                        popularidade = popularidade
+                        popularidade = popularidade,
+                        serieId = serieNome?.let { normalizarTexto(it) },
+                        serieNome = serieNome,
+                        episodioNome = titulo,
+                        temporadaNumero = temporadaNumero,
+                        episodioNumero = episodioNumero
                     )
                     true
                 }
             }
             ehFilme -> {
-                if (filmes.size >= MAX_ITEMS_PER_CATEGORY) false else {
+                run {
                     filmes += Midia(
                         id = id,
                         titulo = titulo,
@@ -330,7 +389,7 @@ class PlaylistRepository {
             else -> {
                 // Sem tipo/grupo explícito, só um stream claramente ao vivo cai em canais.
                 // Itens ambíguos não são promovidos a séries por causa do título.
-                if (canais.size >= MAX_ITEMS_PER_CATEGORY) false else {
+                run {
                     canais += Canal(id, titulo, logo, url, grupo.ifBlank { "TV ao vivo" })
                     true
                 }
@@ -350,6 +409,33 @@ class PlaylistRepository {
         return regex.findAll(linha).associate { match ->
             match.groupValues[1].lowercase(Locale.ROOT) to match.groupValues[2]
         }
+    }
+
+    private fun extrairDadosSerie(titulo: String, grupo: String): DadosSerie? {
+        val padrao = Regex(
+            "(?i)^(.*?)(?:\\s*[-_.| ]*\\s*(?:s|t|season|temporada)\\s*0*(\\d{1,2})(?:\\s*[-_.| ]*\\s*(?:e|ep|epis[oó]dio)?\\s*0*(\\d{1,3}))?.*)$"
+        )
+        val encontro = padrao.find(titulo)
+        if (encontro != null) {
+            val nome = encontro.groupValues[1].trim().trim('-', '.', '|', '_')
+            if (nome.isNotBlank()) {
+                return DadosSerie(
+                    serieNome = nome,
+                    temporadaNumero = encontro.groupValues[2].toIntOrNull() ?: 1,
+                    episodioNumero = encontro.groupValues.getOrNull(3)?.toIntOrNull()
+                )
+            }
+        }
+
+        val temporadaDoGrupo = Regex("(?i)(?:temporada|season|s|t)\\s*0*(\\d{1,2})").find(grupo)
+        if (temporadaDoGrupo != null && normalizarTexto(grupo).containsAny("series", "serie", "show", "novela", "anime")) {
+            return DadosSerie(
+                serieNome = titulo.substringBefore(" - Temporada", titulo).trim(),
+                temporadaNumero = temporadaDoGrupo.groupValues[1].toIntOrNull() ?: 1,
+                episodioNumero = null
+            )
+        }
+        return null
     }
 
     private fun normalizarImagemUrl(valor: String): String {
