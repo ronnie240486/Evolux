@@ -1,5 +1,6 @@
 package com.evolux.tv.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -26,6 +27,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -36,8 +39,8 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
+import com.evolux.tv.R
 import com.evolux.tv.data.MacAddressUtils
-import com.evolux.tv.ui.theme.Dourado
 import com.evolux.tv.ui.theme.FundoCard
 import com.evolux.tv.ui.theme.FundoEscuro
 import com.evolux.tv.ui.theme.TextoCinza
@@ -74,11 +77,13 @@ fun MacLoginScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(
-                text = "EVOLUX",
-                color = Dourado,
-                fontWeight = FontWeight.Black,
-                style = MaterialTheme.typography.displaySmall
+            Image(
+                painter = painterResource(R.drawable.evolux_logo),
+                contentDescription = "Logo Evolux",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp)
             )
             Spacer(Modifier.height(8.dp))
             Text(

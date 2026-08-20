@@ -11,6 +11,8 @@ Jogos do Dia, Favoritos e Configurações**.
 3. Rode em um emulador de Android TV ou em uma TV Box com depuração USB/ADB
    (`adb connect <ip_da_tv_box>`).
 
+Para gerar o APK Debug pelo GitHub, abra a aba **Actions**, execute o workflow **Build Evolux APK** e baixe o artefato `evolux-debug-apk`. O APK também pode ser compilado localmente pelo Android Studio com **Build > Build APK(s)**.
+
 ## O que já funciona
 - Navegação completa entre as 7 telas pelo D-pad (setas + OK), com destaque
   dourado no item focado — igual ao "INÍCIO" destacado no print.
@@ -26,6 +28,7 @@ Jogos do Dia, Favoritos e Configurações**.
 - Permissão de internet declarada no manifesto para carregar as imagens HTTPS usadas pelos dados de demonstração.
 - Login por endereço MAC com detecção opcional do MAC de rede, entrada manual, validação do endpoint remoto e persistência apenas do MAC autorizado.
 - Parser tolerante a campos nulos, incluindo `app_name`, e verificação da primeira playlist antes de liberar o acesso.
+- Identidade visual futurista do Evolux integrada ao login, ao banner do Android TV e ao ícone do launcher.
 
 ## Acessibilidade (TalkBack + D-pad)
 - **Foco inicial automático**: ao abrir o app, a aba selecionada na
@@ -49,6 +52,9 @@ Jogos do Dia, Favoritos e Configurações**.
 - **Contraste**: a paleta atual (dourado/branco sobre `#0A0E1A`) já passa
   em WCAG AA/AAA para texto — inclusive o cinza secundário (`TextoCinza`)
   dá ~7.6:1 de contraste. Não precisa trocar cores.
+
+## Identidade visual
+Os assets finais estão em `assets/evolux_logo_futurista_final.png` e `assets/evolux_app_icon_futurista_final.png`. As cópias usadas pelo APK ficam em `app/src/main/res/drawable/evolux_logo.png` e `app/src/main/res/drawable/evolux_icon.png`.
 
 ## Login por MAC
 Na abertura, o Evolux consulta a configuração em `https://renciaapp.manus.space/api/v5/apps/evolux/config?mac=...` somente depois que o MAC é informado ou detectado. O aplicativo exige `registered = true`, `allowed = true` e uma primeira URL HTTP/HTTPS de playlist que responda sem erro, sem HTML e sem `Content-Type: text/html`.
