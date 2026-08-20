@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -30,13 +31,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
 import com.evolux.tv.R
+import com.evolux.tv.ui.components.EvoluxClickableSurface
 import com.evolux.tv.ui.theme.Dourado
 import com.evolux.tv.ui.theme.TextoCinza
 import com.evolux.tv.ui.theme.TextoClaro
 
 @Composable
-fun CatalogoLoadingScreen(estado: EstadoLoginMac) {
+fun CatalogoLoadingScreen(
+    estado: EstadoLoginMac,
+    erro: String? = null,
+    aoTentarNovamente: (() -> Unit)? = null
+) {
     val progresso = (estado as? EstadoLoginMac.Carregando) ?: EstadoLoginMac.Carregando()
+    val carregando = erro == null && estado is EstadoLoginMac.Carregando
     Box(modifier = Modifier.fillMaxSize()) {
         Image(
             painter = painterResource(R.drawable.evolux_background_futurista),
@@ -56,24 +63,57 @@ fun CatalogoLoadingScreen(estado: EstadoLoginMac) {
                 modifier = Modifier.size(170.dp)
             )
             Spacer(Modifier.height(18.dp))
-            EvoluxCatalogSpinner()
-            Spacer(Modifier.height(18.dp))
-            Text(
-                text = "Carregando conteúdo, canais, filmes e séries",
-                color = TextoClaro,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = "${progresso.porcentagem}% concluído • ${progresso.segundos}s",
-                color = Dourado,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = "A lista autorizada será mantida em cache para a próxima abertura.",
-                color = TextoCinza
-            )
+            if (carregando) {
+                EvoluxCatalogSpinner()
+                Spacer(Modifier.height(18.dp))
+                Text(
+                    text = "Carregando conteúdo, canais, filmes e séries",
+                    color = TextoClaro,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "${progresso.porcentagem}% concluído • ${progresso.segundos}s",
+                    color = Dourado,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "A lista autorizada será mantida em cache para a próxima abertura.",
+                    color = TextoCinza
+                )
+            } else {
+                Text(
+                    text = "Não foi possível carregar o catálogo",
+                    color = Color(0xFFFFB4AB),
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = erro ?: "O painel não forneceu uma playlist válida.",
+                    color = TextoCinza,
+                    modifier = Modifier.padding(horizontal = 28.dp)
+                )
+                aoTentarNovamente?.let { tentarNovamente ->
+                    Spacer(Modifier.height(18.dp))
+                    EvoluxClickableSurface(
+                        onClick = tentarNovamente,
+                        containerColor = Dourado,
+                        modifier = Modifier.size(width = 220.dp, height = 52.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "TENTAR NOVAMENTE",
+                                color = Color(0xFF111111),
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

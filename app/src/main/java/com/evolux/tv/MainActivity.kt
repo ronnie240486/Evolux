@@ -114,6 +114,7 @@ fun EvoluxApp() {
     var estadoLogin by remember { mutableStateOf<EstadoLoginMac>(EstadoLoginMac.Ocioso) }
     var validacaoEmAndamento by remember { mutableStateOf(false) }
     var carregandoCatalogo by remember { mutableStateOf(false) }
+    var erroCatalogo by remember { mutableStateOf<String?>(null) }
     var reproducao by remember { mutableStateOf<Reproducao?>(null) }
     var jogosDoDia by remember { mutableStateOf<List<Jogo>>(emptyList()) }
     var categoriaInicialSeries by remember { mutableStateOf<String?>(null) }
@@ -194,35 +195,64 @@ fun EvoluxApp() {
     suspend fun carregarCatalogo(configuracao: EvoluxConfig, indiceSolicitado: Int = playlistAtiva, forcar: Boolean = false): String? {
         if (carregandoCatalogo) return null
         val fontes = configuracao.playlistUrls.filter { it.startsWith("http://") || it.startsWith("https://") }
-        if (fontes.isEmpty()) return "Nenhuma URL de playlist foi encontrada."
-        val indice = indiceSolicitado.coerceIn(0, fontes.lastIndex)
-        val urlPlaylist = fontes[indice]
-        playlistUrlAtual = urlPlaylist
-        val fingerprint = CatalogoCache.fingerprint(configuracao, urlPlaylist)
+        if (fontes.isEmpty()) {
+            val erro = "Nenhuma URL de playlist foi encontrada no painel."
+            erroCatalogo = erro
+            return erro
+        }
+
+        val indiceInicial = indiceSolicitado.coerceIn(0, fontes.lastIndex)
+        val indicesParaTentar = buildList {
+            add(indiceInicial)
+            fontes.indices.filter { it != indiceInicial }.forEach(::add)
+        }
         carregandoCatalogo = true
+        erroCatalogo = null
+        estadoLogin = EstadoLoginMac.Carregando()
+        var ultimoErro = "Não foi possível carregar nenhuma playlist autorizada."
+
         try {
-            if (!forcar) {
-                val cache = CatalogoCache.carregar(contexto, fingerprint)
-                if (cache != null) {
-                    catalogo = cache
-                    playlistAtiva = indice
-                    if (cache.series.none { it.id.startsWith("xtream_series_") }) {
-                        carregarSeriesXtreamEmSegundoPlano(urlPlaylist, fingerprint, cache)
+            for (indice in indicesParaTentar) {
+                val urlPlaylist = fontes[indice]
+                playlistUrlAtual = urlPlaylist
+                val fingerprint = CatalogoCache.fingerprint(configuracao, urlPlaylist)
+                try {
+                    if (!forcar) {
+                        val cache = CatalogoCache.carregar(contexto, fingerprint)
+                        if (cache != null) {
+                            catalogo = cache
+                            playlistAtiva = indice
+                            preferencias.edit().putInt(CHAVE_PLAYLIST_ATIVA, indice).apply()
+                            erroCatalogo = null
+                            if (cache.series.none { it.id.startsWith("xtream_series_") }) {
+                                carregarSeriesXtreamEmSegundoPlano(urlPlaylist, fingerprint, cache)
+                            }
+                            return null
+                        }
                     }
+
+                    val catalogoM3u = playlistRepository.carregar(urlPlaylist)
+                    if (catalogoM3u.canais.isEmpty() && catalogoM3u.filmes.isEmpty() && catalogoM3u.series.isEmpty()) {
+                        throw IllegalStateException("A playlist não contém itens reconhecíveis.")
+                    }
+                    catalogo = catalogoM3u
+                    playlistAtiva = indice
+                    preferencias.edit().putInt(CHAVE_PLAYLIST_ATIVA, indice).apply()
+                    CatalogoCache.salvar(contexto, fingerprint, catalogoM3u)
+                    carregarSeriesXtreamEmSegundoPlano(urlPlaylist, fingerprint, catalogoM3u)
+                    erroCatalogo = null
                     return null
+                } catch (erro: Exception) {
+                    val detalhe = erro.message?.takeIf { it.isNotBlank() } ?: "resposta inválida"
+                    ultimoErro = detalhe
                 }
             }
-            val catalogoM3u = playlistRepository.carregar(urlPlaylist)
-            catalogo = catalogoM3u
-            playlistAtiva = indice
-            preferencias.edit().putInt(CHAVE_PLAYLIST_ATIVA, indice).apply()
-            CatalogoCache.salvar(contexto, fingerprint, catalogoM3u)
-            carregarSeriesXtreamEmSegundoPlano(urlPlaylist, fingerprint, catalogoM3u)
-            return null
-        } catch (erro: Exception) {
-            return erro.message?.takeIf { it.isNotBlank() } ?: "Não foi possível interpretar o catálogo."
+
+            erroCatalogo = "Falha ao carregar o catálogo: $ultimoErro"
+            return erroCatalogo
         } finally {
             carregandoCatalogo = false
+            if (erroCatalogo != null) estadoLogin = EstadoLoginMac.Ocioso
         }
     }
 
@@ -237,10 +267,16 @@ fun EvoluxApp() {
                         it.startsWith("http://") || it.startsWith("https://")
                     }
                     val catalogoAtual = catalogo
-                    val precisaCarregar = catalogoAtual == null ||
-                        (catalogoAtual.canais.isEmpty() && catalogoAtual.filmes.isEmpty() && catalogoAtual.series.isEmpty()) ||
+                    val fonteMudou = playlistUrlAtual !in novasFontes
+                    val precisaCarregar = (
+                        catalogoAtual == null && (erroCatalogo == null || fonteMudou)
+                    ) ||
+                        (catalogoAtual != null &&
+                            catalogoAtual.canais.isEmpty() &&
+                            catalogoAtual.filmes.isEmpty() &&
+                            catalogoAtual.series.isEmpty()) ||
                         macAutorizado != resultado.configuracao.mac ||
-                        playlistUrlAtual !in novasFontes
+                        fonteMudou
                     configuracaoAtual = resultado.configuracao
                     fontesConfiguradas = novasFontes
                     playlistAtiva = playlistAtiva.coerceIn(0, (novasFontes.size - 1).coerceAtLeast(0))
@@ -250,21 +286,24 @@ fun EvoluxApp() {
                         .putBoolean(CHAVE_MAC_AUTORIZADO, true)
                         .apply()
                     if (novasFontes.isEmpty()) {
-                        Toast.makeText(
-                            contexto,
-                            "MAC autorizado, mas nenhuma playlist foi encontrada no painel.",
-                            Toast.LENGTH_LONG
-                        ).show()
+                        catalogo = null
+                        erroCatalogo = "O MAC foi autorizado, mas o painel não forneceu uma URL de playlist."
+                        estadoLogin = EstadoLoginMac.Ocioso
                     } else if (precisaCarregar) {
-                        catalogo = PlaylistCatalog(emptyList(), emptyList(), emptyList())
+                        // Não publicar um catálogo vazio enquanto a playlist ainda está sendo baixada.
+                        // Isso fazia a Home parecer carregada com TV, filmes e séries em zero itens.
+                        catalogo = null
+                        erroCatalogo = null
                         escopo.launch {
-                            val erroCatalogo = carregarCatalogo(resultado.configuracao, playlistAtiva)
-                            if (erroCatalogo != null) {
-                                Toast.makeText(contexto, erroCatalogo, Toast.LENGTH_LONG).show()
+                            val erro = carregarCatalogo(resultado.configuracao, playlistAtiva)
+                            if (erro != null) {
+                                Toast.makeText(contexto, erro, Toast.LENGTH_LONG).show()
                             }
                         }
+                    } else if (catalogo != null) {
+                        erroCatalogo = null
+                        estadoLogin = EstadoLoginMac.Ocioso
                     }
-                    estadoLogin = EstadoLoginMac.Ocioso
                 }
                 is ResultadoConfiguracao.Erro -> {
                     preferencias.edit().putBoolean(CHAVE_MAC_AUTORIZADO, false).apply()
@@ -373,7 +412,24 @@ fun EvoluxApp() {
     }
 
     if (catalogo == null) {
-        CatalogoLoadingScreen(estadoLogin)
+        CatalogoLoadingScreen(
+            estado = estadoLogin,
+            erro = erroCatalogo,
+            aoTentarNovamente = if (!carregandoCatalogo) {
+                configuracaoAtual?.let { configuracao ->
+                    {
+                        escopo.launch {
+                            val erro = carregarCatalogo(configuracao, playlistAtiva, forcar = true)
+                            if (erro != null) {
+                                Toast.makeText(contexto, erro, Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    }
+                }
+            } else {
+                null
+            }
+        )
         return
     }
 

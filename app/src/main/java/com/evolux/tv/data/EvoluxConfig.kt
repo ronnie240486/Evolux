@@ -45,7 +45,7 @@ object EvoluxConfigParser {
 
     private fun JSONObject.extrairPlaylistUrls(): List<String> {
         val resultado = linkedSetOf<String>()
-        val chaves = listOf(
+        val chavesPlaylist = listOf(
             "playlist_urls",
             "playlist_url",
             "playlist",
@@ -54,21 +54,36 @@ object EvoluxConfigParser {
             "m3u_url",
             "url"
         )
-        chaves.forEach { chave -> adicionarValor(opt(chave), resultado) }
+        chavesPlaylist.forEach { chave -> adicionarValor(opt(chave), resultado) }
+        // Algumas versões do painel envolvem a configuração dentro de data/config/result.
+        listOf("data", "config", "settings", "result").forEach { chave ->
+            adicionarValor(opt(chave), resultado)
+        }
         return resultado.toList()
     }
 
-    private fun adicionarValor(valor: Any?, resultado: MutableSet<String>) {
+    private fun adicionarValor(valor: Any?, resultado: MutableSet<String>, profundidade: Int = 0) {
         when (valor) {
-            is String -> valor.trim().takeIf { it.startsWith("http://") || it.startsWith("https://") }?.let(resultado::add)
+            is String -> valor.trim()
+                .takeIf { it.startsWith("http://") || it.startsWith("https://") }
+                ?.let(resultado::add)
             is JSONArray -> {
                 for (indice in 0 until valor.length()) {
-                    adicionarValor(valor.opt(indice), resultado)
+                    adicionarValor(valor.opt(indice), resultado, profundidade + 1)
                 }
             }
             is JSONObject -> {
-                listOf("playlist_url", "url", "m3u_url", "stream_url").forEach { chave ->
-                    adicionarValor(valor.opt(chave), resultado)
+                val chavesConhecidas = listOf(
+                    "playlist_urls", "playlist_url", "playlist", "playlists", "lists",
+                    "m3u_url", "url", "stream_url"
+                )
+                chavesConhecidas.forEach { chave ->
+                    adicionarValor(valor.opt(chave), resultado, profundidade + 1)
+                }
+                if (profundidade < 3) {
+                    listOf("data", "config", "settings", "result").forEach { chave ->
+                        adicionarValor(valor.opt(chave), resultado, profundidade + 1)
+                    }
                 }
             }
         }

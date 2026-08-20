@@ -37,10 +37,14 @@ class PlaylistRepository {
             connectTimeout = 15_000
             readTimeout = 20_000
             useCaches = false
+            instanceFollowRedirects = true
             setRequestProperty(
                 "Accept",
-                "audio/x-mpegurl, application/vnd.apple.mpegurl, application/json, text/plain"
+                "audio/x-mpegurl, application/vnd.apple.mpegurl, application/json, text/plain, application/octet-stream"
             )
+            setRequestProperty("User-Agent", "Evolux/1.0 (Android)")
+            setRequestProperty("Connection", "close")
+            setRequestProperty("Cache-Control", "no-cache")
         }
 
         try {
