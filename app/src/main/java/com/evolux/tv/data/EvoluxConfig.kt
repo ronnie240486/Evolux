@@ -24,15 +24,13 @@ object EvoluxConfigParser {
     fun parse(json: String): EvoluxConfig? {
         return runCatching {
             val objeto = JSONObject(json)
-            val urls = objeto.optJSONArray("playlist_urls").toStringList()
-
             EvoluxConfig(
                 registered = objeto.optBoolean("registered", false),
                 allowed = objeto.optBoolean("allowed", false),
                 mac = objeto.optNullableString("mac").orEmpty(),
                 appId = objeto.optNullableString("app_id") ?: "evolux",
                 appName = objeto.optNullableString("app_name") ?: "Evolux",
-                playlistUrls = urls,
+                playlistUrls = objeto.extrairPlaylistUrls(),
                 logoUrl = objeto.optNullableString("logo_url")
                     ?: objeto.optNullableString("logo"),
                 bannerUrl = objeto.optNullableString("banner_url")
@@ -45,12 +43,33 @@ object EvoluxConfigParser {
         }.getOrNull()
     }
 
-    private fun JSONArray?.toStringList(): List<String> {
-        if (this == null) return emptyList()
-        return buildList {
-            for (indice in 0 until length()) {
-                val url = optString(indice, "").trim()
-                if (url.isNotEmpty()) add(url)
+    private fun JSONObject.extrairPlaylistUrls(): List<String> {
+        val resultado = linkedSetOf<String>()
+        val chaves = listOf(
+            "playlist_urls",
+            "playlist_url",
+            "playlist",
+            "playlists",
+            "lists",
+            "m3u_url",
+            "url"
+        )
+        chaves.forEach { chave -> adicionarValor(opt(chave), resultado) }
+        return resultado.toList()
+    }
+
+    private fun adicionarValor(valor: Any?, resultado: MutableSet<String>) {
+        when (valor) {
+            is String -> valor.trim().takeIf { it.startsWith("http://") || it.startsWith("https://") }?.let(resultado::add)
+            is JSONArray -> {
+                for (indice in 0 until valor.length()) {
+                    adicionarValor(valor.opt(indice), resultado)
+                }
+            }
+            is JSONObject -> {
+                listOf("playlist_url", "url", "m3u_url", "stream_url").forEach { chave ->
+                    adicionarValor(valor.opt(chave), resultado)
+                }
             }
         }
     }
