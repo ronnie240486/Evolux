@@ -35,8 +35,20 @@ import com.evolux.tv.ui.theme.TextoCinza
 import com.evolux.tv.ui.theme.TextoClaro
 
 @Composable
-fun CatalogoLoadingScreen(estado: EstadoLoginMac) {
-    val progresso = (estado as? EstadoLoginMac.Carregando) ?: EstadoLoginMac.Carregando()
+fun CatalogoLoadingScreen(
+    estado: EstadoLoginMac,
+    carregandoCatalogo: Boolean = false,
+    progressoCatalogo: Int = 1,
+    segundosCatalogo: Int = 0
+) {
+    val progresso = if (carregandoCatalogo) {
+        EstadoLoginMac.Carregando(
+            porcentagem = progressoCatalogo.coerceIn(1, 99),
+            segundos = segundosCatalogo
+        )
+    } else {
+        (estado as? EstadoLoginMac.Carregando) ?: EstadoLoginMac.Carregando()
+    }
     Box(modifier = Modifier.fillMaxSize()) {
         Image(
             painter = painterResource(R.drawable.evolux_background_futurista),

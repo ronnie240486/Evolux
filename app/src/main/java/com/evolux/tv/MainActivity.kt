@@ -114,6 +114,8 @@ fun EvoluxApp() {
     var estadoLogin by remember { mutableStateOf<EstadoLoginMac>(EstadoLoginMac.Ocioso) }
     var validacaoEmAndamento by remember { mutableStateOf(false) }
     var carregandoCatalogo by remember { mutableStateOf(false) }
+    var progressoCatalogo by remember { mutableStateOf(1) }
+    var segundosCatalogo by remember { mutableStateOf(0) }
     var reproducao by remember { mutableStateOf<Reproducao?>(null) }
     var jogosDoDia by remember { mutableStateOf<List<Jogo>>(emptyList()) }
     var categoriaInicialSeries by remember { mutableStateOf<String?>(null) }
@@ -200,10 +202,13 @@ fun EvoluxApp() {
         playlistUrlAtual = urlPlaylist
         val fingerprint = CatalogoCache.fingerprint(configuracao, urlPlaylist)
         carregandoCatalogo = true
+        progressoCatalogo = 2
+        segundosCatalogo = 0
         try {
             if (!forcar) {
                 val cache = CatalogoCache.carregar(contexto, fingerprint)
                 if (cache != null) {
+                    progressoCatalogo = 98
                     catalogo = cache
                     playlistAtiva = indice
                     if (cache.series.none { it.id.startsWith("xtream_series_") }) {
@@ -212,7 +217,9 @@ fun EvoluxApp() {
                     return null
                 }
             }
+            progressoCatalogo = 15
             val catalogoM3u = playlistRepository.carregar(urlPlaylist)
+            progressoCatalogo = 98
             catalogo = catalogoM3u
             playlistAtiva = indice
             preferencias.edit().putInt(CHAVE_PLAYLIST_ATIVA, indice).apply()
@@ -223,6 +230,16 @@ fun EvoluxApp() {
             return erro.message?.takeIf { it.isNotBlank() } ?: "Não foi possível interpretar o catálogo."
         } finally {
             carregandoCatalogo = false
+        }
+    }
+
+    LaunchedEffect(carregandoCatalogo) {
+        if (carregandoCatalogo) {
+            while (isActive) {
+                delay(1_000)
+                segundosCatalogo++
+                progressoCatalogo = minOf(97, maxOf(progressoCatalogo, 2 + segundosCatalogo))
+            }
         }
     }
 
@@ -374,7 +391,12 @@ fun EvoluxApp() {
     }
 
     if (catalogo == null) {
-        CatalogoLoadingScreen(estadoLogin)
+        CatalogoLoadingScreen(
+            estado = estadoLogin,
+            carregandoCatalogo = carregandoCatalogo,
+            progressoCatalogo = progressoCatalogo,
+            segundosCatalogo = segundosCatalogo
+        )
         return
     }
 
