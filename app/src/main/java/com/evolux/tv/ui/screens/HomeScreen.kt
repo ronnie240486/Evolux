@@ -13,10 +13,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.evolux.tv.data.Destaque
+import com.evolux.tv.data.Jogo
 import com.evolux.tv.data.Midia
 import com.evolux.tv.ui.components.CatalogoSummaryPanel
 import com.evolux.tv.ui.components.FeaturedBanner
 import com.evolux.tv.ui.components.MediaRow
+import com.evolux.tv.ui.components.PainelJogosDoDia
 
 @Composable
 fun HomeScreen(
@@ -32,6 +34,8 @@ fun HomeScreen(
     aoAbrirCanais: () -> Unit,
     aoAbrirFilmes: () -> Unit,
     aoAbrirSeries: () -> Unit,
+    jogosDoDia: List<Jogo> = emptyList(),
+    aoAbrirJogos: () -> Unit = {},
     ehFavorito: (Midia) -> Boolean,
     aoAlternarFavorito: (Midia) -> Unit
 ) {
@@ -67,13 +71,9 @@ fun HomeScreen(
                                 .fillMaxWidth()
                                 .height(220.dp)
                         )
-                        CatalogoSummaryPanel(
-                            canais = canaisCount,
-                            filmes = filmesCount,
-                            series = seriesCount,
-                            aoAbrirCanais = aoAbrirCanais,
-                            aoAbrirFilmes = aoAbrirFilmes,
-                            aoAbrirSeries = aoAbrirSeries,
+                        PainelJogosDoDia(
+                            jogos = jogosDoDia,
+                            aoAbrirCanal = aoAbrirJogos,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -91,13 +91,9 @@ fun HomeScreen(
                                 .weight(1f)
                                 .height(300.dp)
                         )
-                        CatalogoSummaryPanel(
-                            canais = canaisCount,
-                            filmes = filmesCount,
-                            series = seriesCount,
-                            aoAbrirCanais = aoAbrirCanais,
-                            aoAbrirFilmes = aoAbrirFilmes,
-                            aoAbrirSeries = aoAbrirSeries,
+                        PainelJogosDoDia(
+                            jogos = jogosDoDia,
+                            aoAbrirCanal = aoAbrirJogos,
                             modifier = Modifier.fillMaxWidth(0.32f)
                         )
                     }

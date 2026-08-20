@@ -31,6 +31,8 @@ import com.evolux.tv.data.MacAddressUtils
 import com.evolux.tv.data.PlaylistCatalog
 import com.evolux.tv.data.PlaylistRepository
 import com.evolux.tv.data.Midia
+import com.evolux.tv.data.Jogo
+import com.evolux.tv.data.JogosDoDiaRepository
 import com.evolux.tv.data.OrdemCatalogo
 import com.evolux.tv.data.ResultadoConfiguracao
 import com.evolux.tv.data.XtreamRepository
@@ -88,6 +90,7 @@ fun EvoluxApp() {
     val repository = remember { EvoluxRepository() }
     val playlistRepository = remember { PlaylistRepository() }
     val xtreamRepository = remember { XtreamRepository() }
+    val jogosDoDiaRepository = remember { JogosDoDiaRepository() }
     val escopo = rememberCoroutineScope()
     var macAutorizado by remember { mutableStateOf("") }
     var catalogo by remember { mutableStateOf<PlaylistCatalog?>(null) }
@@ -109,6 +112,7 @@ fun EvoluxApp() {
     var validacaoEmAndamento by remember { mutableStateOf(false) }
     var carregandoCatalogo by remember { mutableStateOf(false) }
     var reproducao by remember { mutableStateOf<Reproducao?>(null) }
+    var jogosDoDia by remember { mutableStateOf<List<Jogo>>(emptyList()) }
 
     BackHandler(enabled = reproducao != null || telaAtual != Tela.INICIO) {
         if (reproducao != null) {
@@ -211,6 +215,15 @@ fun EvoluxApp() {
                 validarAcesso(macLogico, mostrarCarregando = false)
             }
             delay(5_000)
+        }
+    }
+
+    LaunchedEffect(telaAtual) {
+        if (telaAtual == Tela.INICIO) {
+            while (isActive) {
+                jogosDoDia = jogosDoDiaRepository.carregarProximosJogos()
+                delay(30 * 60 * 1_000L)
+            }
         }
     }
 
@@ -380,6 +393,8 @@ fun EvoluxApp() {
                 aoAbrirCanais = { telaAtual = Tela.TV_AO_VIVO },
                 aoAbrirFilmes = { telaAtual = Tela.FILMES },
                 aoAbrirSeries = { telaAtual = Tela.SERIES },
+                jogosDoDia = jogosDoDia,
+                aoAbrirJogos = { telaAtual = Tela.JOGOS },
                 ehFavorito = ehFavorito,
                 aoAlternarFavorito = aoAlternarFavorito
             )
@@ -420,7 +435,7 @@ fun EvoluxApp() {
             )
 
             Tela.JOGOS -> GamesScreen(
-                jogos = emptyList(),
+                jogos = jogosDoDia,
                 aoAbrirJogo = { abrirConteudo("${it.timeCasaSigla} x ${it.timeVisitanteSigla}", it.streamUrl) }
             )
 

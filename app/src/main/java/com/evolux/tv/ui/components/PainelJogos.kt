@@ -5,7 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SportsSoccer
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,7 +39,8 @@ fun PainelJogosDoDia(
         shape = RoundedCornerShape(16.dp),
         colors = SurfaceDefaults.colors(containerColor = Color(0xFF0E1424)),
         modifier = modifier
-            .width(360.dp)
+            .widthIn(max = 360.dp)
+            .fillMaxWidth()
             .border(1.dp, Color(0xFF1F2740), RoundedCornerShape(16.dp))
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -47,7 +48,7 @@ fun PainelJogosDoDia(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.semantics { heading() }
             ) {
-                Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Dourado)
+                Icon(Icons.Filled.SportsSoccer, contentDescription = null, tint = Dourado)
                 Spacer(Modifier.width(8.dp))
                 Text(
                     "JOGOS DO DIA",
@@ -57,9 +58,17 @@ fun PainelJogosDoDia(
                 )
             }
             Spacer(Modifier.height(16.dp))
-            jogos.forEach { jogo ->
-                LinhaJogo(jogo, aoClicar = aoAbrirCanal)
-                Spacer(Modifier.height(12.dp))
+            if (jogos.isEmpty()) {
+                Text(
+                    text = "Nenhum jogo futuro encontrado hoje.",
+                    color = TextoCinza,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            } else {
+                jogos.forEach { jogo ->
+                    LinhaJogo(jogo, aoClicar = aoAbrirCanal)
+                    Spacer(Modifier.height(12.dp))
+                }
             }
             Spacer(Modifier.height(4.dp))
             EvoluxClickableSurface(
@@ -71,7 +80,7 @@ fun PainelJogosDoDia(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
-                        "ABRIR CANAL",
+                        "VER JOGOS DO DIA",
                         color = Color(0xFF111111),
                         fontWeight = FontWeight.Bold
                     )

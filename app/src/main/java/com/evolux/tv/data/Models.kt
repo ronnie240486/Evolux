@@ -51,5 +51,7 @@ data class Jogo(
     val timeVisitanteLogoUrl: String,
     val horario: String,
     val campeonato: String,
-    val streamUrl: String
+    val streamUrl: String,
+    val status: String = "",
+    val dataHoraUtc: String = ""
 )
