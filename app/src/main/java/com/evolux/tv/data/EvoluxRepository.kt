@@ -49,20 +49,9 @@ class EvoluxRepository(
                 )
             }
 
-            val playlistUrl = configuracao.primeiraPlaylistValida
-                ?: return@withContext ResultadoConfiguracao.Erro(
-                    mensagem = "Lista indisponível ou credenciais inválidas",
-                    detalhe = "Nenhuma URL HTTP/HTTPS foi encontrada em playlist_urls."
-                )
-
-            val resultadoPlaylist = playlistValida(playlistUrl)
-            if (!resultadoPlaylist.valida) {
-                return@withContext ResultadoConfiguracao.Erro(
-                    mensagem = "Lista indisponível ou credenciais inválidas",
-                    detalhe = resultadoPlaylist.detalhe
-                )
-            }
-
+            // A autorização do MAC não depende da resposta da playlist.
+            // O aparelho entra na Home imediatamente e a lista é carregada depois,
+            // com timeout e fallback, para não bloquear TV Boxes mais lentas.
             ResultadoConfiguracao.Sucesso(configuracao.copy(mac = macNormalizado))
         } catch (erro: RespostaConfiguracaoException) {
             ResultadoConfiguracao.Erro(

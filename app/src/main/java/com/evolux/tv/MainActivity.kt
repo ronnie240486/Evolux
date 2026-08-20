@@ -198,7 +198,13 @@ fun EvoluxApp() {
                         .putString(CHAVE_MAC_LOGICO, resultado.configuracao.mac)
                         .putBoolean(CHAVE_MAC_AUTORIZADO, true)
                         .apply()
-                    if (precisaCarregar && novasFontes.isNotEmpty()) {
+                    if (novasFontes.isEmpty()) {
+                        Toast.makeText(
+                            contexto,
+                            "MAC autorizado, mas nenhuma playlist foi encontrada no painel.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    } else if (precisaCarregar) {
                         catalogo = PlaylistCatalog(emptyList(), emptyList(), emptyList())
                         escopo.launch {
                             val erroCatalogo = carregarCatalogo(resultado.configuracao, playlistAtiva)
