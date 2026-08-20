@@ -32,6 +32,7 @@ import com.evolux.tv.data.PlaylistRepository
 import com.evolux.tv.data.Midia
 import com.evolux.tv.data.ResultadoConfiguracao
 import com.evolux.tv.data.gerarDestaques
+import com.evolux.tv.data.gerarFileirasEspeciais
 import com.evolux.tv.ui.components.Tela
 import com.evolux.tv.ui.components.TopNavBar
 import com.evolux.tv.ui.screens.*
@@ -193,6 +194,9 @@ fun EvoluxApp() {
     val destaques = remember(catalogoAtual) {
         gerarDestaques(catalogoAtual)
     }
+    val fileirasEspeciais = remember(catalogoAtual) {
+        gerarFileirasEspeciais(catalogoAtual)
+    }
     val favoritos = remember { mutableStateListOf<Midia>() }
 
     LaunchedEffect(preferencias) {
@@ -245,6 +249,7 @@ fun EvoluxApp() {
                 seriesCount = catalogoAtual.series.size,
                 filmes = catalogoAtual.filmes,
                 series = catalogoAtual.series,
+                fileirasEspeciais = fileirasEspeciais,
                 aoAbrirMidia = { abrirConteudo(it.titulo, it.streamUrl) },
                 aoAssistirDestaque = { abrirConteudo(it.titulo, it.streamUrl) },
                 aoAbrirCanais = { telaAtual = Tela.TV_AO_VIVO },
