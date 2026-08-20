@@ -2,8 +2,11 @@ package com.evolux.tv.ui.components
 
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
@@ -15,12 +18,35 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.tv.foundation.lazy.list.TvLazyRow
+import androidx.tv.foundation.lazy.list.items
 import com.evolux.tv.R
 
 private data class ServiceBadgeInfo(
     @DrawableRes val drawable: Int,
     val label: String
 )
+
+@Composable
+fun FileiraLogosServicos(
+    servicos: List<String>,
+    aoSelecionar: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (servicos.isEmpty()) return
+    TvLazyRow(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 24.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        items(servicos.distinct()) { servico ->
+            EmblemaServico(
+                nome = servico,
+                aoClicar = { aoSelecionar(servico) }
+            )
+        }
+    }
+}
 
 @Composable
 fun EmblemaServico(
@@ -59,6 +85,8 @@ private fun infoServico(nome: String): ServiceBadgeInfo? {
         "prime" in normalizado -> ServiceBadgeInfo(R.drawable.service_badge_prime_video, "Prime Video")
         "apple" in normalizado -> ServiceBadgeInfo(R.drawable.service_badge_apple_tv, "Apple TV+")
         "disney" in normalizado -> ServiceBadgeInfo(R.drawable.service_badge_disney_plus, "Disney+")
+        "pluto" in normalizado -> ServiceBadgeInfo(R.drawable.service_badge_pluto_tv, "Pluto TV")
+        "star plus" in normalizado || "star+" in normalizado -> ServiceBadgeInfo(R.drawable.service_badge_star_plus, "Star+")
         "max" in normalizado || "hbo" in normalizado -> ServiceBadgeInfo(R.drawable.service_badge_hbo_max, "HBO Max")
         "globoplay" in normalizado -> ServiceBadgeInfo(R.drawable.service_badge_globoplay, "Globoplay")
         "paramount" in normalizado -> ServiceBadgeInfo(R.drawable.service_badge_paramount, "Paramount+")

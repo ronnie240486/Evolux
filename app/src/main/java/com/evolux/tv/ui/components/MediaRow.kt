@@ -11,7 +11,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.layout.ContentScale
+import coil.request.ImageRequest
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -38,7 +40,7 @@ fun MediaRow(
     modifier: Modifier = Modifier,
     emblemaServico: String? = null
 ) {
-    val itensDaHome = remember(itens) { itens.take(80) }
+    val itensDaHome = remember(itens) { itens.take(24) }
     Column(modifier = modifier.fillMaxWidth()) {
         if (emblemaServico != null) {
             EmblemaServico(
@@ -80,6 +82,14 @@ private fun CardMidia(
 ) {
     var focado by remember { mutableStateOf(false) }
     var favoritoFocado by remember { mutableStateOf(false) }
+    val contexto = LocalContext.current
+    val pedidoImagem = remember(midia.imagemUrl) {
+        ImageRequest.Builder(contexto)
+            .data(midia.imagemUrl.takeIf { it.isNotBlank() })
+            .size(360, 240)
+            .crossfade(false)
+            .build()
+    }
 
     val descricaoAcessivel = buildString {
         append(midia.titulo)
@@ -109,7 +119,7 @@ private fun CardMidia(
                         .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
                 ) {
                     AsyncImage(
-                        model = midia.imagemUrl.takeIf { it.isNotBlank() },
+                        model = pedidoImagem,
                         placeholder = painterResource(R.drawable.evolux_logo),
                         error = painterResource(R.drawable.evolux_logo),
                         fallback = painterResource(R.drawable.evolux_logo),

@@ -17,6 +17,7 @@ import com.evolux.tv.data.Jogo
 import com.evolux.tv.data.Midia
 import com.evolux.tv.ui.components.CatalogoSummaryPanel
 import com.evolux.tv.ui.components.FeaturedBanner
+import com.evolux.tv.ui.components.FileiraLogosServicos
 import com.evolux.tv.ui.components.MediaRow
 import com.evolux.tv.ui.components.PainelJogosDoDia
 
@@ -41,6 +42,7 @@ fun HomeScreen(
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val compacto = maxWidth < 760.dp
+        val servicosDaHome = fileirasEspeciais.mapNotNull { it.servico }.distinct()
         LazyColumn(
             contentPadding = PaddingValues(
                 start = if (compacto) 12.dp else 24.dp,
@@ -99,15 +101,26 @@ fun HomeScreen(
                     }
                 }
             }
-            fileirasEspeciais.forEach { fileira ->
+            item {
+                FileiraLogosServicos(
+                    servicos = servicosDaHome,
+                    aoSelecionar = { servico ->
+                        fileirasEspeciais
+                            .firstOrNull { it.servico == servico }
+                            ?.itens
+                            ?.firstOrNull()
+                            ?.let(aoAbrirMidia)
+                    }
+                )
+            }
+            fileirasEspeciais.filter { it.servico == null }.forEach { fileira ->
                 item {
                     MediaRow(
                         titulo = fileira.titulo,
                         itens = fileira.itens,
                         aoSelecionar = aoAbrirMidia,
                         ehFavorito = ehFavorito,
-                        aoAlternarFavorito = aoAlternarFavorito,
-                        emblemaServico = fileira.servico
+                        aoAlternarFavorito = aoAlternarFavorito
                     )
                 }
             }

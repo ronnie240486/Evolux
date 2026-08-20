@@ -7,14 +7,20 @@ data class FileiraCatalogo(
     val servico: String? = null
 )
 
+private const val LIMITE_AMOSTRA_HOME = 1_200
+private const val LIMITE_CARDS_HOME = 40
+
 /**
- * Constrói os cards de sugestão a partir do catálogo autorizado.
- * Quando a fonte fornece popularidade ou nota, esses campos definem a ordem
- * de “mais em alta”; sem esses campos, o app não inventa ranking.
+ * Constrói os destaques usando uma amostra limitada para não ordenar dezenas de
+ * milhares de itens na thread da interface. As grades completas continuam usando
+ * o catálogo integral em suas próprias telas.
  */
 fun gerarDestaques(catalogo: PlaylistCatalog, limite: Int = 8): List<Destaque> {
-    return (catalogo.filmes + catalogo.series)
-        .asSequence()
+    val candidatos = sequence {
+        yieldAll(catalogo.filmes.asSequence().take(LIMITE_AMOSTRA_HOME))
+        yieldAll(catalogo.series.asSequence().take(LIMITE_AMOSTRA_HOME))
+    }
+    return candidatos
         .filter { it.titulo.isNotBlank() && it.streamUrl.isNotBlank() && it.imagemUrl.isNotBlank() }
         .distinctBy { it.id }
         .sortedWith(
@@ -49,13 +55,11 @@ fun gerarDestaques(catalogo: PlaylistCatalog, limite: Int = 8): List<Destaque> {
 }
 
 /**
- * Seleciona somente grupos reais cujo nome indica uma fileira editorial.
- * Se a M3U não tiver determinado grupo, nenhuma fileira artificial é criada.
+ * Seleciona grupos reais para a Home sem criar categorias artificiais. Cada
+ * serviço guarda apenas um item representativo, pois a Home usa o emblema como
+ * atalho; a grade completa permanece disponível em Séries.
  */
 fun gerarFileirasEspeciais(catalogo: PlaylistCatalog): List<FileiraCatalogo> {
-    val seriesElegiveis = catalogo.series.asSequence()
-        .filter { it.categoria.isNotBlank() && it.imagemUrl.isNotBlank() && it.streamUrl.isNotBlank() }
-
     val servicos = listOf(
         listOf("disney") to "Disney+",
         listOf("netflix") to "Netflix",
@@ -68,25 +72,35 @@ fun gerarFileirasEspeciais(catalogo: PlaylistCatalog): List<FileiraCatalogo> {
         listOf("funimation") to "Funimation",
         listOf("apple") to "Apple TV+",
         listOf("discovery") to "Discovery+",
-        listOf("star plus") to "Star+"
+        listOf("star plus", "star+") to "Star+"
     )
+    val buckets = servicos.associate { it.second to ArrayList<Midia>(1) }
+    val idsPorServico = servicos.associate { it.second to HashSet<String>() }
 
-    val fileirasDeServico = servicos.mapNotNull { (termos, nomeServico) ->
-        val itens = seriesElegiveis
-            .filter { item ->
-                val normalizado = normalizarGrupo(item.categoria)
-                termos.any { normalizado.contains(normalizarGrupo(it)) }
+    for (item in catalogo.series) {
+        if (item.categoria.isBlank() || item.imagemUrl.isBlank() || item.streamUrl.isBlank()) continue
+        val grupo = normalizarGrupo(item.categoria)
+        for ((termos, nomeServico) in servicos) {
+            if (buckets.getValue(nomeServico).size >= 1) continue
+            if (!termos.any { grupo.contains(normalizarGrupo(it)) }) continue
+            if (idsPorServico.getValue(nomeServico).add(item.id)) {
+                buckets.getValue(nomeServico).add(item)
             }
-            .distinctBy { it.id }
-            .take(40)
-            .toList()
-        itens.takeIf { it.isNotEmpty() }?.let {
+        }
+    }
+
+    val fileirasDeServico = servicos.mapNotNull { (_, nomeServico) ->
+        buckets.getValue(nomeServico).takeIf { it.isNotEmpty() }?.let {
             FileiraCatalogo(titulo = nomeServico, itens = it, servico = nomeServico)
         }
     }
 
-    val midiasElegiveis = (catalogo.filmes.asSequence() + catalogo.series.asSequence())
-        .filter { it.categoria.isNotBlank() && it.imagemUrl.isNotBlank() && it.streamUrl.isNotBlank() }
+    val midiasElegiveis = sequence {
+        yieldAll(catalogo.filmes.asSequence().take(LIMITE_AMOSTRA_HOME))
+        yieldAll(catalogo.series.asSequence().take(LIMITE_AMOSTRA_HOME))
+    }.filter {
+        it.categoria.isNotBlank() && it.imagemUrl.isNotBlank() && it.streamUrl.isNotBlank()
+    }
     val regrasGerais = listOf(
         listOf("alta", "popular", "trending", "top") to "FILMES EM ALTA",
         listOf("lancamento", "lancamentos", "novidade", "premiere", "new") to "LANÇAMENTOS",
@@ -102,7 +116,7 @@ fun gerarFileirasEspeciais(catalogo: PlaylistCatalog): List<FileiraCatalogo> {
                 }
             }
             .distinctBy { it.id }
-            .take(40)
+            .take(LIMITE_CARDS_HOME)
             .toList()
         itens.takeIf { it.isNotEmpty() }?.let {
             FileiraCatalogo(titulo = tituloPadrao, itens = it)
