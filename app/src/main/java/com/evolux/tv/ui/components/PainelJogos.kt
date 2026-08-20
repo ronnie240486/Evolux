@@ -6,6 +6,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -19,6 +20,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
@@ -53,97 +55,133 @@ fun PainelJogosDoDia(
             .fillMaxWidth()
             .border(1.dp, Color(0xFF1F2740), RoundedCornerShape(16.dp))
     ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            if (jogos.isEmpty()) {
-                val transicao = rememberInfiniteTransition(label = "futebol_vazio")
-                val brilho by transicao.animateFloat(
-                    initialValue = 0.94f,
-                    targetValue = 1f,
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(durationMillis = 2400),
-                        repeatMode = RepeatMode.Reverse
-                    ),
-                    label = "brilho_futebol"
-                )
-                Image(
-                    painter = painterResource(R.drawable.evolux_no_games_football),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(245.dp)
-                        .alpha(brilho)
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(245.dp)
-                        .background(Color(0x350A0E1A))
-                )
-            }
-            Column(modifier = Modifier.padding(20.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.semantics { heading() }
-            ) {
-                Icon(Icons.Filled.SportsSoccer, contentDescription = null, tint = Dourado)
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    "JOGOS DO DIA",
-                    color = Dourado,
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-            Spacer(Modifier.height(16.dp))
-            if (jogos.isEmpty()) {
-                Text(
-                    text = "Nenhum jogo futuro encontrado hoje.",
-                    color = TextoClaro,
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = "A bola volta a rolar em breve.",
-                    color = Dourado,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            } else {
-                jogos.forEach { jogo ->
-                    LinhaJogo(jogo, aoClicar = { aoAbrirJogo(jogo) })
-                    Spacer(Modifier.height(12.dp))
-                }
-            }
-            Spacer(Modifier.height(18.dp))
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                EvoluxClickableSurface(
-                    onClick = aoAbrirTodos,
-                    containerColor = Color.Transparent,
-                    focusedColor = Color.Transparent,
-                    modifier = Modifier
-                        .widthIn(min = 270.dp, max = 330.dp)
-                        .height(42.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = "VER JOGOS DO DIA",
-                            color = TextoClaro,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            softWrap = false,
-                            modifier = Modifier.padding(horizontal = 18.dp)
-                        )
+        var pagina by remember(jogos) { mutableIntStateOf(0) }
+        val totalPaginas = ((jogos.size + 2) / 3).coerceAtLeast(1)
+        val paginaAtual = pagina.coerceIn(0, totalPaginas - 1)
+        val jogosDaPagina = jogos.drop(paginaAtual * 3).take(3)
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .pointerInput(jogos, paginaAtual) {
+                    detectHorizontalDragGestures { _, deslocamento ->
+                        when {
+                            deslocamento < -48f && paginaAtual < totalPaginas - 1 -> pagina++
+                            deslocamento > 48f && paginaAtual > 0 -> pagina--
+                        }
                     }
                 }
+        ) {
+            val transicao = rememberInfiniteTransition(label = "futebol_painel")
+            val brilho by transicao.animateFloat(
+                initialValue = 0.72f,
+                targetValue = 0.98f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis = 2600),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "brilho_painel"
+            )
+            Image(
+                painter = painterResource(R.drawable.evolux_no_games_football),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.matchParentSize().alpha(brilho)
+            )
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(Color(0x55050A16))
+            )
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.semantics { heading() }
+                ) {
+                    Icon(Icons.Filled.SportsSoccer, contentDescription = null, tint = Dourado)
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "JOGOS DO DIA",
+                        color = Dourado,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+                Spacer(Modifier.height(14.dp))
+                if (jogos.isEmpty()) {
+                    Text(
+                        text = "Nenhum jogo futuro encontrado hoje.",
+                        color = TextoClaro,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = "A bola volta a rolar em breve.",
+                        color = Dourado,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                } else {
+                    jogosDaPagina.forEach { jogo ->
+                        LinhaJogo(jogo, aoClicar = { aoAbrirJogo(jogo) })
+                        Spacer(Modifier.height(8.dp))
+                    }
+                    if (totalPaginas > 1) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            EvoluxClickableSurface(
+                                onClick = { if (paginaAtual > 0) pagina-- },
+                                containerColor = Color.Transparent,
+                                focusedColor = Color.Transparent,
+                                modifier = Modifier.size(36.dp)
+                            ) { Text("‹", color = TextoClaro, style = MaterialTheme.typography.titleLarge) }
+                            Text(
+                                "${paginaAtual + 1}/$totalPaginas",
+                                color = TextoClaro,
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.padding(horizontal = 12.dp)
+                            )
+                            EvoluxClickableSurface(
+                                onClick = { if (paginaAtual < totalPaginas - 1) pagina++ },
+                                containerColor = Color.Transparent,
+                                focusedColor = Color.Transparent,
+                                modifier = Modifier.size(36.dp)
+                            ) { Text("›", color = TextoClaro, style = MaterialTheme.typography.titleLarge) }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    EvoluxClickableSurface(
+                        onClick = aoAbrirTodos,
+                        containerColor = Color.Transparent,
+                        focusedColor = Color.Transparent,
+                        modifier = Modifier
+                            .widthIn(min = 220.dp, max = 280.dp)
+                            .height(38.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = "VER JOGOS DO DIA",
+                                color = TextoClaro,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                softWrap = false,
+                                modifier = Modifier.padding(horizontal = 12.dp)
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
             }
-            Spacer(Modifier.height(8.dp))
         }
     }
-}
 }
 
 @Composable
@@ -180,17 +218,31 @@ private fun LinhaJogo(jogo: Jogo, aoClicar: () -> Unit) {
 
 @Composable
 private fun EscudoTime(logoUrl: String, sigla: String) {
-    // Sigla escrita embaixo já é o texto legível; o escudo é decorativo
-    // para não duplicar a leitura no TalkBack.
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        AsyncImage(
-            model = logoUrl,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
+        Box(
             modifier = Modifier
-                .size(36.dp)
-                .clip(RoundedCornerShape(6.dp))
-        )
+                .size(42.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color(0xFF202A43)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = sigla,
+                color = TextoClaro,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.labelSmall
+            )
+            if (logoUrl.isNotBlank()) {
+                AsyncImage(
+                    model = logoUrl,
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                )
+            }
+        }
         Text(sigla, color = TextoClaro, style = MaterialTheme.typography.labelSmall)
     }
 }

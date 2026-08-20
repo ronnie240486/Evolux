@@ -299,7 +299,9 @@ fun EvoluxApp() {
             while (isActive) {
                 val jogosDaLista = jogosDaPlaylist(catalogo?.canais.orEmpty())
                 if (jogosDaLista.isNotEmpty()) {
-                    jogosDoDia = jogosDaLista
+                    jogosDoDia = withTimeoutOrNull(4_000L) {
+                        jogosDoDiaRepository.enriquecerEscudos(jogosDaLista)
+                    } ?: jogosDaLista
                 } else {
                     val jogosApi = jogosDoDiaRepository.carregarProximosJogos()
                     if (jogosDaPlaylist(catalogo?.canais.orEmpty()).isEmpty()) {

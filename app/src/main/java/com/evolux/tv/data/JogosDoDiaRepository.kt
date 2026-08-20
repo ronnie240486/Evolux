@@ -66,6 +66,30 @@ class JogosDoDiaRepository {
         }.getOrDefault(emptyList())
     }
 
+    suspend fun enriquecerEscudos(jogos: List<Jogo>): List<Jogo> {
+        if (jogos.isEmpty()) return jogos
+        val agenda = carregarProximosJogos(limite = 50)
+        if (agenda.isEmpty()) return jogos
+        return jogos.map { jogo ->
+            val correspondente = agenda.firstOrNull { evento ->
+                equipesParecidas(jogo.timeCasaSigla, evento.timeCasaSigla) &&
+                    equipesParecidas(jogo.timeVisitanteSigla, evento.timeVisitanteSigla)
+            }
+            correspondente?.let {
+                jogo.copy(
+                    timeCasaLogoUrl = it.timeCasaLogoUrl.ifBlank { jogo.timeCasaLogoUrl },
+                    timeVisitanteLogoUrl = it.timeVisitanteLogoUrl.ifBlank { jogo.timeVisitanteLogoUrl }
+                )
+            } ?: jogo
+        }
+    }
+
+    private fun equipesParecidas(primeira: String, segunda: String): Boolean {
+        val a = primeira.lowercase(Locale.ROOT).filter { it.isLetterOrDigit() }
+        val b = segunda.lowercase(Locale.ROOT).filter { it.isLetterOrDigit() }
+        return a.isNotBlank() && b.isNotBlank() && (a.startsWith(b) || b.startsWith(a))
+    }
+
     private fun parseUtc(valor: String): Long? {
         return runCatching {
             SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
