@@ -172,8 +172,9 @@ class XtreamRepository {
         }
         val conexaoHttp = (URL("${conexao.base}/player_api.php?$query").openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
-            connectTimeout = 20_000
-            readTimeout = 30_000
+                            connectTimeout = 5_000
+                readTimeout = 8_000
+
             useCaches = false
             setRequestProperty("Accept", "application/json")
             setRequestProperty("User-Agent", "Evolux/1.0 (Android)")

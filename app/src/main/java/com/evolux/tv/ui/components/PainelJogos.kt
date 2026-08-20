@@ -117,15 +117,16 @@ fun PainelJogosDoDia(
             Spacer(Modifier.height(4.dp))
             EvoluxClickableSurface(
                 onClick = aoAbrirCanal,
-                containerColor = Dourado,
+                containerColor = Color(0xFF111A2B),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp)
+                    .height(40.dp)
+                    .border(1.dp, Dourado.copy(alpha = 0.85f), RoundedCornerShape(10.dp))
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
                         "VER JOGOS DO DIA",
-                        color = Color(0xFF111111),
+                        color = Dourado,
                         fontWeight = FontWeight.Bold
                     )
                 }

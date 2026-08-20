@@ -23,6 +23,7 @@ import androidx.compose.ui.res.painterResource
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import com.evolux.tv.R
 import com.evolux.tv.data.EvoluxRepository
 import com.evolux.tv.data.EvoluxConfig
@@ -122,7 +123,25 @@ fun EvoluxApp() {
         }
     }
 
+    fun carregarSeriesXtreamEmSegundoPlano(
+        urlPlaylist: String,
+        fingerprint: String,
+        catalogoBase: PlaylistCatalog
+    ) {
+        if (!XtreamRepository.pareceXtream(urlPlaylist)) return
+        escopo.launch {
+            val seriesXtream = withTimeoutOrNull(15_000L) {
+                xtreamRepository.carregarSeries(urlPlaylist)
+            }.orEmpty()
+            if (seriesXtream.isEmpty() || playlistUrlAtual != urlPlaylist) return@launch
+            val atualizado = (catalogo ?: catalogoBase).copy(series = seriesXtream)
+            catalogo = atualizado
+            CatalogoCache.salvar(contexto, fingerprint, atualizado)
+        }
+    }
+
     suspend fun carregarCatalogo(configuracao: EvoluxConfig, indiceSolicitado: Int = playlistAtiva, forcar: Boolean = false): String? {
+        if (carregandoCatalogo) return null
         val fontes = configuracao.playlistUrls.filter { it.startsWith("http://") || it.startsWith("https://") }
         if (fontes.isEmpty()) return "Nenhuma URL de playlist foi encontrada."
         val indice = indiceSolicitado.coerceIn(0, fontes.lastIndex)
@@ -136,24 +155,18 @@ fun EvoluxApp() {
                 if (cache != null) {
                     catalogo = cache
                     playlistAtiva = indice
+                    if (cache.series.none { it.id.startsWith("xtream_series_") }) {
+                        carregarSeriesXtreamEmSegundoPlano(urlPlaylist, fingerprint, cache)
+                    }
                     return null
                 }
             }
             val catalogoM3u = playlistRepository.carregar(urlPlaylist)
-            val seriesXtream = if (XtreamRepository.pareceXtream(urlPlaylist)) {
-                xtreamRepository.carregarSeries(urlPlaylist)
-            } else {
-                emptyList()
-            }
-            val novoCatalogo = if (seriesXtream.isNotEmpty()) {
-                catalogoM3u.copy(series = seriesXtream)
-            } else {
-                catalogoM3u
-            }
-            catalogo = novoCatalogo
+            catalogo = catalogoM3u
             playlistAtiva = indice
             preferencias.edit().putInt(CHAVE_PLAYLIST_ATIVA, indice).apply()
-            CatalogoCache.salvar(contexto, fingerprint, novoCatalogo)
+            CatalogoCache.salvar(contexto, fingerprint, catalogoM3u)
+            carregarSeriesXtreamEmSegundoPlano(urlPlaylist, fingerprint, catalogoM3u)
             return null
         } catch (erro: Exception) {
             return erro.message?.takeIf { it.isNotBlank() } ?: "Não foi possível interpretar o catálogo."
@@ -169,26 +182,32 @@ fun EvoluxApp() {
         try {
             when (val resultado = repository.buscarConfiguracao(macInformado)) {
                 is ResultadoConfiguracao.Sucesso -> {
+                    val novasFontes = resultado.configuracao.playlistUrls.filter {
+                        it.startsWith("http://") || it.startsWith("https://")
+                    }
+                    val catalogoAtual = catalogo
+                    val precisaCarregar = catalogoAtual == null ||
+                        (catalogoAtual.canais.isEmpty() && catalogoAtual.filmes.isEmpty() && catalogoAtual.series.isEmpty()) ||
+                        macAutorizado != resultado.configuracao.mac ||
+                        playlistUrlAtual !in novasFontes
                     configuracaoAtual = resultado.configuracao
-                    fontesConfiguradas = resultado.configuracao.playlistUrls.filter { it.startsWith("http://") || it.startsWith("https://") }
-                    playlistAtiva = playlistAtiva.coerceIn(0, (fontesConfiguradas.size - 1).coerceAtLeast(0))
-                    if (estadoLogin is EstadoLoginMac.Carregando) {
-                        estadoLogin = EstadoLoginMac.Carregando(porcentagem = 35, segundos = (estadoLogin as EstadoLoginMac.Carregando).segundos)
+                    fontesConfiguradas = novasFontes
+                    playlistAtiva = playlistAtiva.coerceIn(0, (novasFontes.size - 1).coerceAtLeast(0))
+                    macAutorizado = resultado.configuracao.mac
+                    preferencias.edit()
+                        .putString(CHAVE_MAC_LOGICO, resultado.configuracao.mac)
+                        .putBoolean(CHAVE_MAC_AUTORIZADO, true)
+                        .apply()
+                    if (precisaCarregar && novasFontes.isNotEmpty()) {
+                        catalogo = PlaylistCatalog(emptyList(), emptyList(), emptyList())
+                        escopo.launch {
+                            val erroCatalogo = carregarCatalogo(resultado.configuracao, playlistAtiva)
+                            if (erroCatalogo != null) {
+                                Toast.makeText(contexto, erroCatalogo, Toast.LENGTH_LONG).show()
+                            }
+                        }
                     }
-                    val erroCatalogo = carregarCatalogo(resultado.configuracao, playlistAtiva)
-                    if (erroCatalogo == null) {
-                        macAutorizado = resultado.configuracao.mac
-                        preferencias.edit()
-                            .putString(CHAVE_MAC_LOGICO, resultado.configuracao.mac)
-                            .putBoolean(CHAVE_MAC_AUTORIZADO, true)
-                            .apply()
-                        estadoLogin = EstadoLoginMac.Ocioso
-                    } else {
-                        estadoLogin = EstadoLoginMac.Erro(
-                            "Lista indisponível ou credenciais inválidas",
-                            erroCatalogo
-                        )
-                    }
+                    estadoLogin = EstadoLoginMac.Ocioso
                 }
                 is ResultadoConfiguracao.Erro -> {
                     preferencias.edit().putBoolean(CHAVE_MAC_AUTORIZADO, false).apply()

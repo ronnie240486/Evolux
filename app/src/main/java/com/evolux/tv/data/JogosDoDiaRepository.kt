@@ -18,8 +18,8 @@ class JogosDoDiaRepository {
             val url = URL("https://www.thesportsdb.com/api/v1/json/123/eventsday.php?d=$hoje&s=Soccer")
             val conexao = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
-                connectTimeout = 8_000
-                readTimeout = 10_000
+                connectTimeout = 3_000
+                readTimeout = 5_000
                 useCaches = false
                 setRequestProperty("Accept", "application/json")
                 setRequestProperty("User-Agent", "Evolux/1.0 (Android TV)")

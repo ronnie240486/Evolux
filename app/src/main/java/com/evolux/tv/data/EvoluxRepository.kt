@@ -91,8 +91,8 @@ class EvoluxRepository(
         val conexao = try {
             (URL(urlPlaylist).openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
-                connectTimeout = 10_000
-                readTimeout = 10_000
+                connectTimeout = 6_000
+                readTimeout = 8_000
                 useCaches = false
                 setRequestProperty(
                     "Accept",
@@ -150,8 +150,8 @@ class EvoluxRepository(
         val url = URL("$baseUrl?mac=${URLEncoder.encode(mac, StandardCharsets.UTF_8.name())}")
         val conexao = (url.openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
-            connectTimeout = 10_000
-            readTimeout = 10_000
+            connectTimeout = 6_000
+            readTimeout = 8_000
             useCaches = false
             setRequestProperty("Accept", "application/json")
             setRequestProperty("User-Agent", "Evolux/1.0 (Android)")
