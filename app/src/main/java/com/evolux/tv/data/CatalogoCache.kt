@@ -3,36 +3,58 @@ package com.evolux.tv.data
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
+import java.io.DataInputStream
+import java.io.DataOutputStream
 import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.security.MessageDigest
 
 object CatalogoCache {
-    private const val NOME_ARQUIVO = "evolux-catalogo-cache.json"
+    private const val NOME_ARQUIVO = "evolux-catalogo-cache-v2.bin"
+    private const val MAGIC = "EVOLUX-CATALOG-2"
+    private const val MAX_CACHE_BYTES = 64L * 1024L * 1024L
 
     suspend fun carregar(contexto: Context, fingerprint: String): PlaylistCatalog? = withContext(Dispatchers.IO) {
         val arquivo = File(contexto.filesDir, NOME_ARQUIVO)
-        if (!arquivo.exists()) return@withContext null
+        if (!arquivo.exists() || arquivo.length() > MAX_CACHE_BYTES) return@withContext null
         runCatching {
-            val raiz = JSONObject(arquivo.readText())
-            if (raiz.optString("fingerprint") != fingerprint) return@runCatching null
-            val canais = raiz.optJSONArray("canais")?.toCanais().orEmpty()
-            val filmes = raiz.optJSONArray("filmes")?.toMidias().orEmpty()
-            val series = raiz.optJSONArray("series")?.toMidias().orEmpty()
-            if (canais.isEmpty() && filmes.isEmpty() && series.isEmpty()) null
-            else PlaylistCatalog(canais, filmes, series, truncado = raiz.optBoolean("truncado", false))
-        }.getOrNull()
+            DataInputStream(BufferedInputStream(FileInputStream(arquivo))).use { entrada ->
+                if (entrada.readUTF() != MAGIC) return@use null
+                if (entrada.readUTF() != fingerprint) return@use null
+                val canais = readCanais(entrada)
+                val filmes = readMidias(entrada)
+                val series = readMidias(entrada)
+                val truncado = entrada.readBoolean()
+                if (canais.isEmpty() && filmes.isEmpty() && series.isEmpty()) null
+                else PlaylistCatalog(canais, filmes, series, truncado)
+            }
+        }.getOrElse {
+            arquivo.delete()
+            null
+        }
     }
 
     suspend fun salvar(contexto: Context, fingerprint: String, catalogo: PlaylistCatalog) = withContext(Dispatchers.IO) {
-        val raiz = JSONObject()
-            .put("fingerprint", fingerprint)
-            .put("truncado", catalogo.truncado)
-            .put("canais", catalogo.canais.toJsonCanais())
-            .put("filmes", catalogo.filmes.toJsonMidias())
-            .put("series", catalogo.series.toJsonMidias())
-        File(contexto.filesDir, NOME_ARQUIVO).writeText(raiz.toString())
+        val temporario = File(contexto.filesDir, "$NOME_ARQUIVO.tmp")
+        val destino = File(contexto.filesDir, NOME_ARQUIVO)
+        runCatching {
+            DataOutputStream(BufferedOutputStream(FileOutputStream(temporario))).use { saida ->
+                saida.writeUTF(MAGIC)
+                saida.writeUTF(fingerprint)
+                writeCanais(saida, catalogo.canais)
+                writeMidias(saida, catalogo.filmes)
+                writeMidias(saida, catalogo.series)
+                saida.writeBoolean(catalogo.truncado)
+            }
+            if (temporario.length() <= MAX_CACHE_BYTES) {
+                temporario.renameTo(destino)
+            } else {
+                temporario.delete()
+            }
+        }
     }
 
     fun fingerprint(configuracao: EvoluxConfig): String {
@@ -41,86 +63,114 @@ object CatalogoCache {
         return digest.joinToString("") { "%02x".format(it) }
     }
 
-    private fun List<Canal>.toJsonCanais(): JSONArray = JSONArray().also { array ->
-        forEach { canal ->
-            array.put(
-                JSONObject()
-                    .put("id", canal.id)
-                    .put("nome", canal.nome)
-                    .put("logoUrl", canal.logoUrl)
-                    .put("streamUrl", canal.streamUrl)
-                    .put("categoria", canal.categoria)
-            )
+    private fun writeCanais(saida: DataOutputStream, canais: List<Canal>) {
+        saida.writeInt(canais.size)
+        canais.forEach { canal ->
+            saida.writeUTF(canal.id)
+            saida.writeUTF(canal.nome)
+            saida.writeUTF(canal.logoUrl)
+            saida.writeUTF(canal.streamUrl)
+            saida.writeUTF(canal.categoria)
         }
     }
 
-    private fun List<Midia>.toJsonMidias(): JSONArray = JSONArray().also { array ->
-        forEach { midia ->
-            array.put(
-                JSONObject()
-                    .put("id", midia.id)
-                    .put("titulo", midia.titulo)
-                    .put("imagemUrl", midia.imagemUrl)
-                    .put("tipo", midia.tipo.name)
-                    .put("streamUrl", midia.streamUrl)
-                    .put("progresso", midia.progresso ?: JSONObject.NULL)
-                    .put("categoria", midia.categoria)
-                    .put("nota", midia.nota ?: JSONObject.NULL)
-                    .put("popularidade", midia.popularidade ?: JSONObject.NULL)
-                    .put("sinopse", midia.sinopse)
-                    .put("serieId", midia.serieId ?: JSONObject.NULL)
-                    .put("serieNome", midia.serieNome ?: JSONObject.NULL)
-                    .put("episodioNome", midia.episodioNome ?: JSONObject.NULL)
-                    .put("temporadaNumero", midia.temporadaNumero ?: JSONObject.NULL)
-                    .put("episodioNumero", midia.episodioNumero ?: JSONObject.NULL)
-            )
-        }
-    }
-
-    private fun JSONArray.toCanais(): List<Canal> = buildList {
-        for (indice in 0 until length()) {
-            val item = optJSONObject(indice) ?: continue
-            add(
-                Canal(
-                    id = item.optString("id"),
-                    nome = item.optString("nome"),
-                    logoUrl = item.optString("logoUrl"),
-                    streamUrl = item.optString("streamUrl"),
-                    categoria = item.optString("categoria")
+    private fun readCanais(entrada: DataInputStream): List<Canal> {
+        val quantidade = entrada.readInt().coerceIn(0, 100_000)
+        return buildList(quantidade) {
+            repeat(quantidade) {
+                add(
+                    Canal(
+                        id = entrada.readUTF(),
+                        nome = entrada.readUTF(),
+                        logoUrl = entrada.readUTF(),
+                        streamUrl = entrada.readUTF(),
+                        categoria = entrada.readUTF()
+                    )
                 )
-            )
+            }
         }
     }
 
-    private fun JSONArray.toMidias(): List<Midia> = buildList {
-        for (indice in 0 until length()) {
-            val item = optJSONObject(indice) ?: continue
-            val tipo = runCatching { TipoMidia.valueOf(item.optString("tipo")) }.getOrDefault(TipoMidia.FILME)
-            add(
-                Midia(
-                    id = item.optString("id"),
-                    titulo = item.optString("titulo"),
-                    imagemUrl = item.optString("imagemUrl"),
-                    tipo = tipo,
-                    streamUrl = item.optString("streamUrl"),
-                    progresso = item.optNullableFloat("progresso"),
-                    categoria = item.optString("categoria"),
-                    nota = item.optNullableDouble("nota"),
-                    popularidade = item.optNullableLong("popularidade"),
-                    sinopse = item.optString("sinopse"),
-                    serieId = item.optNullableString("serieId"),
-                    serieNome = item.optNullableString("serieNome"),
-                    episodioNome = item.optNullableString("episodioNome"),
-                    temporadaNumero = item.optNullableInt("temporadaNumero"),
-                    episodioNumero = item.optNullableInt("episodioNumero")
+    private fun writeMidias(saida: DataOutputStream, midias: List<Midia>) {
+        saida.writeInt(midias.size)
+        midias.forEach { midia ->
+            saida.writeUTF(midia.id)
+            saida.writeUTF(midia.titulo)
+            saida.writeUTF(midia.imagemUrl)
+            saida.writeUTF(midia.tipo.name)
+            saida.writeUTF(midia.streamUrl)
+            writeNullableFloat(saida, midia.progresso)
+            saida.writeUTF(midia.categoria)
+            writeNullableDouble(saida, midia.nota)
+            writeNullableLong(saida, midia.popularidade)
+            saida.writeUTF(midia.sinopse)
+            writeNullableString(saida, midia.serieId)
+            writeNullableString(saida, midia.serieNome)
+            writeNullableString(saida, midia.episodioNome)
+            writeNullableInt(saida, midia.temporadaNumero)
+            writeNullableInt(saida, midia.episodioNumero)
+        }
+    }
+
+    private fun readMidias(entrada: DataInputStream): List<Midia> {
+        val quantidade = entrada.readInt().coerceIn(0, 100_000)
+        return buildList(quantidade) {
+            repeat(quantidade) {
+                add(
+                    Midia(
+                        id = entrada.readUTF(),
+                        titulo = entrada.readUTF(),
+                        imagemUrl = entrada.readUTF(),
+                        tipo = runCatching { TipoMidia.valueOf(entrada.readUTF()) }.getOrDefault(TipoMidia.FILME),
+                        streamUrl = entrada.readUTF(),
+                        progresso = readNullableFloat(entrada),
+                        categoria = entrada.readUTF(),
+                        nota = readNullableDouble(entrada),
+                        popularidade = readNullableLong(entrada),
+                        sinopse = entrada.readUTF(),
+                        serieId = readNullableString(entrada),
+                        serieNome = readNullableString(entrada),
+                        episodioNome = readNullableString(entrada),
+                        temporadaNumero = readNullableInt(entrada),
+                        episodioNumero = readNullableInt(entrada)
+                    )
                 )
-            )
+            }
         }
     }
 
-    private fun JSONObject.optNullableString(key: String): String? = if (isNull(key)) null else optString(key).takeIf { it.isNotBlank() }
-    private fun JSONObject.optNullableInt(key: String): Int? = if (isNull(key)) null else optInt(key)
-    private fun JSONObject.optNullableLong(key: String): Long? = if (isNull(key)) null else optLong(key)
-    private fun JSONObject.optNullableDouble(key: String): Double? = if (isNull(key)) null else optDouble(key)
-    private fun JSONObject.optNullableFloat(key: String): Float? = if (isNull(key)) null else optDouble(key).toFloat()
+    private fun writeNullableString(saida: DataOutputStream, valor: String?) {
+        saida.writeBoolean(valor != null)
+        if (valor != null) saida.writeUTF(valor)
+    }
+
+    private fun readNullableString(entrada: DataInputStream): String? = if (entrada.readBoolean()) entrada.readUTF() else null
+
+    private fun writeNullableInt(saida: DataOutputStream, valor: Int?) {
+        saida.writeBoolean(valor != null)
+        if (valor != null) saida.writeInt(valor)
+    }
+
+    private fun readNullableInt(entrada: DataInputStream): Int? = if (entrada.readBoolean()) entrada.readInt() else null
+
+    private fun writeNullableLong(saida: DataOutputStream, valor: Long?) {
+        saida.writeBoolean(valor != null)
+        if (valor != null) saida.writeLong(valor)
+    }
+
+    private fun readNullableLong(entrada: DataInputStream): Long? = if (entrada.readBoolean()) entrada.readLong() else null
+
+    private fun writeNullableDouble(saida: DataOutputStream, valor: Double?) {
+        saida.writeBoolean(valor != null)
+        if (valor != null) saida.writeDouble(valor)
+    }
+
+    private fun readNullableDouble(entrada: DataInputStream): Double? = if (entrada.readBoolean()) entrada.readDouble() else null
+
+    private fun writeNullableFloat(saida: DataOutputStream, valor: Float?) {
+        saida.writeBoolean(valor != null)
+        if (valor != null) saida.writeFloat(valor)
+    }
+
+    private fun readNullableFloat(entrada: DataInputStream): Float? = if (entrada.readBoolean()) entrada.readFloat() else null
 }
