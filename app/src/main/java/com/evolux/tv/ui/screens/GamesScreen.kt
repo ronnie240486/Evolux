@@ -10,9 +10,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.Surface
+import com.evolux.tv.ui.components.EvoluxClickableSurface
 import androidx.tv.material3.Text
 import com.evolux.tv.data.Jogo
 import com.evolux.tv.ui.theme.Dourado
@@ -44,10 +43,9 @@ fun GamesScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(jogos) { jogo ->
-                Surface(
+                EvoluxClickableSurface(
                     onClick = { aoAbrirJogo(jogo) },
-                    shape = ClickableSurfaceDefaults.shape(),
-                    colors = ClickableSurfaceDefaults.colors(containerColor = FundoCard),
+                    containerColor = FundoCard,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(

@@ -20,10 +20,9 @@ import androidx.tv.foundation.lazy.grid.TvGridCells
 import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
 import androidx.tv.foundation.lazy.grid.items
 import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.Surface
-import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Text
 import com.evolux.tv.data.Canal
+import com.evolux.tv.ui.components.EvoluxClickableSurface
 import com.evolux.tv.ui.theme.Dourado
 import com.evolux.tv.ui.theme.TextoCinza
 import com.evolux.tv.ui.theme.TextoClaro
@@ -64,17 +63,11 @@ fun LiveTvScreen(
 @Composable
 private fun CardCanal(canal: Canal, aoClicar: () -> Unit) {
     var focado by remember { mutableStateOf(false) }
-    Surface(
+    EvoluxClickableSurface(
         onClick = aoClicar,
-        shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(12.dp)),
-        colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF12172A)),
+        containerColor = Color(0xFF12172A),
         modifier = Modifier
             .onFocusChanged { focado = it.isFocused }
-            .border(
-                width = if (focado) 3.dp else 0.dp,
-                color = if (focado) Dourado else Color.Transparent,
-                shape = RoundedCornerShape(12.dp)
-            )
             .semantics(mergeDescendants = true) {
                 contentDescription = "${canal.nome}, ${canal.categoria}"
             }

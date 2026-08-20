@@ -26,8 +26,8 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
-import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Surface
+import com.evolux.tv.ui.components.EvoluxClickableSurface
 import androidx.tv.material3.Text
 
 @androidx.annotation.OptIn(UnstableApi::class)
@@ -102,10 +102,9 @@ fun PlayerScreen(
             },
             modifier = Modifier.fillMaxSize()
         )
-        Surface(
+        EvoluxClickableSurface(
             onClick = aoFechar,
-            shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
-            colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xCC10182A)),
+            containerColor = Color(0xCC10182A),
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(16.dp)

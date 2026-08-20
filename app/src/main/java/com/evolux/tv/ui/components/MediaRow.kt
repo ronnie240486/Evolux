@@ -21,8 +21,6 @@ import coil.compose.AsyncImage
 import androidx.tv.foundation.lazy.list.TvLazyRow
 import androidx.tv.foundation.lazy.list.items
 import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.Surface
-import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Text
 import com.evolux.tv.data.Midia
 import com.evolux.tv.ui.theme.Dourado
@@ -80,19 +78,13 @@ private fun CardMidia(
     }
 
     Column(modifier = Modifier.width(180.dp)) {
-        Surface(
+        EvoluxClickableSurface(
             onClick = aoClicar,
-            shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
-            colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF12172A)),
+            containerColor = Color(0xFF12172A),
             modifier = Modifier
                 .fillMaxWidth()
                 .onFocusChanged { focado = it.isFocused }
                 .scale(if (focado) 1.08f else 1f)
-                .border(
-                    width = if (focado) 3.dp else 0.dp,
-                    color = if (focado) Dourado else Color.Transparent,
-                    shape = RoundedCornerShape(10.dp)
-                )
                 .semantics(mergeDescendants = true) {
                     contentDescription = descricaoAcessivel
                 }
@@ -146,18 +138,12 @@ private fun CardMidia(
             }
         }
         Spacer(Modifier.height(6.dp))
-        Surface(
+        EvoluxClickableSurface(
             onClick = aoAlternarFavorito,
-            shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(8.dp)),
-            colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF1A2238)),
+            containerColor = Color(0xFF1A2238),
             modifier = Modifier
                 .fillMaxWidth()
                 .onFocusChanged { favoritoFocado = it.isFocused }
-                .border(
-                    width = if (favoritoFocado) 2.dp else 0.dp,
-                    color = if (favoritoFocado) Dourado else Color.Transparent,
-                    shape = RoundedCornerShape(8.dp)
-                )
                 .semantics(mergeDescendants = true) {
                     contentDescription = if (favorito) {
                         "Remover ${midia.titulo} dos favoritos"

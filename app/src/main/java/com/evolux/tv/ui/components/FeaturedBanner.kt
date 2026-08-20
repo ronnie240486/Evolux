@@ -15,9 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.evolux.tv.data.Destaque
 import com.evolux.tv.ui.theme.Dourado
@@ -43,10 +41,9 @@ fun FeaturedBanner(
     }
     val destaque = destaques[indice % destaques.size]
 
-    Surface(
+    EvoluxClickableSurface(
         onClick = { aoAssistir(destaque) },
-        shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(14.dp)),
-        colors = ClickableSurfaceDefaults.colors(containerColor = FundoCard),
+        containerColor = FundoCard,
         modifier = modifier
     ) {
         Box(

@@ -41,9 +41,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Icon
-import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.evolux.tv.R
 import com.evolux.tv.ui.theme.Dourado
@@ -121,18 +119,13 @@ private fun ItemNav(
     val corBorda = if (focado || selecionado) Dourado else Color.Transparent
     val corFundo = if (selecionado) Color(0xFF202A47) else Color(0xD912172A)
 
-    Surface(
+    EvoluxClickableSurface(
         onClick = aoClicar,
-        shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(12.dp)),
-        colors = ClickableSurfaceDefaults.colors(containerColor = corFundo),
+        containerColor = corFundo,
+        focusedColor = Color(0xFF2A3558),
         modifier = Modifier
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .onFocusChanged { focado = it.isFocused }
-            .border(
-                width = if (focado || selecionado) 2.dp else 1.dp,
-                color = corBorda,
-                shape = RoundedCornerShape(12.dp)
-            )
             .semantics {
                 contentDescription = tela.rotulo
                 role = Role.Tab

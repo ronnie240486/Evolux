@@ -11,7 +11,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
@@ -62,10 +61,9 @@ private fun ResumoLinha(
     quantidade: Int,
     aoClicar: () -> Unit
 ) {
-    Surface(
+    EvoluxClickableSurface(
         onClick = aoClicar,
-        shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
-        colors = ClickableSurfaceDefaults.colors(containerColor = FundoCard),
+        containerColor = FundoCard,
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(

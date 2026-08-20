@@ -14,8 +14,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
-import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Text
+import com.evolux.tv.ui.components.EvoluxClickableSurface
 import com.evolux.tv.ui.theme.Dourado
 import com.evolux.tv.ui.theme.TextoCinza
 import com.evolux.tv.ui.theme.TextoClaro
@@ -58,18 +58,12 @@ private fun LinhaConfig(
     aoClicar: () -> Unit
 ) {
     var focado by remember { mutableStateOf(false) }
-    Surface(
+    EvoluxClickableSurface(
         onClick = aoClicar,
-        shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
-        colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF12172A)),
+        containerColor = Color(0xFF12172A),
         modifier = Modifier
             .fillMaxWidth()
             .onFocusChanged { focado = it.isFocused }
-            .border(
-                width = if (focado) 2.dp else 0.dp,
-                color = if (focado) Dourado else Color.Transparent,
-                shape = RoundedCornerShape(10.dp)
-            )
             .semantics(mergeDescendants = true) {
                 contentDescription = "${opcao.titulo}. ${opcao.descricao}"
             }

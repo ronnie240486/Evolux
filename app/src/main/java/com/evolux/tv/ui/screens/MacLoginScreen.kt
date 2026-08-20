@@ -39,13 +39,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
 import com.evolux.tv.R
 import com.evolux.tv.data.MacAddressUtils
+import com.evolux.tv.ui.components.EvoluxClickableSurface
 import com.evolux.tv.ui.theme.Dourado
 import com.evolux.tv.ui.theme.FundoCard
 import com.evolux.tv.ui.theme.FundoEscuro
@@ -280,11 +280,9 @@ private fun AcaoLogin(
     aoClicar: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
+    EvoluxClickableSurface(
         onClick = aoClicar,
-        enabled = habilitada,
-        shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
-        colors = ClickableSurfaceDefaults.colors(containerColor = Dourado),
+        containerColor = if (habilitada) Dourado else Color(0xFF6D6042),
         modifier = modifier
             .fillMaxWidth()
             .height(52.dp)

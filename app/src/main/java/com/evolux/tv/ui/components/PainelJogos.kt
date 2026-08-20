@@ -19,7 +19,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
@@ -63,10 +62,9 @@ fun PainelJogosDoDia(
                 Spacer(Modifier.height(12.dp))
             }
             Spacer(Modifier.height(4.dp))
-            Surface(
+            EvoluxClickableSurface(
                 onClick = aoAbrirCanal,
-                shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
-                colors = ClickableSurfaceDefaults.colors(containerColor = Dourado),
+                containerColor = Dourado,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
@@ -92,18 +90,12 @@ private fun LinhaJogo(jogo: Jogo, aoClicar: () -> Unit) {
     val descricao = "${jogo.timeCasaSigla} contra ${jogo.timeVisitanteSigla}, " +
         "às ${jogo.horario}, ${jogo.campeonato}"
 
-    Surface(
+    EvoluxClickableSurface(
         onClick = aoClicar,
-        shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
-        colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF12172A)),
+        containerColor = Color(0xFF12172A),
         modifier = Modifier
             .fillMaxWidth()
             .onFocusChanged { focado = it.isFocused }
-            .border(
-                width = if (focado) 2.dp else 0.dp,
-                color = if (focado) Dourado else Color.Transparent,
-                shape = RoundedCornerShape(10.dp)
-            )
             .semantics(mergeDescendants = true) { contentDescription = descricao }
     ) {
         Row(
