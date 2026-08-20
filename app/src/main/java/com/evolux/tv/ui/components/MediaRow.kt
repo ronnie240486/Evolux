@@ -38,10 +38,12 @@ fun MediaRow(
     modifier: Modifier = Modifier,
     emblemaServico: String? = null
 ) {
+    val itensDaHome = remember(itens) { itens.take(80) }
     Column(modifier = modifier.fillMaxWidth()) {
         if (emblemaServico != null) {
             EmblemaServico(
                 nome = emblemaServico,
+                aoClicar = { itensDaHome.firstOrNull()?.let(aoSelecionar) },
                 modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 12.dp)
             )
         } else {
@@ -57,7 +59,7 @@ fun MediaRow(
             contentPadding = PaddingValues(horizontal = 24.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            items(itens) { midia ->
+            items(itensDaHome) { midia ->
                 CardMidia(
                     midia = midia,
                     favorito = ehFavorito(midia),

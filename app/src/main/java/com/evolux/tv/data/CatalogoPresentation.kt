@@ -53,9 +53,8 @@ fun gerarDestaques(catalogo: PlaylistCatalog, limite: Int = 8): List<Destaque> {
  * Se a M3U não tiver determinado grupo, nenhuma fileira artificial é criada.
  */
 fun gerarFileirasEspeciais(catalogo: PlaylistCatalog): List<FileiraCatalogo> {
-    val gruposSeries = catalogo.series
+    val seriesElegiveis = catalogo.series.asSequence()
         .filter { it.categoria.isNotBlank() && it.imagemUrl.isNotBlank() && it.streamUrl.isNotBlank() }
-        .groupBy { it.categoria }
 
     val servicos = listOf(
         listOf("disney") to "Disney+",
@@ -73,39 +72,38 @@ fun gerarFileirasEspeciais(catalogo: PlaylistCatalog): List<FileiraCatalogo> {
     )
 
     val fileirasDeServico = servicos.mapNotNull { (termos, nomeServico) ->
-        val itens = gruposSeries
-            .filter { (grupo, _) ->
-                val normalizado = normalizarGrupo(grupo)
+        val itens = seriesElegiveis
+            .filter { item ->
+                val normalizado = normalizarGrupo(item.categoria)
                 termos.any { normalizado.contains(normalizarGrupo(it)) }
             }
-            .flatMap { (_, itensDoGrupo) -> itensDoGrupo }
             .distinctBy { it.id }
             .take(40)
+            .toList()
         itens.takeIf { it.isNotEmpty() }?.let {
             FileiraCatalogo(titulo = nomeServico, itens = it, servico = nomeServico)
         }
     }
 
-    val gruposTodos = (catalogo.filmes + catalogo.series)
+    val midiasElegiveis = (catalogo.filmes.asSequence() + catalogo.series.asSequence())
         .filter { it.categoria.isNotBlank() && it.imagemUrl.isNotBlank() && it.streamUrl.isNotBlank() }
-        .groupBy { it.categoria }
     val regrasGerais = listOf(
         listOf("alta", "popular", "trending", "top") to "FILMES EM ALTA",
         listOf("lancamento", "lancamentos", "novidade", "premiere", "new") to "LANÇAMENTOS",
         listOf("asterisco", "estrela", "*") to "DESTAQUES"
     )
     val fileirasGerais = regrasGerais.mapNotNull { (termos, tituloPadrao) ->
-        val itens = gruposTodos
-            .filter { (grupo, _) ->
-                val grupoNormalizado = normalizarGrupo(grupo)
+        val itens = midiasElegiveis
+            .filter { item ->
+                val grupoNormalizado = normalizarGrupo(item.categoria)
                 termos.any { termo ->
-                    if (termo == "*") grupo.contains('*') || grupo.contains('★')
+                    if (termo == "*") item.categoria.contains('*') || item.categoria.contains('★')
                     else grupoNormalizado.contains(normalizarGrupo(termo))
                 }
             }
-            .flatMap { (_, itensDoGrupo) -> itensDoGrupo }
             .distinctBy { it.id }
             .take(40)
+            .toList()
         itens.takeIf { it.isNotEmpty() }?.let {
             FileiraCatalogo(titulo = tituloPadrao, itens = it)
         }
