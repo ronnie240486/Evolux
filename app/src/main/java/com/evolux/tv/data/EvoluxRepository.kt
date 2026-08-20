@@ -98,6 +98,9 @@ class EvoluxRepository(
                     "Accept",
                     "audio/x-mpegurl, application/vnd.apple.mpegurl, application/json, text/plain"
                 )
+                setRequestProperty("User-Agent", "Evolux/1.0 (Android)")
+                setRequestProperty("Connection", "close")
+                setRequestProperty("Cache-Control", "no-cache")
             }
         } catch (_: Exception) {
             return ResultadoPlaylist(false, "Não foi possível abrir a URL da playlist.")
@@ -125,8 +128,17 @@ class EvoluxRepository(
             }
         } catch (_: SocketTimeoutException) {
             ResultadoPlaylist(false, "Tempo limite ao consultar a playlist.")
-        } catch (_: IOException) {
-            ResultadoPlaylist(false, "Falha de rede ao consultar a playlist.")
+                    } catch (erro: IOException) {
+                val mensagem = erro.message.orEmpty().lowercase(Locale.ROOT)
+                ResultadoPlaylist(
+                    false,
+                    if (mensagem.contains("abort") || mensagem.contains("reset")) {
+                        "O servidor encerrou a conexão da playlist. Verifique a URL cadastrada no painel."
+                    } else {
+                        "Falha de rede ao consultar a playlist."
+                    }
+                )
+
         } catch (_: Exception) {
             ResultadoPlaylist(false, "Falha inesperada ao consultar a playlist.")
         } finally {
@@ -142,6 +154,9 @@ class EvoluxRepository(
             readTimeout = 10_000
             useCaches = false
             setRequestProperty("Accept", "application/json")
+            setRequestProperty("User-Agent", "Evolux/1.0 (Android)")
+            setRequestProperty("Connection", "close")
+            setRequestProperty("Cache-Control", "no-cache")
         }
 
         return try {
