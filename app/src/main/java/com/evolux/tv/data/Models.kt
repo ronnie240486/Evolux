@@ -2,7 +2,7 @@ package com.evolux.tv.data
 
 /**
  * Um item de destaque (o banner grande da Home, tipo "Legado Real 2026").
- * A lista `SampleData.destaques` é o que alimenta o rodízio automático do banner.
+ * A lista de destaques é derivada do catálogo autorizado carregado pelo MAC.
  */
 data class Destaque(
     val id: String,

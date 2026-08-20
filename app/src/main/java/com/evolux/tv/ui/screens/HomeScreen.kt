@@ -14,18 +14,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.evolux.tv.data.Destaque
 import com.evolux.tv.data.Midia
-import com.evolux.tv.data.SampleData
+import com.evolux.tv.ui.components.CatalogoSummaryPanel
 import com.evolux.tv.ui.components.FeaturedBanner
 import com.evolux.tv.ui.components.MediaRow
-import com.evolux.tv.ui.components.PainelJogosDoDia
 
 @Composable
 fun HomeScreen(
+    destaques: List<Destaque>,
+    canaisCount: Int,
+    filmesCount: Int,
+    seriesCount: Int,
     filmes: List<Midia>,
     series: List<Midia>,
     aoAbrirMidia: (Midia) -> Unit,
     aoAssistirDestaque: (Destaque) -> Unit,
-    aoAbrirCanalDoJogo: () -> Unit = {},
+    aoAbrirCanais: () -> Unit,
+    aoAbrirFilmes: () -> Unit,
+    aoAbrirSeries: () -> Unit,
     ehFavorito: (Midia) -> Boolean,
     aoAlternarFavorito: (Midia) -> Unit
 ) {
@@ -40,20 +45,34 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(if (compacto) 20.dp else 32.dp)
         ) {
             item {
-                if (compacto) {
+                if (destaques.isEmpty()) {
+                    CatalogoSummaryPanel(
+                        canais = canaisCount,
+                        filmes = filmesCount,
+                        series = seriesCount,
+                        aoAbrirCanais = aoAbrirCanais,
+                        aoAbrirFilmes = aoAbrirFilmes,
+                        aoAbrirSeries = aoAbrirSeries,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else if (compacto) {
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         FeaturedBanner(
-                            destaques = SampleData.destaques,
+                            destaques = destaques,
                             intervaloMs = 8000L,
                             aoAssistir = aoAssistirDestaque,
-                            aoVerTrailer = { aoAssistirDestaque(it) },
+                            aoVerTrailer = aoAssistirDestaque,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(220.dp)
                         )
-                        PainelJogosDoDia(
-                            jogos = SampleData.jogosDoDia,
-                            aoAbrirCanal = aoAbrirCanalDoJogo,
+                        CatalogoSummaryPanel(
+                            canais = canaisCount,
+                            filmes = filmesCount,
+                            series = seriesCount,
+                            aoAbrirCanais = aoAbrirCanais,
+                            aoAbrirFilmes = aoAbrirFilmes,
+                            aoAbrirSeries = aoAbrirSeries,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -63,17 +82,21 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(20.dp)
                     ) {
                         FeaturedBanner(
-                            destaques = SampleData.destaques,
+                            destaques = destaques,
                             intervaloMs = 8000L,
                             aoAssistir = aoAssistirDestaque,
-                            aoVerTrailer = { aoAssistirDestaque(it) },
+                            aoVerTrailer = aoAssistirDestaque,
                             modifier = Modifier
                                 .weight(1f)
                                 .height(300.dp)
                         )
-                        PainelJogosDoDia(
-                            jogos = SampleData.jogosDoDia,
-                            aoAbrirCanal = aoAbrirCanalDoJogo,
+                        CatalogoSummaryPanel(
+                            canais = canaisCount,
+                            filmes = filmesCount,
+                            series = seriesCount,
+                            aoAbrirCanais = aoAbrirCanais,
+                            aoAbrirFilmes = aoAbrirFilmes,
+                            aoAbrirSeries = aoAbrirSeries,
                             modifier = Modifier.fillMaxWidth(0.32f)
                         )
                     }
@@ -81,7 +104,7 @@ fun HomeScreen(
             }
             item {
                 MediaRow(
-                    titulo = "Lançamentos de Filmes 2026",
+                    titulo = "FILMES DO SEU CATÁLOGO",
                     itens = filmes,
                     aoSelecionar = aoAbrirMidia,
                     ehFavorito = ehFavorito,
@@ -90,7 +113,7 @@ fun HomeScreen(
             }
             item {
                 MediaRow(
-                    titulo = "Lançamentos de Séries",
+                    titulo = "SÉRIES DO SEU CATÁLOGO",
                     itens = series,
                     aoSelecionar = aoAbrirMidia,
                     ehFavorito = ehFavorito,

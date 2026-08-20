@@ -3,8 +3,6 @@ package com.evolux.tv
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -32,7 +30,7 @@ import com.evolux.tv.data.PlaylistCatalog
 import com.evolux.tv.data.PlaylistRepository
 import com.evolux.tv.data.Midia
 import com.evolux.tv.data.ResultadoConfiguracao
-import com.evolux.tv.data.SampleData
+import com.evolux.tv.data.gerarDestaques
 import com.evolux.tv.ui.components.Tela
 import com.evolux.tv.ui.components.TopNavBar
 import com.evolux.tv.ui.screens.*
@@ -42,6 +40,11 @@ import com.evolux.tv.ui.theme.EvoluxTheme
 private const val CHAVE_FAVORITOS = "favoritos_ids"
 private const val CHAVE_MAC_LOGICO = "mac_logico_evolux"
 private const val CHAVE_MAC_AUTORIZADO = "mac_autorizado_confirmado"
+
+private data class Reproducao(
+    val titulo: String,
+    val streamUrl: String
+)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -75,6 +78,7 @@ fun EvoluxApp() {
     var catalogo by remember { mutableStateOf<PlaylistCatalog?>(null) }
     var estadoLogin by remember { mutableStateOf<EstadoLoginMac>(EstadoLoginMac.Ocioso) }
     var validacaoEmAndamento by remember { mutableStateOf(false) }
+    var reproducao by remember { mutableStateOf<Reproducao?>(null) }
 
     suspend fun carregarCatalogo(configuracao: EvoluxConfig): String? {
         val urlPlaylist = configuracao.primeiraPlaylistValida
@@ -148,16 +152,7 @@ fun EvoluxApp() {
         if (url.isBlank()) {
             Toast.makeText(contexto, "$titulo ainda não possui stream configurado", Toast.LENGTH_SHORT).show()
         } else {
-            try {
-                contexto.startActivity(
-                    Intent(Intent.ACTION_VIEW).apply {
-                        data = Uri.parse(url)
-                        type = "video/*"
-                    }
-                )
-            } catch (_: Exception) {
-                Toast.makeText(contexto, "Não há player compatível instalado", Toast.LENGTH_LONG).show()
-            }
+            reproducao = Reproducao(titulo = titulo, streamUrl = url)
         }
     }
     if (macAutorizado.isBlank()) {
@@ -175,8 +170,19 @@ fun EvoluxApp() {
     }
 
     val catalogoAtual = catalogo ?: return
+    reproducao?.let { atual ->
+        PlayerScreen(
+            titulo = atual.titulo,
+            streamUrl = atual.streamUrl,
+            aoFechar = { reproducao = null }
+        )
+        return
+    }
     val todasAsMidias = remember(catalogoAtual) {
         catalogoAtual.filmes + catalogoAtual.series
+    }
+    val destaques = remember(catalogoAtual) {
+        gerarDestaques(catalogoAtual)
     }
     val favoritos = remember { mutableStateListOf<Midia>() }
 
@@ -224,13 +230,17 @@ fun EvoluxApp() {
 
             when (telaAtual) {
             Tela.INICIO -> HomeScreen(
+                destaques = destaques,
+                canaisCount = catalogoAtual.canais.size,
+                filmesCount = catalogoAtual.filmes.size,
+                seriesCount = catalogoAtual.series.size,
                 filmes = catalogoAtual.filmes,
                 series = catalogoAtual.series,
                 aoAbrirMidia = { abrirConteudo(it.titulo, it.streamUrl) },
                 aoAssistirDestaque = { abrirConteudo(it.titulo, it.streamUrl) },
-                aoAbrirCanalDoJogo = {
-                    SampleData.jogosDoDia.firstOrNull()?.let { abrirConteudo("Jogo do dia", it.streamUrl) }
-                },
+                aoAbrirCanais = { telaAtual = Tela.TV_AO_VIVO },
+                aoAbrirFilmes = { telaAtual = Tela.FILMES },
+                aoAbrirSeries = { telaAtual = Tela.SERIES },
                 ehFavorito = ehFavorito,
                 aoAlternarFavorito = aoAlternarFavorito
             )
@@ -257,6 +267,7 @@ fun EvoluxApp() {
             )
 
             Tela.JOGOS -> GamesScreen(
+                jogos = emptyList(),
                 aoAbrirJogo = { abrirConteudo("${it.timeCasaSigla} x ${it.timeVisitanteSigla}", it.streamUrl) }
             )
 

@@ -15,7 +15,6 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.evolux.tv.data.Jogo
-import com.evolux.tv.data.SampleData
 import com.evolux.tv.ui.theme.Dourado
 import com.evolux.tv.ui.theme.FundoCard
 import com.evolux.tv.ui.theme.TextoCinza
@@ -23,19 +22,28 @@ import com.evolux.tv.ui.theme.TextoClaro
 
 @Composable
 fun GamesScreen(
+    jogos: List<Jogo>,
     aoAbrirJogo: (Jogo) -> Unit
 ) {
     Column(modifier = Modifier.padding(24.dp)) {
         Text(
-            text = "JOGOS DO DIA",
+            text = "JOGOS",
             color = Dourado,
             style = MaterialTheme.typography.headlineSmall
         )
+        if (jogos.isEmpty()) {
+            Text(
+                text = "Nenhum jogo disponível na playlist autorizada.",
+                color = TextoCinza,
+                modifier = Modifier.padding(top = 20.dp)
+            )
+            return@Column
+        }
         LazyColumn(
             modifier = Modifier.padding(top = 20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(SampleData.jogosDoDia) { jogo ->
+            items(jogos) { jogo ->
                 Surface(
                     onClick = { aoAbrirJogo(jogo) },
                     shape = ClickableSurfaceDefaults.shape(),

@@ -32,7 +32,8 @@ Para gerar o APK Debug pelo GitHub, abra a aba **Actions**, execute o workflow *
 - Tela de login responsiva para celular, com rolagem vertical, MAC visível e botões empilhados para `COPIAR MAC` e `VALIDAR APARELHO`.
 - Diagnóstico seguro na tela: o usuário pode ver HTTP 403, HTML, JSON inválido, timeout, lista vazia ou falha de rede sem que URLs com credenciais sejam exibidas.
 - Redesign responsivo com fundo futurista do Evolux, navegação horizontal rolável no celular, grades adaptativas e cards com feedback de foco dourado.
-- Cards, linhas de jogos, canais e destaques agora possuem ações reais: quando há stream configurado, o app abre um player compatível do aparelho; quando não há URL, informa o motivo em vez de parecer um botão quebrado.
+- Cards, linhas de catálogo, canais e destaques agora possuem ações reais: quando há stream configurado, o app abre o player interno Media3; quando não há URL, informa o motivo em vez de parecer um botão quebrado.
+- O catálogo de canais, filmes, séries e sugestões é derivado exclusivamente da playlist autorizada pelo MAC. A Home não usa mais itens fictícios.
 
 ## Acessibilidade (TalkBack + D-pad)
 - **Foco inicial automático**: ao abrir o app, a aba selecionada na
@@ -71,32 +72,13 @@ Os requisitos detalhados estão em [`docs/login-mac-requirements.md`](docs/login
 O APK não usa mais `readText()` para carregar a playlist inteira. M3U é processada linha a linha; respostas JSON têm limite de 8 MB e o catálogo carrega até 20.000 itens totais, com no máximo 10.000 por categoria. Se a fonte for maior, o app carrega uma parte controlada em vez de provocar `OutOfMemoryError` no celular.
 
 ## Próximas melhorias recomendadas
-A próxima etapa natural é substituir os callbacks vazios por um player Media3/ExoPlayer e trocar o estado de demonstração por um `ViewModel` com `StateFlow`. Também vale migrar a persistência de favoritos para DataStore quando o contrato de dados estiver definido. O carregamento de playlist válida deve alimentar o catálogo remoto antes de liberar as telas de conteúdo.
+O fluxo real já está ligado ao catálogo autorizado e ao player interno Media3. As próximas melhorias naturais são migrar o estado de catálogo e favoritos para um `ViewModel` com `StateFlow`, adicionar EPG quando o backend fornecer os dados e incluir suporte a múltiplas playlists autorizadas.
 
-## Onde plugar conteúdo de verdade
-Tudo hoje usa dados de exemplo em `data/SampleData.kt` (com imagens de
-placeholder do picsum.photos e `streamUrl` vazia). Para ligar a fontes reais:
-
-1. Crie um `Repository` (ex.: `data/ConteudoRepository.kt`) que busque os
-   dados de uma API própria, um backend, ou uma lista M3U/EPG que você
-   tenha os direitos de usar.
-2. Troque as referências a `SampleData.*` nas telas (`HomeScreen`,
-   `LiveTvScreen`, `MainActivity`, etc.) por chamadas ao seu repositório,
-   idealmente através de um `ViewModel` com `StateFlow`.
-3. Implemente o player de vídeo (recomendo **Media3/ExoPlayer**, que é o
-   player oficial do Google para Android/Android TV — dá suporte a HLS,
-   DASH, DRM etc.) e chame-o nos callbacks `aoAssistir`, `aoAbrirCanal`,
-   `aoAbrirMidia`, que já estão nos lugares certos, só faltando a
-   implementação do player em si.
+## Fonte de conteúdo
+O aplicativo não cria nem distribui conteúdo. A fonte deve ser uma playlist M3U/JSON autorizada pelo backend após o cadastro do MAC lógico. Canais, filmes, séries e sugestões usam os itens recebidos dessa playlist e preservam seus respectivos `streamUrl`, títulos, grupos e imagens.
 
 ## Aviso importante
-Este projeto entrega **somente a interface e a navegação** do app. Ele não
-inclui, buscar ou distribuir nenhum conteúdo de vídeo — os campos `streamUrl`
-estão vazios de propósito. Ao conectar fontes de filmes, séries, canais e
-esportes, garanta que você tem os direitos/licenças necessários para
-transmitir esse conteúdo; distribuir streams de canais de TV, filmes ou
-jogos sem autorização do detentor dos direitos é ilegal no Brasil e na
-maioria dos países.
+O aplicativo reproduz somente as URLs recebidas da playlist autorizada do aparelho. Ele não cria, hospeda ou distribui conteúdo próprio. Garanta que você possui os direitos e as licenças necessários para transmitir as fontes conectadas; distribuir streams sem autorização do detentor dos direitos pode ser ilegal.
 
 ## Estrutura
 ```
