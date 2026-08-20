@@ -218,6 +218,7 @@ private fun LinhaJogo(jogo: Jogo, aoClicar: () -> Unit) {
 
 @Composable
 private fun EscudoTime(logoUrl: String, sigla: String) {
+    val escudoLocal = recursoEscudo(sigla)
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             modifier = Modifier
@@ -232,10 +233,16 @@ private fun EscudoTime(logoUrl: String, sigla: String) {
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.labelSmall
             )
-            if (logoUrl.isNotBlank()) {
-                AsyncImage(
+            when {
+                escudoLocal != null -> Image(
+                    painter = painterResource(escudoLocal),
+                    contentDescription = sigla,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.size(38.dp)
+                )
+                logoUrl.isNotBlank() -> AsyncImage(
                     model = logoUrl,
-                    contentDescription = null,
+                    contentDescription = sigla,
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
                         .size(38.dp)
@@ -244,5 +251,21 @@ private fun EscudoTime(logoUrl: String, sigla: String) {
             }
         }
         Text(sigla, color = TextoClaro, style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+private fun recursoEscudo(sigla: String): Int? {
+    val chave = sigla.lowercase().replace(".", "").replace(" ", "")
+    return when {
+        chave.startsWith("oli") -> R.drawable.club_badge_olimpia
+        chave.startsWith("vas") -> R.drawable.club_badge_vasco
+        chave.startsWith("cor") -> R.drawable.club_badge_corinthians
+        chave == "rc" || chave.startsWith("ros") -> R.drawable.club_badge_rosario_central
+        chave.startsWith("bot") -> R.drawable.club_badge_botafogo
+        chave.startsWith("cie") -> R.drawable.club_badge_cienciano
+        chave.startsWith("ldu") -> R.drawable.club_badge_ldu
+        chave.startsWith("mir") -> R.drawable.club_badge_mirassol
+        chave.startsWith("san") -> R.drawable.club_badge_santos
+        else -> null
     }
 }
