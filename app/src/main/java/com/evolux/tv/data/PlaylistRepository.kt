@@ -1,5 +1,6 @@
 package com.evolux.tv.data
 
+import java.io.BufferedReader
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -18,7 +19,8 @@ import org.json.JSONObject
 data class PlaylistCatalog(
     val canais: List<Canal>,
     val filmes: List<Midia>,
-    val series: List<Midia>
+    val series: List<Midia>,
+    val truncado: Boolean = false
 )
 
 class PlaylistRepository {
@@ -67,9 +69,14 @@ class PlaylistRepository {
     }
 
     private fun lerPrefixo(fluxo: InputStream): ByteArray {
-        val prefixo = ByteArray(PREFIX_BYTES)
-        val quantidade = fluxo.read(prefixo)
-        return if (quantidade <= 0) ByteArray(0) else prefixo.copyOf(quantidade)
+        val saida = ByteArrayOutputStream(PREFIX_BYTES)
+        val buffer = ByteArray(BUFFER_BYTES)
+        while (saida.size() < PREFIX_BYTES) {
+            val quantidade = fluxo.read(buffer, 0, minOf(buffer.size, PREFIX_BYTES - saida.size()))
+            if (quantidade <= 0) break
+            saida.write(buffer, 0, quantidade)
+        }
+        return saida.toByteArray()
     }
 
     private fun lerJsonLimitado(prefixo: ByteArray, fluxo: InputStream): String {
@@ -86,7 +93,7 @@ class PlaylistRepository {
             if (quantidade < 0) break
             total += quantidade
             if (total > MAX_PLAYLIST_BYTES) {
-                throw IOException("Playlist excede o limite seguro de ${MAX_PLAYLIST_BYTES / (1024 * 1024)} MB")
+                throw IOException("JSON da playlist excede o limite seguro de ${MAX_PLAYLIST_BYTES / (1024 * 1024)} MB")
             }
             saida.write(buffer, 0, quantidade)
         }
@@ -104,9 +111,12 @@ class PlaylistRepository {
         val filmes = mutableListOf<Midia>()
         val series = mutableListOf<Midia>()
         var pendente: Entrada? = null
-        var indice = 0
+        var totalItens = 0
+        var truncado = false
+        val leitorBuffer = leitor as? BufferedReader ?: leitor.buffered()
 
-        leitor.forEachLine { linhaOriginal ->
+        while (true) {
+            val linhaOriginal = leitorBuffer.readLine() ?: break
             val linha = linhaOriginal.trim()
             when {
                 linha.startsWith("#EXTINF", ignoreCase = true) -> {
@@ -120,20 +130,25 @@ class PlaylistRepository {
                 }
 
                 linha.isNotEmpty() && !linha.startsWith("#") -> {
-                    if (indice >= MAX_ITEMS) {
-                        throw IOException("Playlist excede o limite seguro de $MAX_ITEMS itens")
+                    totalItens++
+                    if (totalItens > MAX_TOTAL_ITEMS) {
+                        truncado = true
+                        break
                     }
-                    val entrada = pendente ?: Entrada("Canal ${indice + 1}", "", "")
-                    adicionarEntrada(
-                        indice = indice++,
-                        titulo = entrada.titulo,
-                        grupo = entrada.grupo,
-                        logo = entrada.logo,
-                        url = linha,
-                        canais = canais,
-                        filmes = filmes,
-                        series = series
-                    )
+                    val entrada = pendente ?: Entrada("Canal $totalItens", "", "")
+                    if (!adicionarEntrada(
+                            indice = totalItens - 1,
+                            titulo = entrada.titulo,
+                            grupo = entrada.grupo,
+                            logo = entrada.logo,
+                            url = linha,
+                            canais = canais,
+                            filmes = filmes,
+                            series = series
+                        )
+                    ) {
+                        truncado = true
+                    }
                     pendente = null
                 }
             }
@@ -142,7 +157,7 @@ class PlaylistRepository {
         if (canais.isEmpty() && filmes.isEmpty() && series.isEmpty()) {
             throw IOException("Playlist sem itens reconhecíveis")
         }
-        return PlaylistCatalog(canais, filmes, series)
+        return PlaylistCatalog(canais, filmes, series, truncado)
     }
 
     private fun parseJson(corpo: String): PlaylistCatalog {
@@ -160,22 +175,23 @@ class PlaylistRepository {
         val canais = mutableListOf<Canal>()
         val filmes = mutableListOf<Midia>()
         val series = mutableListOf<Midia>()
-        for (indice in 0 until itens.length()) {
-            if (indice >= MAX_ITEMS) {
-                throw IOException("JSON excede o limite seguro de $MAX_ITEMS itens")
-            }
+        var truncado = itens.length() > MAX_TOTAL_ITEMS
+        val limite = minOf(itens.length(), MAX_TOTAL_ITEMS)
+        for (indice in 0 until limite) {
             val item = itens.optJSONObject(indice) ?: continue
             val url = primeiraString(item, "stream_url", "url", "direct_source") ?: continue
             val titulo = primeiraString(item, "name", "title", "stream_display_name") ?: "Sem título"
             val grupo = primeiraString(item, "category_name", "group-title", "category") ?: ""
             val logo = primeiraString(item, "stream_icon", "logo", "tvg-logo") ?: ""
-            adicionarEntrada(indice, titulo, grupo, logo, url, canais, filmes, series)
+            if (!adicionarEntrada(indice, titulo, grupo, logo, url, canais, filmes, series)) {
+                truncado = true
+            }
         }
 
         if (canais.isEmpty() && filmes.isEmpty() && series.isEmpty()) {
             throw IOException("JSON sem itens reconhecíveis")
         }
-        return PlaylistCatalog(canais, filmes, series)
+        return PlaylistCatalog(canais, filmes, series, truncado)
     }
 
     private fun adicionarEntrada(
@@ -187,35 +203,32 @@ class PlaylistRepository {
         canais: MutableList<Canal>,
         filmes: MutableList<Midia>,
         series: MutableList<Midia>
-    ) {
+    ): Boolean {
         val grupoNormalizado = grupo.lowercase(Locale.ROOT)
         val id = "playlist_${indice}_${titulo.hashCode().toUInt()}"
-        when {
+        return when {
             grupoNormalizado.contains("filme") || grupoNormalizado.contains("movie") ||
-                grupoNormalizado.contains("vod") -> filmes += Midia(
-                id = id,
-                titulo = titulo,
-                imagemUrl = logo,
-                tipo = TipoMidia.FILME,
-                streamUrl = url
-            )
+                grupoNormalizado.contains("vod") -> {
+                if (filmes.size >= MAX_ITEMS_PER_CATEGORY) false else {
+                    filmes += Midia(id, titulo, logo, TipoMidia.FILME, url)
+                    true
+                }
+            }
 
             grupoNormalizado.contains("serie") || grupoNormalizado.contains("série") ||
-                grupoNormalizado.contains("show") -> series += Midia(
-                id = id,
-                titulo = titulo,
-                imagemUrl = logo,
-                tipo = TipoMidia.SERIE,
-                streamUrl = url
-            )
+                grupoNormalizado.contains("show") -> {
+                if (series.size >= MAX_ITEMS_PER_CATEGORY) false else {
+                    series += Midia(id, titulo, logo, TipoMidia.SERIE, url)
+                    true
+                }
+            }
 
-            else -> canais += Canal(
-                id = id,
-                nome = titulo,
-                logoUrl = logo,
-                streamUrl = url,
-                categoria = grupo.ifBlank { "TV ao vivo" }
-            )
+            else -> {
+                if (canais.size >= MAX_ITEMS_PER_CATEGORY) false else {
+                    canais += Canal(id, titulo, logo, url, grupo.ifBlank { "TV ao vivo" })
+                    true
+                }
+            }
         }
     }
 
@@ -238,6 +251,7 @@ class PlaylistRepository {
         const val PREFIX_BYTES = 4 * 1024
         const val BUFFER_BYTES = 8 * 1024
         const val MAX_PLAYLIST_BYTES = 8L * 1024 * 1024
-        const val MAX_ITEMS = 10_000
+        const val MAX_TOTAL_ITEMS = 20_000
+        const val MAX_ITEMS_PER_CATEGORY = 10_000
     }
 }
