@@ -2,7 +2,6 @@ package com.imperioplay.tv.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -16,7 +15,9 @@ import com.imperioplay.tv.ui.components.PainelJogosDoDia
 @Composable
 fun HomeScreen(
     aoAbrirMidia: (Midia) -> Unit,
-    aoAssistirDestaque: (Destaque) -> Unit
+    aoAssistirDestaque: (Destaque) -> Unit,
+    ehFavorito: (Midia) -> Boolean,
+    aoAlternarFavorito: (Midia) -> Unit
 ) {
     LazyColumn(
         contentPadding = PaddingValues(bottom = 40.dp),
@@ -46,21 +47,27 @@ fun HomeScreen(
             MediaRow(
                 titulo = "Lançamentos de Filmes 2026",
                 itens = SampleData.lancamentosFilmes,
-                aoSelecionar = aoAbrirMidia
+                aoSelecionar = aoAbrirMidia,
+                ehFavorito = ehFavorito,
+                aoAlternarFavorito = aoAlternarFavorito
             )
         }
         item {
             MediaRow(
                 titulo = "Lançamentos de Séries",
                 itens = SampleData.lancamentosSeries,
-                aoSelecionar = aoAbrirMidia
+                aoSelecionar = aoAbrirMidia,
+                ehFavorito = ehFavorito,
+                aoAlternarFavorito = aoAlternarFavorito
             )
         }
         item {
             MediaRow(
                 titulo = "Continue Assistindo",
                 itens = SampleData.continuarAssistindo,
-                aoSelecionar = aoAbrirMidia
+                aoSelecionar = aoAbrirMidia,
+                ehFavorito = ehFavorito,
+                aoAlternarFavorito = aoAlternarFavorito
             )
         }
     }

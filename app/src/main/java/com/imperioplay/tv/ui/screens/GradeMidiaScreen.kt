@@ -38,6 +38,8 @@ fun GradeMidiaScreen(
     titulo: String,
     itens: List<Midia>,
     aoSelecionar: (Midia) -> Unit,
+    ehFavorito: (Midia) -> Boolean,
+    aoAlternarFavorito: (Midia) -> Unit,
     mensagemVazio: String = "Nada por aqui ainda."
 ) {
     Column(modifier = Modifier.padding(24.dp)) {
@@ -60,47 +62,102 @@ fun GradeMidiaScreen(
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             items(itens) { midia ->
-                CardPoster(midia, aoClicar = { aoSelecionar(midia) })
+                CardPoster(
+                    midia = midia,
+                    favorito = ehFavorito(midia),
+                    aoClicar = { aoSelecionar(midia) },
+                    aoAlternarFavorito = { aoAlternarFavorito(midia) }
+                )
             }
         }
     }
 }
 
 @Composable
-private fun CardPoster(midia: Midia, aoClicar: () -> Unit) {
+private fun CardPoster(
+    midia: Midia,
+    favorito: Boolean,
+    aoClicar: () -> Unit,
+    aoAlternarFavorito: () -> Unit
+) {
     var focado by remember { mutableStateOf(false) }
-    Surface(
-        onClick = aoClicar,
-        shape = RoundedCornerShape(10.dp),
-        colors = SurfaceDefaults.colors(containerColor = Color(0xFF12172A)),
-        modifier = Modifier
-            .onFocusChanged { focado = it.isFocused }
-            .scale(if (focado) 1.06f else 1f)
-            .border(
-                width = if (focado) 3.dp else 0.dp,
-                color = if (focado) Dourado else Color.Transparent,
-                shape = RoundedCornerShape(10.dp)
-            )
-            .semantics(mergeDescendants = true) { contentDescription = midia.titulo }
-    ) {
-        Column {
-            AsyncImage(
-                model = midia.imagemUrl,
-                contentDescription = null, // decorativa; título já cobre via semantics acima
-                contentScale = ContentScale.Crop,
+    var favoritoFocado by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Surface(
+            onClick = aoClicar,
+            shape = RoundedCornerShape(10.dp),
+            colors = SurfaceDefaults.colors(containerColor = Color(0xFF12172A)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { focado = it.isFocused }
+                .scale(if (focado) 1.06f else 1f)
+                .border(
+                    width = if (focado) 3.dp else 0.dp,
+                    color = if (focado) Dourado else Color.Transparent,
+                    shape = RoundedCornerShape(10.dp)
+                )
+                .semantics(mergeDescendants = true) {
+                    contentDescription = if (favorito) {
+                        "${midia.titulo}, está nos favoritos"
+                    } else {
+                        "${midia.titulo}, não está nos favoritos"
+                    }
+                }
+        ) {
+            Column {
+                AsyncImage(
+                    model = midia.imagemUrl,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(2f / 3f)
+                        .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
+                )
+                Text(
+                    text = midia.titulo.uppercase(),
+                    color = TextoClaro,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp)
+                )
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Surface(
+            onClick = aoAlternarFavorito,
+            shape = RoundedCornerShape(8.dp),
+            colors = SurfaceDefaults.colors(containerColor = Color(0xFF1A2238)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { favoritoFocado = it.isFocused }
+                .border(
+                    width = if (favoritoFocado) 2.dp else 0.dp,
+                    color = if (favoritoFocado) Dourado else Color.Transparent,
+                    shape = RoundedCornerShape(8.dp)
+                )
+                .semantics(mergeDescendants = true) {
+                    contentDescription = if (favorito) {
+                        "Remover ${midia.titulo} dos favoritos"
+                    } else {
+                        "Adicionar ${midia.titulo} aos favoritos"
+                    }
+                }
+        ) {
+            Text(
+                text = if (favorito) "★  FAVORITO" else "☆  FAVORITAR",
+                color = if (favorito) Dourado else TextoClaro,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.labelMedium,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(2f / 3f)
-                    .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
-            )
-            Text(
-                text = midia.titulo.uppercase(),
-                color = TextoClaro,
-                fontWeight = FontWeight.SemiBold,
-                textAlign = TextAlign.Center,
-                maxLines = 2,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(8.dp)
+                    .padding(vertical = 8.dp)
             )
         }
     }

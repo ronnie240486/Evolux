@@ -22,6 +22,8 @@ Jogos do Dia, Favoritos e Configurações**.
 - Grades e fileiras de filmes/séries com foco visual (borda dourada + zoom
   leve no item focado), painel de "Jogos do Dia" e grade de canais ao vivo.
 - Tema de cores centralizado em `ui/theme/Theme.kt`.
+- Favoritos funcionais nas fileiras e grades: o usuário pode adicionar ou remover títulos pelo D-pad, e a seleção é persistida localmente entre sessões.
+- Permissão de internet declarada no manifesto para carregar as imagens HTTPS usadas pelos dados de demonstração.
 
 ## Acessibilidade (TalkBack + D-pad)
 - **Foco inicial automático**: ao abrir o app, a aba selecionada na
@@ -45,6 +47,9 @@ Jogos do Dia, Favoritos e Configurações**.
 - **Contraste**: a paleta atual (dourado/branco sobre `#0A0E1A`) já passa
   em WCAG AA/AAA para texto — inclusive o cinza secundário (`TextoCinza`)
   dá ~7.6:1 de contraste. Não precisa trocar cores.
+
+## Próximas melhorias recomendadas
+A próxima etapa natural é substituir os callbacks vazios por um player Media3/ExoPlayer e trocar o estado de demonstração por um `ViewModel` com `StateFlow`. Também vale migrar a persistência de favoritos para DataStore quando o contrato de dados estiver definido.
 
 ## Onde plugar conteúdo de verdade
 Tudo hoje usa dados de exemplo em `data/SampleData.kt` (com imagens de
