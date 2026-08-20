@@ -22,7 +22,7 @@ import androidx.tv.foundation.lazy.list.TvLazyRow
 import androidx.tv.foundation.lazy.list.items
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
-import androidx.tv.material3.SurfaceDefaults
+import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Text
 import com.evolux.tv.data.Midia
 import com.evolux.tv.ui.theme.Dourado
@@ -82,8 +82,8 @@ private fun CardMidia(
     Column(modifier = Modifier.width(180.dp)) {
         Surface(
             onClick = aoClicar,
-            shape = RoundedCornerShape(10.dp),
-            colors = SurfaceDefaults.colors(containerColor = Color(0xFF12172A)),
+            shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
+            colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF12172A)),
             modifier = Modifier
                 .fillMaxWidth()
                 .onFocusChanged { focado = it.isFocused }
@@ -148,8 +148,8 @@ private fun CardMidia(
         Spacer(Modifier.height(6.dp))
         Surface(
             onClick = aoAlternarFavorito,
-            shape = RoundedCornerShape(8.dp),
-            colors = SurfaceDefaults.colors(containerColor = Color(0xFF1A2238)),
+            shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(8.dp)),
+            colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF1A2238)),
             modifier = Modifier
                 .fillMaxWidth()
                 .onFocusChanged { favoritoFocado = it.isFocused }

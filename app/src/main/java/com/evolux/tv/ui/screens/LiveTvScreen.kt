@@ -21,7 +21,7 @@ import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
 import androidx.tv.foundation.lazy.grid.items
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
-import androidx.tv.material3.SurfaceDefaults
+import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Text
 import com.evolux.tv.data.Canal
 import com.evolux.tv.data.SampleData
@@ -56,8 +56,8 @@ private fun CardCanal(canal: Canal, aoClicar: () -> Unit) {
     var focado by remember { mutableStateOf(false) }
     Surface(
         onClick = aoClicar,
-        shape = RoundedCornerShape(12.dp),
-        colors = SurfaceDefaults.colors(containerColor = Color(0xFF12172A)),
+        shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(12.dp)),
+        colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF12172A)),
         modifier = Modifier
             .onFocusChanged { focado = it.isFocused }
             .border(

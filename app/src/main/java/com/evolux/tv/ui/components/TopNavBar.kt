@@ -1,11 +1,17 @@
 package com.evolux.tv.ui.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -19,6 +25,8 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -27,19 +35,21 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import com.evolux.tv.R
 import com.evolux.tv.ui.theme.Dourado
 import com.evolux.tv.ui.theme.TextoClaro
 
 enum class Tela(val rotulo: String, val icone: ImageVector) {
     INICIO("Início", Icons.Filled.Home),
-    TV_AO_VIVO("TV ao Vivo", Icons.Filled.LiveTv),
-    FILMES("Filmes", Icons.Filled.Movie),
-    SERIES("Séries", Icons.Filled.Tv),
-    JOGOS("Jogos do Dia", Icons.Filled.SportsSoccer),
+    TV_AO_VIVO("TV ao Vivo", Icons.Filled.PlayArrow),
+    FILMES("Filmes", Icons.Filled.List),
+    SERIES("Séries", Icons.Filled.List),
+    JOGOS("Jogos do Dia", Icons.Filled.Star),
     FAVORITOS("Favoritos", Icons.Filled.Star),
     CONFIGURACOES("Configurações", Icons.Filled.Settings)
 }
@@ -80,29 +90,14 @@ fun TopNavBar(
 
 @Composable
 private fun LogoEvolux() {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        // O logo é puramente decorativo — sem isso o TalkBack leria
-        // "I P, Evolux" como dois elementos separados e focáveis.
-        modifier = Modifier.clearAndSetSemantics {}
-    ) {
-        Surface(
-            shape = RoundedCornerShape(50),
-            colors = androidx.tv.material3.SurfaceDefaults.colors(containerColor = Dourado),
-            modifier = Modifier.size(44.dp)
-        ) {
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                Text("IP", color = Color.Black, fontWeight = FontWeight.Black)
-            }
-        }
-        Spacer(modifier = Modifier.width(10.dp))
-        Text(
-            text = "IMPÉRIO PLAY",
-            color = Dourado,
-            fontWeight = FontWeight.Black,
-            style = MaterialTheme.typography.titleLarge
-        )
-    }
+    Image(
+        painter = painterResource(R.drawable.evolux_logo),
+        contentDescription = "Logo Evolux",
+        contentScale = ContentScale.Fit,
+        modifier = Modifier
+            .width(176.dp)
+            .height(62.dp)
+    )
 }
 
 @Composable
@@ -119,8 +114,8 @@ private fun ItemNav(
 
     Surface(
         onClick = aoClicar,
-        shape = RoundedCornerShape(10.dp),
-        colors = androidx.tv.material3.SurfaceDefaults.colors(containerColor = corFundo),
+        shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
+        colors = ClickableSurfaceDefaults.colors(containerColor = corFundo),
         modifier = Modifier
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .onFocusChanged { focado = it.isFocused }

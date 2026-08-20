@@ -41,6 +41,7 @@ import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
 import com.evolux.tv.R
 import com.evolux.tv.data.MacAddressUtils
+import com.evolux.tv.ui.theme.Dourado
 import com.evolux.tv.ui.theme.FundoCard
 import com.evolux.tv.ui.theme.FundoEscuro
 import com.evolux.tv.ui.theme.TextoCinza

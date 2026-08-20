@@ -23,7 +23,7 @@ import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
 import androidx.tv.foundation.lazy.grid.items
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
-import androidx.tv.material3.SurfaceDefaults
+import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Text
 import com.evolux.tv.data.Midia
 import com.evolux.tv.ui.theme.Dourado
@@ -86,8 +86,8 @@ private fun CardPoster(
     Column(modifier = Modifier.fillMaxWidth()) {
         Surface(
             onClick = aoClicar,
-            shape = RoundedCornerShape(10.dp),
-            colors = SurfaceDefaults.colors(containerColor = Color(0xFF12172A)),
+            shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
+            colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF12172A)),
             modifier = Modifier
                 .fillMaxWidth()
                 .onFocusChanged { focado = it.isFocused }
@@ -131,8 +131,8 @@ private fun CardPoster(
         Spacer(Modifier.height(6.dp))
         Surface(
             onClick = aoAlternarFavorito,
-            shape = RoundedCornerShape(8.dp),
-            colors = SurfaceDefaults.colors(containerColor = Color(0xFF1A2238)),
+            shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(8.dp)),
+            colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF1A2238)),
             modifier = Modifier
                 .fillMaxWidth()
                 .onFocusChanged { favoritoFocado = it.isFocused }

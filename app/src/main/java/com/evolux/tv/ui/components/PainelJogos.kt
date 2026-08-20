@@ -5,8 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.SensorsOff
-import androidx.compose.material.icons.filled.SportsSoccer
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import androidx.tv.material3.Button
+import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
@@ -49,7 +49,7 @@ fun PainelJogosDoDia(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.semantics { heading() }
             ) {
-                Icon(Icons.Filled.SportsSoccer, contentDescription = null, tint = Dourado)
+                Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Dourado)
                 Spacer(Modifier.width(8.dp))
                 Text(
                     "JOGOS DO DIA",
@@ -85,8 +85,8 @@ private fun LinhaJogo(jogo: Jogo) {
 
     Surface(
         onClick = {},
-        shape = RoundedCornerShape(10.dp),
-        colors = SurfaceDefaults.colors(containerColor = Color(0xFF12172A)),
+        shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
+        colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF12172A)),
         modifier = Modifier
             .fillMaxWidth()
             .onFocusChanged { focado = it.isFocused }

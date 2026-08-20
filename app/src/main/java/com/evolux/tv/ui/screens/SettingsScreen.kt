@@ -14,7 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
-import androidx.tv.material3.SurfaceDefaults
+import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Text
 import com.evolux.tv.ui.theme.Dourado
 import com.evolux.tv.ui.theme.TextoCinza
@@ -45,7 +45,7 @@ fun SettingsScreen(
         opcoes.forEach { opcao ->
             LinhaConfig(
                 opcao = opcao,
-                aoClicar = if (opcao.titulo == "Conta") aoTrocarMac else {}
+                aoClicar = if (opcao.titulo == "Conta") aoTrocarMac else { {} }
             )
             Spacer(Modifier.height(12.dp))
         }
@@ -60,8 +60,8 @@ private fun LinhaConfig(
     var focado by remember { mutableStateOf(false) }
     Surface(
         onClick = aoClicar,
-        shape = RoundedCornerShape(10.dp),
-        colors = SurfaceDefaults.colors(containerColor = Color(0xFF12172A)),
+        shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
+        colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF12172A)),
         modifier = Modifier
             .fillMaxWidth(0.6f)
             .onFocusChanged { focado = it.isFocused }

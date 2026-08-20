@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
 import com.evolux.tv.data.EvoluxRepository
 import com.evolux.tv.data.MacAddressProvider
 import com.evolux.tv.data.Midia
