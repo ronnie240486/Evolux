@@ -88,11 +88,14 @@ fun EvoluxApp() {
                             .apply()
                         estadoLogin = EstadoLoginMac.Ocioso
                     } else {
-                        estadoLogin = EstadoLoginMac.Erro("Lista indisponível ou credenciais inválidas")
+                        estadoLogin = EstadoLoginMac.Erro(
+                            "Lista indisponível ou credenciais inválidas",
+                            "A resposta não pôde ser interpretada como catálogo de canais, filmes ou séries."
+                        )
                     }
                 }
                 is ResultadoConfiguracao.Erro -> {
-                    estadoLogin = EstadoLoginMac.Erro(resultado.mensagem)
+                    estadoLogin = EstadoLoginMac.Erro(resultado.mensagem, resultado.detalhe)
                 }
             }
         }
@@ -111,13 +114,16 @@ fun EvoluxApp() {
                             .apply()
                         estadoLogin = EstadoLoginMac.Ocioso
                     } else {
-                        estadoLogin = EstadoLoginMac.Erro("Lista indisponível ou credenciais inválidas")
+                        estadoLogin = EstadoLoginMac.Erro(
+                            "Lista indisponível ou credenciais inválidas",
+                            "A resposta não pôde ser interpretada como catálogo de canais, filmes ou séries."
+                        )
                     }
                 }
                 is ResultadoConfiguracao.Erro -> {
                     macAutorizado = ""
                     preferencias.edit().putBoolean(CHAVE_MAC_AUTORIZADO, false).apply()
-                    estadoLogin = EstadoLoginMac.Erro(resultado.mensagem)
+                    estadoLogin = EstadoLoginMac.Erro(resultado.mensagem, resultado.detalhe)
                 }
             }
         }

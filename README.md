@@ -29,6 +29,8 @@ Para gerar o APK Debug pelo GitHub, abra a aba **Actions**, execute o workflow *
 - Login por MAC lógico: o app gera um valor novo na primeira instalação, exibe-o, permite copiá-lo para cadastro no painel e o mantém persistido durante a instalação.
 - Parser tolerante a campos nulos, incluindo `app_name`, e verificação da primeira playlist antes de liberar o acesso.
 - Identidade visual futurista do Evolux integrada ao login, ao banner do Android TV e ao ícone do launcher.
+- Tela de login responsiva para celular, com rolagem vertical, MAC visível e botões empilhados para `COPIAR MAC` e `VALIDAR APARELHO`.
+- Diagnóstico seguro na tela: o usuário pode ver HTTP 403, HTML, JSON inválido, timeout, lista vazia ou falha de rede sem que URLs com credenciais sejam exibidas.
 
 ## Acessibilidade (TalkBack + D-pad)
 - **Foco inicial automático**: ao abrir o app, a aba selecionada na
@@ -59,7 +61,7 @@ Os assets finais estão em `assets/evolux_logo_futurista_final.png` e `assets/ev
 ## Login por MAC
 Na primeira abertura, o Evolux gera um MAC lógico novo no formato `AA:BB:CC:DD:EE:FF`, mostra o valor na tela e oferece `COPIAR MAC`. Depois de cadastrar esse MAC no painel, use `VALIDAR APARELHO`; então o app consulta `https://renciaapp.manus.space/api/v5/apps/evolux/config?mac=...`, exigindo `registered = true`, `allowed = true` e uma primeira URL HTTP/HTTPS de playlist que responda sem erro, sem HTML e sem `Content-Type: text/html`.
 
-O MAC lógico é salvo localmente e permanece igual até a desinstalação do APK. URLs de playlist não são persistidas, pois podem conter credenciais. Se o backend responder com dados nulos, HTML, HTTP 403 ou playlist vazia, o Evolux mostra `Lista indisponível ou credenciais inválidas` sem travar. Por compatibilidade com fontes legadas, o APK aceita playlist HTTP; para produção, prefira sempre HTTPS.
+O MAC lógico é salvo localmente e permanece igual até a desinstalação do APK. URLs de playlist não são persistidas, pois podem conter credenciais. Se o backend responder com dados nulos, HTML, HTTP 403 ou playlist vazia, o Evolux mostra `Lista indisponível ou credenciais inválidas` e um detalhe seguro do motivo, sem travar. Por compatibilidade com fontes legadas, o APK aceita playlist HTTP; para produção, prefira sempre HTTPS.
 
 Os requisitos detalhados estão em [`docs/login-mac-requirements.md`](docs/login-mac-requirements.md).
 
