@@ -18,6 +18,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import androidx.compose.ui.res.painterResource
+import com.evolux.tv.R
 import androidx.tv.foundation.lazy.list.TvLazyRow
 import androidx.tv.foundation.lazy.list.items
 import androidx.tv.material3.MaterialTheme
@@ -97,7 +99,10 @@ private fun CardMidia(
                         .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
                 ) {
                     AsyncImage(
-                        model = midia.imagemUrl,
+                        model = midia.imagemUrl.takeIf { it.isNotBlank() },
+                        placeholder = painterResource(R.drawable.evolux_logo),
+                        error = painterResource(R.drawable.evolux_logo),
+                        fallback = painterResource(R.drawable.evolux_logo),
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()

@@ -117,7 +117,17 @@ class PlaylistRepository {
                             atributos["group"],
                             atributos["category"]
                         ).joinToString(" | "),
-                        logo = atributos["tvg-logo"].orEmpty()
+                        logo = normalizarImagemUrl(
+                            listOfNotNull(
+                                atributos["tvg-logo"],
+                                atributos["poster"],
+                                atributos["cover"],
+                                atributos["movie_image"],
+                                atributos["series_image"],
+                                atributos["stream-icon"],
+                                atributos["icon"]
+                            ).firstOrNull { it.isNotBlank() }.orEmpty()
+                        )
                     )
                 }
 
@@ -182,7 +192,22 @@ class PlaylistRepository {
                 primeiraString(item, "stream_type", "type", "kind"),
                 primeiraString(item, "category_name", "group-title", "group", "category")
             ).joinToString(" | ")
-            val logo = primeiraString(item, "stream_icon", "logo", "tvg-logo", "icon") ?: ""
+            val logo = normalizarImagemUrl(
+                primeiraString(
+                    item,
+                    "stream_icon",
+                    "stream_icon_url",
+                    "logo",
+                    "tvg-logo",
+                    "icon",
+                    "poster",
+                    "cover",
+                    "cover_big",
+                    "movie_image",
+                    "series_image",
+                    "backdrop_path"
+                ).orEmpty()
+            )
             val nota = primeiraDouble(item, "rating", "vote_average", "rating_imdb", "imdb_rating")
             val popularidade = primeiraLong(item, "popularity", "vote_count", "views", "view_count")
             if (!adicionarEntrada(indice, titulo, grupo, logo, url, canais, filmes, series, nota, popularidade)) {
@@ -296,6 +321,15 @@ class PlaylistRepository {
         val regex = Regex("([A-Za-z0-9_-]+)=\\\"([^\\\"]*)\\\"")
         return regex.findAll(linha).associate { match ->
             match.groupValues[1].lowercase(Locale.ROOT) to match.groupValues[2]
+        }
+    }
+
+    private fun normalizarImagemUrl(valor: String): String {
+        val limpo = valor.trim()
+        return when {
+            limpo.startsWith("//") -> "https:$limpo"
+            limpo.startsWith("http://") || limpo.startsWith("https://") -> limpo
+            else -> limpo
         }
     }
 

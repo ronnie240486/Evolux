@@ -8,7 +8,7 @@ package com.evolux.tv.data
 fun gerarDestaques(catalogo: PlaylistCatalog, limite: Int = 8): List<Destaque> {
     return (catalogo.filmes + catalogo.series)
         .asSequence()
-        .filter { it.titulo.isNotBlank() && it.streamUrl.isNotBlank() }
+        .filter { it.titulo.isNotBlank() && it.streamUrl.isNotBlank() && it.imagemUrl.isNotBlank() }
         .distinctBy { it.id }
         .sortedWith(
             compareByDescending<Midia> { it.popularidade ?: Long.MIN_VALUE }
