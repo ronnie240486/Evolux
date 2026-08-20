@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -46,6 +47,7 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
+import kotlinx.coroutines.launch
 import com.evolux.tv.R
 import com.evolux.tv.data.Midia
 import com.evolux.tv.data.OrdemCatalogo
@@ -71,7 +73,8 @@ fun SeriesBrowserScreen(
     aoAssistir: (Midia) -> Unit,
     categoriasOcultas: Set<String> = emptySet(),
     ordemInicial: OrdemCatalogo = OrdemCatalogo.PADRAO,
-    aoMudarOrdem: (OrdemCatalogo) -> Unit = {}
+    aoMudarOrdem: (OrdemCatalogo) -> Unit = {},
+    carregarEpisodios: suspend (Midia) -> List<Midia> = { emptyList() }
 ) {
     val categorias = remember(itens, categoriasOcultas) {
         itens.asSequence()
@@ -92,7 +95,10 @@ fun SeriesBrowserScreen(
             .filter { it.categoria.ifBlank { "Séries" } == categoriaSelecionada }
             .filter { it.categoria.ifBlank { "Séries" } !in categoriasOcultas }
             .groupBy { item ->
-                item.serieId ?: normalizarChave(item.serieNome ?: removerMarcadorDeEpisodio(item.titulo))
+                val categoria = item.categoria.ifBlank { "Séries" }
+                val nomeBase = item.serieNome?.takeIf { it.isNotBlank() }
+                    ?: removerMarcadorDeEpisodio(item.titulo)
+                "${normalizarChave(categoria)}::${normalizarChave(nomeBase)}"
             }
             .map { (chave, episodios) ->
                 val ordenados = episodios.sortedWith(
@@ -105,7 +111,7 @@ fun SeriesBrowserScreen(
                     nome = episodios.firstNotNullOfOrNull { it.serieNome }
                         ?: removerMarcadorDeEpisodio(episodios.first().titulo),
                     categoria = episodios.firstOrNull()?.categoria.orEmpty().ifBlank { "Séries" },
-                    capa = episodios.firstOrNull { it.imagemUrl.isNotBlank() }?.imagemUrl.orEmpty(),
+                    capa = selecionarCapaSerie(episodios),
                     sinopse = episodios.firstOrNull { it.sinopse.isNotBlank() }?.sinopse.orEmpty(),
                     episodios = ordenados
                 )
@@ -118,6 +124,35 @@ fun SeriesBrowserScreen(
         }
     }
     var serieSelecionada by remember { mutableStateOf<GrupoSerie?>(null) }
+    var episodiosCarregados by remember { mutableStateOf<Map<String, List<Midia>>>(emptyMap()) }
+    var chaveCarregando by remember { mutableStateOf<String?>(null) }
+    val escopo = rememberCoroutineScope()
+
+    fun abrirGrupo(grupo: GrupoSerie) {
+        val episodiosExistentes = episodiosCarregados[grupo.chave]
+        if (episodiosExistentes != null) {
+            serieSelecionada = grupo.copy(episodios = episodiosExistentes)
+            return
+        }
+        val representante = grupo.episodios.firstOrNull()
+        val ehXtream = representante?.streamUrl?.startsWith("xtream://series/") == true
+        if (!ehXtream) {
+            serieSelecionada = grupo
+            return
+        }
+        if (chaveCarregando == grupo.chave) return
+        chaveCarregando = grupo.chave
+        escopo.launch {
+            val carregados = representante?.let { carregarEpisodios(it) }.orEmpty()
+            if (carregados.isNotEmpty()) {
+                episodiosCarregados = episodiosCarregados + (grupo.chave to carregados)
+                serieSelecionada = grupo.copy(episodios = carregados)
+            } else {
+                serieSelecionada = grupo
+            }
+            chaveCarregando = null
+        }
+    }
 
     BackHandler(enabled = serieSelecionada != null) {
         serieSelecionada = null
@@ -185,7 +220,7 @@ fun SeriesBrowserScreen(
                     )
                 }
                 items(gruposDaCategoria, key = { it.chave }) { grupo ->
-                    SerieCard(grupo) { serieSelecionada = grupo }
+                    SerieCard(grupo, carregando = chaveCarregando == grupo.chave) { abrirGrupo(grupo) }
                 }
             }
         }
@@ -222,7 +257,7 @@ private fun FiltroCategoria(nome: String, selecionada: Boolean, aoClicar: () -> 
 }
 
 @Composable
-private fun SerieCard(grupo: GrupoSerie, aoClicar: () -> Unit) {
+private fun SerieCard(grupo: GrupoSerie, carregando: Boolean = false, aoClicar: () -> Unit) {
     EvoluxClickableSurface(
         onClick = aoClicar,
         containerColor = FundoCard,
@@ -271,7 +306,7 @@ private fun SerieCard(grupo: GrupoSerie, aoClicar: () -> Unit) {
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "${grupo.episodios.map { it.temporadaNumero ?: 1 }.distinct().size} temporada(s) • ${grupo.episodios.size} episódio(s)",
+                    text = if (carregando) "Carregando episódios..." else "${grupo.episodios.count { it.episodioNumero != null }.coerceAtLeast(grupo.episodios.size)} episódio(s)",
                     color = TextoCinza,
                     style = MaterialTheme.typography.bodySmall
                 )
@@ -425,6 +460,20 @@ private fun CampoBuscaSeries(valor: String, aoMudar: (String) -> Unit) {
             }
         )
     }
+}
+
+private fun selecionarCapaSerie(episodios: List<Midia>): String {
+    return episodios
+        .asSequence()
+        .map { it.imagemUrl.trim() }
+        .filter { it.startsWith("http://") || it.startsWith("https://") }
+        .groupingBy { it }
+        .eachCount()
+        .entries
+        .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
+        .firstOrNull()
+        ?.key
+        .orEmpty()
 }
 
 private fun normalizarChave(valor: String): String = valor.trim().lowercase().replace("\\s+".toRegex(), " ")

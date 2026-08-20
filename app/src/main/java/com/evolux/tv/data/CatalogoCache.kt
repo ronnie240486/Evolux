@@ -15,7 +15,7 @@ import java.security.MessageDigest
 object CatalogoCache {
     private const val NOME_ARQUIVO = "evolux-catalogo-cache-v3.bin"
     private const val MAGIC = "EVOLUX-CATALOG-3"
-    private const val PARSER_VERSION = "m3u-group-family-v4"
+    private const val PARSER_VERSION = "xtream-series-entities-v5"
     private const val MAX_CACHE_BYTES = 64L * 1024L * 1024L
 
     suspend fun carregar(contexto: Context, fingerprint: String): PlaylistCatalog? = withContext(Dispatchers.IO) {

@@ -63,7 +63,7 @@ Após corrigir a leitura da primeira vírgula fora das aspas — necessária por
 
 ## Diagnóstico adicional do erro observado no aparelho
 
-O catálogo binário anterior usava o mesmo nome/magic e não incluía a versão das regras de classificação no fingerprint. Assim, uma atualização do APK podia continuar exibindo um catálogo antigo, no qual canais já haviam sido colocados em Filmes e séries haviam sido perdidas. A correção passa a usar `evolux-catalogo-cache-v3.bin`, magic `EVOLUX-CATALOG-3` e a versão do parser no fingerprint; o primeiro carregamento da nova versão força uma leitura nova da M3U.
+O catálogo binário anterior usava o mesmo nome/magic e não incluía a versão das regras de classificação no fingerprint. Assim, uma atualização do APK podia continuar exibindo um catálogo antigo, no qual canais já haviam sido colocados em Filmes e séries haviam sido perdidas. A correção passa a usar `evolux-catalogo-cache-v3.bin`, magic `EVOLUX-CATALOG-3` e a versão `xtream-series-entities-v5` no fingerprint; o primeiro carregamento da nova versão força uma leitura nova e permite substituir a lista episódica M3U pela lista de entidades Xtream com capas oficiais.
 
 O teste temporário do parser sobre a cópia normalizada da M3U real passou com 2.771 canais, 21.395 filmes e 16.336 episódios de séries. O teste verificou AMC como canal, Reels Shorts como canal, Carrossel Mágico como filme e Reacher S04E04 como série.
 

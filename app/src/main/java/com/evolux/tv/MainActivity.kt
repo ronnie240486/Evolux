@@ -33,6 +33,7 @@ import com.evolux.tv.data.PlaylistRepository
 import com.evolux.tv.data.Midia
 import com.evolux.tv.data.OrdemCatalogo
 import com.evolux.tv.data.ResultadoConfiguracao
+import com.evolux.tv.data.XtreamRepository
 import com.evolux.tv.data.gerarDestaques
 import com.evolux.tv.data.gerarFileirasEspeciais
 import com.evolux.tv.ui.components.Tela
@@ -86,12 +87,14 @@ fun EvoluxApp() {
     val macJaAutorizado = preferencias.getBoolean(CHAVE_MAC_AUTORIZADO, false)
     val repository = remember { EvoluxRepository() }
     val playlistRepository = remember { PlaylistRepository() }
+    val xtreamRepository = remember { XtreamRepository() }
     val escopo = rememberCoroutineScope()
     var macAutorizado by remember { mutableStateOf("") }
     var catalogo by remember { mutableStateOf<PlaylistCatalog?>(null) }
     var configuracaoAtual by remember { mutableStateOf<EvoluxConfig?>(null) }
     var fontesConfiguradas by remember { mutableStateOf<List<String>>(emptyList()) }
     var playlistAtiva by remember { mutableStateOf(preferencias.getInt(CHAVE_PLAYLIST_ATIVA, 0)) }
+    var playlistUrlAtual by remember { mutableStateOf<String?>(null) }
     var categoriasOcultas by remember { mutableStateOf(preferencias.getStringSet(CHAVE_CATEGORIAS_OCULTAS, emptySet()).orEmpty()) }
     var ordens by remember {
         mutableStateOf(
@@ -120,6 +123,7 @@ fun EvoluxApp() {
         if (fontes.isEmpty()) return "Nenhuma URL de playlist foi encontrada."
         val indice = indiceSolicitado.coerceIn(0, fontes.lastIndex)
         val urlPlaylist = fontes[indice]
+        playlistUrlAtual = urlPlaylist
         val fingerprint = CatalogoCache.fingerprint(configuracao, urlPlaylist)
         carregandoCatalogo = true
         try {
@@ -131,7 +135,17 @@ fun EvoluxApp() {
                     return null
                 }
             }
-            val novoCatalogo = playlistRepository.carregar(urlPlaylist)
+            val catalogoM3u = playlistRepository.carregar(urlPlaylist)
+            val seriesXtream = if (XtreamRepository.pareceXtream(urlPlaylist)) {
+                xtreamRepository.carregarSeries(urlPlaylist)
+            } else {
+                emptyList()
+            }
+            val novoCatalogo = if (seriesXtream.isNotEmpty()) {
+                catalogoM3u.copy(series = seriesXtream)
+            } else {
+                catalogoM3u
+            }
             catalogo = novoCatalogo
             playlistAtiva = indice
             preferencias.edit().putInt(CHAVE_PLAYLIST_ATIVA, indice).apply()
@@ -394,7 +408,15 @@ fun EvoluxApp() {
                 aoAssistir = { abrirConteudo(it.episodioNome ?: it.titulo, it.streamUrl) },
                 categoriasOcultas = ocultasSeries,
                 ordemInicial = ordens["series"] ?: OrdemCatalogo.PADRAO,
-                aoMudarOrdem = { aoMudarOrdem("series", it) }
+                aoMudarOrdem = { aoMudarOrdem("series", it) },
+                carregarEpisodios = { serie ->
+                    val url = playlistUrlAtual
+                    if (url != null && XtreamRepository.pareceXtream(url)) {
+                        xtreamRepository.carregarEpisodios(url, serie)
+                    } else {
+                        emptyList()
+                    }
+                }
             )
 
             Tela.JOGOS -> GamesScreen(
