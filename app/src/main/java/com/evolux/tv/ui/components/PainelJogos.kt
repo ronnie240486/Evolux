@@ -114,23 +114,29 @@ fun PainelJogosDoDia(
                     Spacer(Modifier.height(12.dp))
                 }
             }
-            Spacer(Modifier.height(4.dp))
-            EvoluxClickableSurface(
-                onClick = aoAbrirCanal,
-                containerColor = Color(0xFF111A2B),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(40.dp)
-                    .border(1.dp, Dourado.copy(alpha = 0.85f), RoundedCornerShape(10.dp))
+            Spacer(Modifier.height(18.dp))
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        "VER JOGOS DO DIA",
-                        color = Dourado,
-                        fontWeight = FontWeight.Bold
-                    )
+                EvoluxClickableSurface(
+                    onClick = aoAbrirCanal,
+                    containerColor = Color(0xFF111A2B),
+                    modifier = Modifier
+                        .widthIn(min = 220.dp, max = 290.dp)
+                        .height(38.dp)
+                        .border(1.dp, Dourado.copy(alpha = 0.85f), RoundedCornerShape(10.dp))
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            "VER JOGOS DO DIA",
+                            color = Dourado,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
+            Spacer(Modifier.height(8.dp))
         }
     }
 }
