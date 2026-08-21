@@ -111,12 +111,19 @@ fun GradeMidiaScreen(
             }
         }
     }
+    // O estado inicial da consulta é vazio enquanto o filtro roda em segundo plano.
+    // Mostramos uma página imediata do catálogo para não deixar a tela aparentemente sem conteúdo.
+    val itensParaExibir = if (itensFiltrados.isEmpty() && itens.isNotEmpty() && busca.isBlank()) {
+        itens.take(30)
+    } else {
+        itensFiltrados
+    }
     val tamanhoPagina = 30
     var pagina by remember(itens, categorias, categoriaSelecionada, busca, ordem) { mutableIntStateOf(0) }
-    val totalPaginas = ((itensFiltrados.size + tamanhoPagina - 1) / tamanhoPagina).coerceAtLeast(1)
+    val totalPaginas = ((itensParaExibir.size + tamanhoPagina - 1) / tamanhoPagina).coerceAtLeast(1)
     val paginaAtual = pagina.coerceIn(0, totalPaginas - 1)
-    val itensDaPagina = remember(itensFiltrados, paginaAtual) {
-        itensFiltrados.drop(paginaAtual * tamanhoPagina).take(tamanhoPagina)
+    val itensDaPagina = remember(itensParaExibir, paginaAtual) {
+        itensParaExibir.drop(paginaAtual * tamanhoPagina).take(tamanhoPagina)
     }
 
     Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 18.dp)) {
@@ -181,7 +188,7 @@ fun GradeMidiaScreen(
         }
         Spacer(Modifier.height(14.dp))
 
-        if (itensFiltrados.isNotEmpty() && totalPaginas > 1) {
+        if (itensParaExibir.isNotEmpty() && totalPaginas > 1) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center,
@@ -193,7 +200,7 @@ fun GradeMidiaScreen(
                     modifier = Modifier.width(54.dp).height(42.dp)
                 ) { Text("‹", color = TextoClaro, style = MaterialTheme.typography.titleLarge) }
                 Text(
-                    text = "Página ${paginaAtual + 1}/$totalPaginas • ${itensFiltrados.size} itens",
+                    text = "Página ${paginaAtual + 1}/$totalPaginas • ${itensParaExibir.size} itens",
                     color = TextoCinza,
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
@@ -206,7 +213,7 @@ fun GradeMidiaScreen(
             Spacer(Modifier.height(10.dp))
         }
 
-        if (itensFiltrados.isEmpty()) {
+        if (itensParaExibir.isEmpty()) {
             Text(
                 if (itens.isEmpty()) mensagemVazio else "Nenhum item encontrado nesta categoria ou busca.",
                 color = TextoCinza

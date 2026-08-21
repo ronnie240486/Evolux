@@ -84,12 +84,18 @@ fun LiveTvScreen(
             }
         }
     }
+    // Enquanto a família é calculada em segundo plano, não deixe a tela parecer vazia.
+    val canaisParaExibir = if (canaisFiltrados.isEmpty() && canais.isNotEmpty() && busca.isBlank()) {
+        canais.take(30)
+    } else {
+        canaisFiltrados
+    }
     val tamanhoPagina = 30
     var pagina by remember(canais, categorias, categoriaSelecionada, busca, ordem) { mutableIntStateOf(0) }
-    val totalPaginas = ((canaisFiltrados.size + tamanhoPagina - 1) / tamanhoPagina).coerceAtLeast(1)
+    val totalPaginas = ((canaisParaExibir.size + tamanhoPagina - 1) / tamanhoPagina).coerceAtLeast(1)
     val paginaAtual = pagina.coerceIn(0, totalPaginas - 1)
-    val canaisDaPagina = remember(canaisFiltrados, paginaAtual) {
-        canaisFiltrados.drop(paginaAtual * tamanhoPagina).take(tamanhoPagina)
+    val canaisDaPagina = remember(canaisParaExibir, paginaAtual) {
+        canaisParaExibir.drop(paginaAtual * tamanhoPagina).take(tamanhoPagina)
     }
 
     Column(modifier = Modifier.padding(24.dp)) {
@@ -130,7 +136,7 @@ fun LiveTvScreen(
             }
         }
         Spacer(Modifier.height(14.dp))
-        if (canaisFiltrados.isNotEmpty() && totalPaginas > 1) {
+        if (canaisParaExibir.isNotEmpty() && totalPaginas > 1) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center,
@@ -142,7 +148,7 @@ fun LiveTvScreen(
                     modifier = Modifier.width(54.dp).height(42.dp)
                 ) { Text("‹", color = TextoClaro, style = MaterialTheme.typography.titleLarge) }
                 Text(
-                    text = "Página ${paginaAtual + 1}/$totalPaginas • ${canaisFiltrados.size} canais",
+                    text = "Página ${paginaAtual + 1}/$totalPaginas • ${canaisParaExibir.size} canais",
                     color = TextoCinza,
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
@@ -154,7 +160,7 @@ fun LiveTvScreen(
             }
             Spacer(Modifier.height(10.dp))
         }
-        if (canaisFiltrados.isEmpty()) {
+        if (canaisParaExibir.isEmpty()) {
             Text(if (canais.isEmpty()) "Nenhum canal disponível." else "Nenhum canal encontrado.", color = TextoCinza)
         } else {
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
