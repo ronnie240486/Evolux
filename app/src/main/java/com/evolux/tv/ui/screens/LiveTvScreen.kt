@@ -43,7 +43,7 @@ import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 import com.evolux.tv.data.Canal
 import com.evolux.tv.data.OrdemCatalogo
-import com.evolux.tv.data.categoriasReaisDeCanais
+import com.evolux.tv.data.categoriaChave
 import com.evolux.tv.data.filtrarEOrdenarCanais
 import com.evolux.tv.ui.components.EvoluxClickableSurface
 import com.evolux.tv.ui.theme.Dourado
@@ -60,28 +60,25 @@ fun LiveTvScreen(
     ordemInicial: OrdemCatalogo = OrdemCatalogo.PADRAO,
     aoMudarOrdem: (OrdemCatalogo) -> Unit = {}
 ) {
-    val categorias by produceState<List<String>>(emptyList(), canais, categoriasOcultas) {
-        value = withContext(Dispatchers.Default) {
-            // A faixa deve refletir os grupos reais da M3U; não usar ocultações antigas aqui.
-            listOf("Todos") + categoriasReaisDeCanais(canais)
-        }
+    val indice by produceState<IndiceCanal?>(null, canais) {
+        value = withContext(Dispatchers.Default) { construirIndiceCanal(canais) }
     }
+    val categorias = remember(indice) { listOf("Todos") + (indice?.categorias ?: emptyList()) }
     var categoriaSelecionada by remember(categorias) {
         mutableStateOf(categorias.firstOrNull { it != "Todos" } ?: "Todos")
     }
     var busca by remember(categorias) { mutableStateOf("") }
     var ordem by remember(canais, ordemInicial) { mutableStateOf(ordemInicial) }
     val canaisFiltrados by produceState<List<Canal>>(
-        emptyList(), canais, busca, categoriaSelecionada, ordem, categoriasOcultas
+        emptyList(), indice, busca, categoriaSelecionada, ordem
     ) {
         value = withContext(Dispatchers.Default) {
-            val filtrados = filtrarEOrdenarCanais(canais, busca, categoriaSelecionada, ordem, emptySet())
-            if (filtrados.isEmpty() && canais.isNotEmpty() && busca.isBlank() && categoriaSelecionada != "Todos") {
-                // A categoria é somente apresentação; nunca descartar canais por uma diferença de nomenclatura.
-                filtrarEOrdenarCanais(canais, "", "Todos", ordem, emptySet())
-            } else {
-                filtrados
+            val base = when {
+                indice == null -> emptyList()
+                categoriaSelecionada == "Todos" -> indice!!.todos
+                else -> indice!!.porCategoria[categoriaChave(categoriaSelecionada)].orEmpty()
             }
+            filtrarEOrdenarCanais(base, busca, "Todos", ordem, emptySet())
         }
     }
     // Enquanto a família é calculada em segundo plano, não deixe a tela parecer vazia.
@@ -182,6 +179,28 @@ fun LiveTvScreen(
             }
         }
     }
+}
+
+private data class IndiceCanal(
+    val todos: List<Canal>,
+    val categorias: List<String>,
+    val porCategoria: Map<String, List<Canal>>
+)
+
+private fun construirIndiceCanal(canais: List<Canal>): IndiceCanal {
+    val nomesPorChave = LinkedHashMap<String, String>()
+    val porCategoria = LinkedHashMap<String, MutableList<Canal>>()
+    canais.forEach { canal ->
+        val categoria = canal.categoria.ifBlank { "TV ao vivo" }.trim()
+        val chave = categoriaChave(categoria)
+        nomesPorChave.putIfAbsent(chave, categoria)
+        porCategoria.getOrPut(chave) { ArrayList() }.add(canal)
+    }
+    return IndiceCanal(
+        todos = canais,
+        categorias = nomesPorChave.values.sortedWith(String.CASE_INSENSITIVE_ORDER),
+        porCategoria = porCategoria
+    )
 }
 
 @Composable
