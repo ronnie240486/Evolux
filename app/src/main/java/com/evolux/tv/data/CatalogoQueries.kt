@@ -57,18 +57,9 @@ fun categoriasReaisDeCanais(canais: List<Canal>, categoriasOcultas: Set<String> 
         .filter { categoriaChave(it) !in ocultas }
         .distinctBy(::categoriaChave)
         .toList()
-    val familiaPorCategoria = canais.asSequence()
-        .map { canal ->
-            val categoria = canal.categoria.ifBlank { "TV ao vivo" }.trim()
-            categoriaChave(categoria) to familiaDoCanal(canal)
-        }
-        .distinct()
-        .toMap()
     return categorias.sortedWith(
-        compareBy<String> { categoria ->
-            ORDEM_FAMILIAS_CANAIS.indexOf(familiaPorCategoria[categoriaChave(categoria)])
-                .let { if (it < 0) Int.MAX_VALUE else it }
-        }.thenBy(::normalizarConsulta)
+        compareBy<String>(::prioridadeCategoriaReal)
+            .thenBy(::normalizarConsulta)
     )
 }
 
@@ -155,6 +146,33 @@ private fun ordenarMidias(itens: List<Midia>, ordem: OrdemCatalogo): List<Midia>
         OrdemCatalogo.NOME_ZA -> itens.sortedByDescending { normalizarConsulta(it.titulo) }
         OrdemCatalogo.NOTA -> itens.sortedWith(compareByDescending<Midia> { it.nota ?: Double.NEGATIVE_INFINITY }.thenBy { normalizarConsulta(it.titulo) })
         OrdemCatalogo.POPULARIDADE -> itens.sortedWith(compareByDescending<Midia> { it.popularidade ?: Long.MIN_VALUE }.thenBy { normalizarConsulta(it.titulo) })
+    }
+}
+
+fun prioridadeCategoriaReal(categoria: String): Int {
+    val texto = normalizarConsulta(categoria)
+    val chave = categoriaChave(categoria)
+    return when {
+        texto.contains("24/7") || chave.startsWith("247") -> 900
+        chave.contains("globo") -> 10
+        chave == "sbt" || chave.startsWith("sbt") -> 20
+        chave.contains("abert") -> 30
+        chave.contains("record") -> 40
+        chave.contains("band") -> 50
+        chave.contains("filmeseseries") || chave.contains("cinesky") || chave.contains("cinefilmes") || chave == "4k" -> 100
+        chave.contains("hbo") -> 110
+        chave.contains("telecine") -> 120
+        chave.contains("paramount") -> 130
+        chave == "max" || chave.contains("max") -> 140
+        chave.contains("primevideo") -> 150
+        chave.contains("disney") || chave.contains("appletv") -> 160
+        chave.contains("document") || chave.contains("discovery") || chave.contains("history") || chave.contains("natgeo") -> 200
+        chave.contains("infantil") || chave.contains("cartoon") || chave.contains("gloob") || chave.contains("nick") || chave.contains("anime") || chave.contains("desenho") -> 220
+        chave.contains("premiere") || chave.contains("sportv") || chave.contains("espn") || chave.contains("sportynet") || chave.contains("esporte") || chave.contains("ppv") || chave.contains("dazn") || chave.contains("ufc") || chave.contains("nba") || chave.contains("eleven") || chave.contains("cazetv") || chave.contains("jogosdodia") -> 300
+        chave.contains("noticia") || chave.contains("news") -> 400
+        chave.contains("radio") || chave.contains("music") || chave.contains("mtv") || chave.contains("multishow") -> 500
+        chave.contains("relig") || chave.contains("gospel") -> 520
+        else -> 700
     }
 }
 
