@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
@@ -47,7 +48,9 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.evolux.tv.R
 import com.evolux.tv.data.Midia
 import com.evolux.tv.data.OrdemCatalogo
@@ -93,39 +96,15 @@ fun SeriesBrowserScreen(
     }
     var busca by remember(itens) { mutableStateOf("") }
     var ordem by remember(itens, ordemInicial) { mutableStateOf(ordemInicial) }
-    val grupos = remember(itens, categoriaSelecionada, busca, ordem, categoriasOcultas) {
-        val consulta = normalizarConsulta(busca)
-        val resultado = itens.asSequence()
-            .filter { it.categoria.ifBlank { "Séries" } == categoriaSelecionada }
-            .filter { it.categoria.ifBlank { "Séries" } !in categoriasOcultas }
-            .groupBy { item ->
-                val categoria = item.categoria.ifBlank { "Séries" }
-                val nomeBase = item.serieNome?.takeIf { it.isNotBlank() }
-                    ?: removerMarcadorDeEpisodio(item.titulo)
-                "${normalizarChave(categoria)}::${normalizarChave(nomeBase)}"
-            }
-            .map { (chave, episodios) ->
-                val ordenados = episodios.sortedWith(
-                    compareBy<Midia> { it.temporadaNumero ?: 1 }
-                        .thenBy { it.episodioNumero ?: Int.MAX_VALUE }
-                        .thenBy { it.titulo }
-                )
-                GrupoSerie(
-                    chave = chave,
-                    nome = episodios.firstNotNullOfOrNull { it.serieNome }
-                        ?: removerMarcadorDeEpisodio(episodios.first().titulo),
-                    categoria = episodios.firstOrNull()?.categoria.orEmpty().ifBlank { "Séries" },
-                    capa = selecionarCapaSerie(episodios),
-                    sinopse = episodios.firstOrNull { it.sinopse.isNotBlank() }?.sinopse.orEmpty(),
-                    episodios = ordenados
-                )
-            }
-            .filter { grupo -> consulta.isBlank() || normalizarConsulta("${grupo.nome} ${grupo.categoria} ${grupo.sinopse}").contains(consulta) }
-            .toList()
-        when (ordem) {
-            OrdemCatalogo.NOME_ZA -> resultado.sortedByDescending { normalizarConsulta(it.nome) }
-            else -> resultado.sortedBy { normalizarConsulta(it.nome) }
+    var grupos by remember { mutableStateOf<List<GrupoSerie>>(emptyList()) }
+    var preparandoGrupos by remember { mutableStateOf(true) }
+    LaunchedEffect(itens, categoriaSelecionada, busca, ordem, categoriasOcultas) {
+        preparandoGrupos = true
+        val resultado = withContext(Dispatchers.Default) {
+            construirGruposSerie(itens, categoriaSelecionada, busca, ordem, categoriasOcultas)
         }
+        grupos = resultado
+        preparandoGrupos = false
     }
     var serieSelecionada by remember { mutableStateOf<GrupoSerie?>(null) }
     var episodiosCarregados by remember { mutableStateOf<Map<String, List<Midia>>>(emptyMap()) }
@@ -203,7 +182,15 @@ fun SeriesBrowserScreen(
             Spacer(Modifier.height(16.dp))
         }
 
-        if (gruposDaCategoria.isEmpty()) {
+        if (preparandoGrupos) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    text = "Organizando séries...",
+                    color = TextoCinza,
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+        } else if (gruposDaCategoria.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
                     text = "Nenhuma série encontrada em ${categoriaSelecionada.ifBlank { "esta categoria" }}.",
@@ -236,6 +223,49 @@ fun SeriesBrowserScreen(
             aoFechar = { serieSelecionada = null },
             aoAssistir = aoAssistir
         )
+    }
+}
+
+private fun construirGruposSerie(
+    itens: List<Midia>,
+    categoriaSelecionada: String,
+    busca: String,
+    ordem: OrdemCatalogo,
+    categoriasOcultas: Set<String>
+): List<GrupoSerie> {
+    val consulta = normalizarConsulta(busca)
+    val resultado = itens.asSequence()
+        .filter { it.categoria.ifBlank { "Séries" } == categoriaSelecionada }
+        .filter { it.categoria.ifBlank { "Séries" } !in categoriasOcultas }
+        .groupBy { item ->
+            val categoria = item.categoria.ifBlank { "Séries" }
+            val nomeBase = item.serieNome?.takeIf { it.isNotBlank() }
+                ?: removerMarcadorDeEpisodio(item.titulo)
+            "${normalizarChave(categoria)}::${normalizarChave(nomeBase)}"
+        }
+        .map { (chave, episodios) ->
+            val ordenados = episodios.sortedWith(
+                compareBy<Midia> { it.temporadaNumero ?: 1 }
+                    .thenBy { it.episodioNumero ?: Int.MAX_VALUE }
+                    .thenBy { it.titulo }
+            )
+            GrupoSerie(
+                chave = chave,
+                nome = episodios.firstNotNullOfOrNull { it.serieNome }
+                    ?: removerMarcadorDeEpisodio(episodios.first().titulo),
+                categoria = episodios.firstOrNull()?.categoria.orEmpty().ifBlank { "Séries" },
+                capa = selecionarCapaSerie(episodios),
+                sinopse = episodios.firstOrNull { it.sinopse.isNotBlank() }?.sinopse.orEmpty(),
+                episodios = ordenados
+            )
+        }
+        .filter { grupo ->
+            consulta.isBlank() || normalizarConsulta("${grupo.nome} ${grupo.categoria} ${grupo.sinopse}").contains(consulta)
+        }
+        .toList()
+    return when (ordem) {
+        OrdemCatalogo.NOME_ZA -> resultado.sortedByDescending { normalizarConsulta(it.nome) }
+        else -> resultado.sortedBy { normalizarConsulta(it.nome) }
     }
 }
 
