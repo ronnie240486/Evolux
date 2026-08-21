@@ -20,9 +20,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import com.evolux.tv.R
 import com.evolux.tv.data.EvoluxRepository
@@ -218,7 +220,15 @@ fun EvoluxApp() {
                 }
             }
             progressoCatalogo = 15
-            val catalogoM3u = playlistRepository.carregar(urlPlaylist)
+            val catalogoM3u = playlistRepository.carregar(urlPlaylist) { parcial, itensLidos ->
+                withContext(Dispatchers.Main.immediate) {
+                    if (playlistUrlAtual == urlPlaylist) {
+                        // A Home abre com o primeiro lote; o restante da M3U continua em segundo plano.
+                        catalogo = parcial
+                        progressoCatalogo = minOf(96, maxOf(20, 15 + itensLidos / 1_000))
+                    }
+                }
+            }
             progressoCatalogo = 98
             catalogo = catalogoM3u
             playlistAtiva = indice

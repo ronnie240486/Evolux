@@ -31,7 +31,10 @@ class PlaylistRepository {
         val episodioNumero: Int?
     )
 
-    suspend fun carregar(urlPlaylist: String): PlaylistCatalog = withContext(Dispatchers.IO) {
+    suspend fun carregar(
+        urlPlaylist: String,
+        aoAtualizarParcial: suspend (PlaylistCatalog, Int) -> Unit = { _, _ -> }
+    ): PlaylistCatalog = withContext(Dispatchers.IO) {
         val conexao = (URL(urlPlaylist).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             connectTimeout = 15_000
@@ -60,7 +63,9 @@ class PlaylistRepository {
                     parseJson(lerJsonLimitado(prefixo, fluxo))
                 } else {
                     val fluxoCompleto = SequenceInputStream(ByteArrayInputStream(prefixo), fluxo)
-                    fluxoCompleto.bufferedReader(StandardCharsets.UTF_8).use(::parseM3u)
+                    fluxoCompleto.bufferedReader(StandardCharsets.UTF_8).use {
+                        parseM3u(it, aoAtualizarParcial)
+                    }
                 }
             }
         } finally {
@@ -99,7 +104,10 @@ class PlaylistRepository {
         return saida.toString(StandardCharsets.UTF_8.name()).trim()
     }
 
-    private fun parseM3u(leitor: Reader): PlaylistCatalog {
+    private suspend fun parseM3u(
+        leitor: Reader,
+        aoAtualizarParcial: suspend (PlaylistCatalog, Int) -> Unit
+    ): PlaylistCatalog {
         data class Entrada(
             val titulo: String,
             val grupo: String,
@@ -158,7 +166,7 @@ class PlaylistRepository {
                     totalItens++
                     val entrada = pendente ?: Entrada("Item $totalItens", "", "", null, null, null, null)
                     if (!adicionarEntrada(
-                            indice = totalItens - 1,
+                        indice = totalItens - 1,
                             titulo = entrada.titulo,
                             grupo = entrada.grupo,
                             logo = entrada.logo,
@@ -176,6 +184,20 @@ class PlaylistRepository {
                         truncado = true
                     }
                     pendente = null
+
+                    // Libera a Home em lotes, sem esperar o M3U inteiro terminar.
+                    // O primeiro lote aparece cedo e os seguintes atualizam as fileiras gradualmente.
+                    if (totalItens == 1_000 || totalItens > 1_000 && totalItens % PARCIAL_ITENS == 0) {
+                        aoAtualizarParcial(
+                            PlaylistCatalog(
+                                canais = canais.toList(),
+                                filmes = filmes.toList(),
+                                series = series.toList(),
+                                truncado = false
+                            ),
+                            totalItens
+                        )
+                    }
                 }
             }
         }
@@ -533,5 +555,6 @@ class PlaylistRepository {
         // Limites de proteção contra uma resposta malformada, não um corte normal do catálogo.
         // A playlist do usuário com cerca de 12 mil itens passa inteira.
         const val MAX_TOTAL_ITEMS = 100_000
+        const val PARCIAL_ITENS = 5_000
     }
 }
