@@ -90,13 +90,25 @@ fun GradeMidiaScreen(
         emptyList(), itens, busca, categoriaSelecionada, ordem, categoriasOcultas
     ) {
         value = withContext(Dispatchers.Default) {
-            filtrarEOrdenarMidias(
+            val filtrados = filtrarEOrdenarMidias(
                 itens = itens,
                 busca = busca,
                 categoria = categoriaSelecionada,
                 ordem = ordem,
                 categoriasOcultas = categoriasOcultas
             )
+            if (filtrados.isEmpty() && itens.isNotEmpty() && busca.isBlank() && categoriaSelecionada != "Todos") {
+                // A categoria pode ter diferença de acento ou nomenclatura no M3U; nunca deixe a tela vazia.
+                filtrarEOrdenarMidias(
+                    itens = itens,
+                    busca = "",
+                    categoria = "Todos",
+                    ordem = ordem,
+                    categoriasOcultas = categoriasOcultas
+                )
+            } else {
+                filtrados
+            }
         }
     }
     val tamanhoPagina = 30

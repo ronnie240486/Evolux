@@ -44,6 +44,7 @@ import coil.compose.AsyncImage
 import com.evolux.tv.data.Canal
 import com.evolux.tv.data.OrdemCatalogo
 import com.evolux.tv.data.familiasDeCanais
+import com.evolux.tv.data.filtrarEOrdenarCanais
 import com.evolux.tv.data.filtrarEOrdenarCanaisPorFamilia
 import com.evolux.tv.ui.components.EvoluxClickableSurface
 import com.evolux.tv.ui.theme.Dourado
@@ -74,7 +75,13 @@ fun LiveTvScreen(
         emptyList(), canais, busca, categoriaSelecionada, ordem, categoriasOcultas
     ) {
         value = withContext(Dispatchers.Default) {
-            filtrarEOrdenarCanaisPorFamilia(canais, busca, categoriaSelecionada, ordem, categoriasOcultas)
+            val filtrados = filtrarEOrdenarCanaisPorFamilia(canais, busca, categoriaSelecionada, ordem, categoriasOcultas)
+            if (filtrados.isEmpty() && canais.isNotEmpty() && busca.isBlank() && categoriaSelecionada != "Todos") {
+                // A família é somente apresentação; nunca descartar canais por uma diferença de nomenclatura.
+                filtrarEOrdenarCanais(canais, "", "Todos", ordem, categoriasOcultas)
+            } else {
+                filtrados
+            }
         }
     }
     val tamanhoPagina = 30
