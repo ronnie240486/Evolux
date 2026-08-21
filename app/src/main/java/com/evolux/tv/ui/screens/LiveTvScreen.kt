@@ -5,16 +5,20 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -43,6 +47,8 @@ import com.evolux.tv.ui.components.EvoluxClickableSurface
 import com.evolux.tv.ui.theme.Dourado
 import com.evolux.tv.ui.theme.TextoCinza
 import com.evolux.tv.ui.theme.TextoClaro
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun LiveTvScreen(
@@ -52,17 +58,36 @@ fun LiveTvScreen(
     ordemInicial: OrdemCatalogo = OrdemCatalogo.PADRAO,
     aoMudarOrdem: (OrdemCatalogo) -> Unit = {}
 ) {
-    val categorias = remember(canais, categoriasOcultas) {
-        listOf("Todos") + canais
-            .map { it.categoria.ifBlank { "TV ao vivo" } }
-            .distinct()
-            .filter { it !in categoriasOcultas }
-            .sortedWith(String.CASE_INSENSITIVE_ORDER)
+    val categorias by produceState<List<String>>(emptyList(), canais, categoriasOcultas) {
+        value = withContext(Dispatchers.Default) {
+            listOf("Todos") + canais
+                .asSequence()
+                .map { it.categoria.ifBlank { "TV ao vivo" } }
+                .distinct()
+                .filter { it !in categoriasOcultas }
+                .sortedWith(String.CASE_INSENSITIVE_ORDER)
+                .toList()
+        }
     }
-    var categoriaSelecionada by remember(canais) { mutableStateOf("Todos") }
-    var busca by remember(canais) { mutableStateOf("") }
+    var categoriaSelecionada by remember(categorias) {
+        mutableStateOf(categorias.firstOrNull { it != "Todos" } ?: "Todos")
+    }
+    var busca by remember(categorias) { mutableStateOf("") }
     var ordem by remember(canais, ordemInicial) { mutableStateOf(ordemInicial) }
-    val canaisFiltrados = filtrarEOrdenarCanais(canais, busca, categoriaSelecionada, ordem, categoriasOcultas)
+    val canaisFiltrados by produceState<List<Canal>>(
+        emptyList(), canais, busca, categoriaSelecionada, ordem, categoriasOcultas
+    ) {
+        value = withContext(Dispatchers.Default) {
+            filtrarEOrdenarCanais(canais, busca, categoriaSelecionada, ordem, categoriasOcultas)
+        }
+    }
+    val tamanhoPagina = 30
+    var pagina by remember(canais, categorias, categoriaSelecionada, busca, ordem) { mutableIntStateOf(0) }
+    val totalPaginas = ((canaisFiltrados.size + tamanhoPagina - 1) / tamanhoPagina).coerceAtLeast(1)
+    val paginaAtual = pagina.coerceIn(0, totalPaginas - 1)
+    val canaisDaPagina = remember(canaisFiltrados, paginaAtual) {
+        canaisFiltrados.drop(paginaAtual * tamanhoPagina).take(tamanhoPagina)
+    }
 
     Column(modifier = Modifier.padding(24.dp)) {
         Text("TV AO VIVO", color = Dourado, fontWeight = FontWeight.Black, style = MaterialTheme.typography.headlineSmall)
@@ -102,6 +127,30 @@ fun LiveTvScreen(
             }
         }
         Spacer(Modifier.height(14.dp))
+        if (canaisFiltrados.isNotEmpty() && totalPaginas > 1) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                EvoluxClickableSurface(
+                    onClick = { if (paginaAtual > 0) pagina-- },
+                    containerColor = if (paginaAtual > 0) Color(0xFF12172A) else Color.Transparent,
+                    modifier = Modifier.width(54.dp).height(42.dp)
+                ) { Text("‹", color = TextoClaro, style = MaterialTheme.typography.titleLarge) }
+                Text(
+                    text = "Página ${paginaAtual + 1}/$totalPaginas • ${canaisFiltrados.size} canais",
+                    color = TextoCinza,
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+                EvoluxClickableSurface(
+                    onClick = { if (paginaAtual < totalPaginas - 1) pagina++ },
+                    containerColor = if (paginaAtual < totalPaginas - 1) Color(0xFF12172A) else Color.Transparent,
+                    modifier = Modifier.width(54.dp).height(42.dp)
+                ) { Text("›", color = TextoClaro, style = MaterialTheme.typography.titleLarge) }
+            }
+            Spacer(Modifier.height(10.dp))
+        }
         if (canaisFiltrados.isEmpty()) {
             Text(if (canais.isEmpty()) "Nenhum canal disponível." else "Nenhum canal encontrado.", color = TextoCinza)
         } else {
@@ -117,7 +166,7 @@ fun LiveTvScreen(
                     horizontalArrangement = Arrangement.spacedBy(if (colunas == 2) 10.dp else 16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    items(canaisFiltrados) { canal ->
+                    items(canaisDaPagina, key = { it.id }) { canal ->
                         CardCanal(canal, aoClicar = { aoAbrirCanal(canal) })
                     }
                 }

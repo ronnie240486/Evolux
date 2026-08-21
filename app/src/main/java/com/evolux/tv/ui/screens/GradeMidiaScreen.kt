@@ -18,7 +18,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.tv.foundation.lazy.grid.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -52,6 +54,8 @@ import com.evolux.tv.ui.theme.Dourado
 import com.evolux.tv.ui.theme.FundoCard
 import com.evolux.tv.ui.theme.TextoCinza
 import com.evolux.tv.ui.theme.TextoClaro
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun GradeMidiaScreen(
@@ -65,23 +69,42 @@ fun GradeMidiaScreen(
     ordemInicial: OrdemCatalogo = OrdemCatalogo.PADRAO,
     aoMudarOrdem: (OrdemCatalogo) -> Unit = {}
 ) {
-    val categorias = remember(itens, categoriasOcultas) {
-        listOf("Todos") + itens
-            .map { it.categoria.ifBlank { "Sem categoria" } }
-            .distinct()
-            .filter { categoria -> categoria !in categoriasOcultas }
-            .sortedWith(String.CASE_INSENSITIVE_ORDER)
+    val categorias by produceState<List<String>>(emptyList(), itens, categoriasOcultas) {
+        value = withContext(Dispatchers.Default) {
+            listOf("Todos") + itens
+                .asSequence()
+                .map { it.categoria.ifBlank { "Sem categoria" } }
+                .distinct()
+                .filter { categoria -> categoria !in categoriasOcultas }
+                .sortedWith(String.CASE_INSENSITIVE_ORDER)
+                .toList()
+        }
     }
-    var categoriaSelecionada by remember(categorias) { mutableStateOf("Todos") }
+    var categoriaSelecionada by remember(categorias) {
+        mutableStateOf(categorias.firstOrNull { it != "Todos" } ?: "Todos")
+    }
     var busca by remember(categorias) { mutableStateOf("") }
     var ordem by remember(categorias, ordemInicial) { mutableStateOf(ordemInicial) }
-    val itensFiltrados = filtrarEOrdenarMidias(
-        itens = itens,
-        busca = busca,
-        categoria = categoriaSelecionada,
-        ordem = ordem,
-        categoriasOcultas = categoriasOcultas
-    )
+    val itensFiltrados by produceState<List<Midia>>(
+        emptyList(), itens, busca, categoriaSelecionada, ordem, categoriasOcultas
+    ) {
+        value = withContext(Dispatchers.Default) {
+            filtrarEOrdenarMidias(
+                itens = itens,
+                busca = busca,
+                categoria = categoriaSelecionada,
+                ordem = ordem,
+                categoriasOcultas = categoriasOcultas
+            )
+        }
+    }
+    val tamanhoPagina = 30
+    var pagina by remember(itens, categorias, categoriaSelecionada, busca, ordem) { mutableIntStateOf(0) }
+    val totalPaginas = ((itensFiltrados.size + tamanhoPagina - 1) / tamanhoPagina).coerceAtLeast(1)
+    val paginaAtual = pagina.coerceIn(0, totalPaginas - 1)
+    val itensDaPagina = remember(itensFiltrados, paginaAtual) {
+        itensFiltrados.drop(paginaAtual * tamanhoPagina).take(tamanhoPagina)
+    }
 
     Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 18.dp)) {
         Text(
@@ -143,6 +166,31 @@ fun GradeMidiaScreen(
         }
         Spacer(Modifier.height(14.dp))
 
+        if (itensFiltrados.isNotEmpty() && totalPaginas > 1) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            ) {
+                EvoluxClickableSurface(
+                    onClick = { if (paginaAtual > 0) pagina-- },
+                    containerColor = if (paginaAtual > 0) Color(0xFF12172A) else Color.Transparent,
+                    modifier = Modifier.width(54.dp).height(42.dp)
+                ) { Text("‹", color = TextoClaro, style = MaterialTheme.typography.titleLarge) }
+                Text(
+                    text = "Página ${paginaAtual + 1}/$totalPaginas • ${itensFiltrados.size} itens",
+                    color = TextoCinza,
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+                EvoluxClickableSurface(
+                    onClick = { if (paginaAtual < totalPaginas - 1) pagina++ },
+                    containerColor = if (paginaAtual < totalPaginas - 1) Color(0xFF12172A) else Color.Transparent,
+                    modifier = Modifier.width(54.dp).height(42.dp)
+                ) { Text("›", color = TextoClaro, style = MaterialTheme.typography.titleLarge) }
+            }
+            Spacer(Modifier.height(10.dp))
+        }
+
         if (itensFiltrados.isEmpty()) {
             Text(
                 if (itens.isEmpty()) mensagemVazio else "Nenhum item encontrado nesta categoria ou busca.",
@@ -163,7 +211,7 @@ fun GradeMidiaScreen(
                 horizontalArrangement = Arrangement.spacedBy(if (colunas == 2) 10.dp else 16.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                items(itensFiltrados) { midia ->
+                items(itensDaPagina) { midia ->
                     CardPoster(
                         midia = midia,
                         favorito = ehFavorito(midia),
