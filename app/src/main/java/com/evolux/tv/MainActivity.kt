@@ -63,6 +63,11 @@ private data class Reproducao(
     val streamUrl: String
 )
 
+private data class HomePresentation(
+    val destaques: List<Destaque>,
+    val fileirasEspeciais: List<com.evolux.tv.data.FileiraCatalogo>
+)
+
 private fun lerOrdem(valor: String?): OrdemCatalogo = runCatching {
     OrdemCatalogo.valueOf(valor.orEmpty())
 }.getOrDefault(OrdemCatalogo.PADRAO)
@@ -322,9 +327,13 @@ fun EvoluxApp() {
         }
     }
 
-    LaunchedEffect(telaAtual, catalogo) {
+    LaunchedEffect(telaAtual, catalogo, carregandoCatalogo) {
         if (telaAtual == Tela.INICIO) {
             while (isActive) {
+                if (carregandoCatalogo) {
+                    delay(1_500)
+                    continue
+                }
                 val jogosDaLista = jogosDaPlaylist(catalogo?.canais.orEmpty())
                 if (jogosDaLista.isNotEmpty()) {
                     jogosDoDia = withTimeoutOrNull(4_000L) {
@@ -419,28 +428,31 @@ fun EvoluxApp() {
         )
         return
     }
-    val catalogoApresentacao = remember(catalogoAtual) {
-        catalogoAtual.copy(
-            filmes = catalogoAtual.filmes.filter { pertenceAFamiliaFilmes(it.categoria) },
-            series = catalogoAtual.series.filter { pertenceAFamiliaSeries(it.categoria) }
-        )
+    // O parser já entrega filmes e séries separados por group-title.
+    // A preparação dos destaques pode percorrer milhares de itens; por isso fica fora da UI.
+    val homePresentation by produceState<HomePresentation?>(initialValue = null, catalogoAtual) {
+        value = withContext(Dispatchers.Default) {
+            HomePresentation(
+                destaques = gerarDestaques(catalogoAtual),
+                fileirasEspeciais = gerarFileirasEspeciais(catalogoAtual)
+            )
+        }
     }
-    val todasAsMidias = remember(catalogoApresentacao) {
-        catalogoApresentacao.filmes + catalogoApresentacao.series
-    }
-    val destaques = remember(catalogoApresentacao) {
-        gerarDestaques(catalogoApresentacao)
-    }
-    val fileirasEspeciais = remember(catalogoApresentacao) {
-        gerarFileirasEspeciais(catalogoApresentacao)
-    }
+    val destaques = homePresentation?.destaques.orEmpty()
+    val fileirasEspeciais = homePresentation?.fileirasEspeciais.orEmpty()
+    val filmesDaHome = remember(catalogoAtual) { catalogoAtual.filmes.take(24).toList() }
+    val seriesDaHome = remember(catalogoAtual) { catalogoAtual.series.take(24).toList() }
     val favoritos = remember { mutableStateListOf<Midia>() }
 
     LaunchedEffect(preferencias) {
         val idsSalvos = preferencias
             .getStringSet(CHAVE_FAVORITOS, emptySet())
             .orEmpty()
-        favoritos.addAll(todasAsMidias.filter { it.id in idsSalvos })
+        favoritos.addAll(
+            (catalogoAtual.filmes.asSequence() + catalogoAtual.series.asSequence())
+                .filter { it.id in idsSalvos }
+                .toList()
+        )
     }
 
     val ehFavorito: (Midia) -> Boolean = { midia ->
@@ -524,11 +536,11 @@ fun EvoluxApp() {
             when (telaAtual) {
             Tela.INICIO -> HomeScreen(
                 destaques = destaques,
-                canaisCount = catalogoApresentacao.canais.size,
-                filmesCount = catalogoApresentacao.filmes.size,
-                seriesCount = catalogoApresentacao.series.size,
-                filmes = catalogoApresentacao.filmes,
-                series = catalogoApresentacao.series,
+                canaisCount = catalogoAtual.canais.size,
+                filmesCount = catalogoAtual.filmes.size,
+                seriesCount = catalogoAtual.series.size,
+                filmes = filmesDaHome,
+                series = seriesDaHome,
                 fileirasEspeciais = fileirasEspeciais,
                 aoAbrirMidia = abrirMidiaDaHome,
                 aoAssistirDestaque = abrirDestaqueDaHome,
@@ -552,7 +564,7 @@ fun EvoluxApp() {
 
             Tela.FILMES -> GradeMidiaScreen(
                 titulo = "Filmes",
-                itens = catalogoApresentacao.filmes,
+                itens = catalogoAtual.filmes,
                 aoSelecionar = { abrirConteudo(it.titulo, it.streamUrl) },
                 ehFavorito = ehFavorito,
                 aoAlternarFavorito = aoAlternarFavorito,
@@ -562,7 +574,7 @@ fun EvoluxApp() {
             )
 
             Tela.SERIES -> SeriesBrowserScreen(
-                itens = catalogoApresentacao.series,
+                itens = catalogoAtual.series,
                 categoriaInicial = categoriaInicialSeries,
                 aoAssistir = { abrirConteudo(it.episodioNome ?: it.titulo, it.streamUrl) },
                 categoriasOcultas = ocultasSeries,
