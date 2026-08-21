@@ -50,6 +50,7 @@ import com.evolux.tv.ui.theme.FundoEscuro
 import com.evolux.tv.ui.theme.EvoluxTheme
 
 private const val CHAVE_FAVORITOS = "favoritos_ids"
+private const val CHAVE_CANAIS_FAVORITOS = "favoritos_canais_ids"
 private const val CHAVE_MAC_LOGICO = "mac_logico_evolux"
 private const val CHAVE_MAC_AUTORIZADO = "mac_autorizado_confirmado"
 private const val CHAVE_PLAYLIST_ATIVA = "playlist_ativa"
@@ -126,6 +127,9 @@ fun EvoluxApp() {
     var segundosCatalogo by remember { mutableStateOf(0) }
     var reproducao by remember { mutableStateOf<Reproducao?>(null) }
     var jogosDoDia by remember { mutableStateOf<List<Jogo>>(emptyList()) }
+    var canaisFavoritosIds by remember {
+        mutableStateOf(preferencias.getStringSet(CHAVE_CANAIS_FAVORITOS, emptySet()).orEmpty())
+    }
     var categoriaInicialSeries by remember { mutableStateOf<String?>(null) }
 
     fun abreviarEquipe(nome: String): String {
@@ -464,6 +468,18 @@ fun EvoluxApp() {
         favoritos.addAll(favoritosEncontrados)
     }
 
+    val canaisFavoritos = remember(catalogoAtual, canaisFavoritosIds) {
+        catalogoAtual.canais.filter { it.id in canaisFavoritosIds }
+    }
+    val aoAlternarFavoritoCanal: (com.evolux.tv.data.Canal) -> Unit = { canal ->
+        val novosIds = if (canal.id in canaisFavoritosIds) {
+            canaisFavoritosIds - canal.id
+        } else {
+            canaisFavoritosIds + canal.id
+        }
+        canaisFavoritosIds = novosIds
+        preferencias.edit().putStringSet(CHAVE_CANAIS_FAVORITOS, novosIds).apply()
+    }
     val ehFavorito: (Midia) -> Boolean = { midia ->
         favoritos.any { it.id == midia.id }
     }
@@ -573,9 +589,9 @@ fun EvoluxApp() {
 
             Tela.TV_AO_VIVO -> LiveTvScreen(
                 canais = catalogoAtual.canais,
+                canaisFavoritos = canaisFavoritos,
                 aoAbrirCanal = { abrirConteudo(it.nome, it.streamUrl) },
-                aoAbrirFavoritos = { telaAtual = Tela.FAVORITOS },
-                aoAbrirJogos = { telaAtual = Tela.JOGOS },
+                aoAlternarFavorito = aoAlternarFavoritoCanal,
                 categoriasOcultas = ocultasLive,
                 ordemInicial = ordens["canais"] ?: OrdemCatalogo.PADRAO,
                 aoMudarOrdem = { aoMudarOrdem("canais", it) }

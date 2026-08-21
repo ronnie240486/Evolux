@@ -2,7 +2,8 @@ package com.evolux.tv.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,9 +24,11 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun EvoluxClickableSurface(
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     containerColor: Color = Color(0xFF12172A),
     focusedColor: Color = Color(0xFF2A3558),
@@ -40,9 +43,10 @@ fun EvoluxClickableSurface(
             .background(if (focused) focusedColor else containerColor)
             .focusable()
             .onFocusChanged { focused = it.isFocused }
-            .clickable(
+            .combinedClickable(
                 role = Role.Button,
-                onClick = onClick
+                onClick = onClick,
+                onLongClick = onLongClick
             )
             .onKeyEvent { event ->
                 if (event.type == KeyEventType.KeyUp &&

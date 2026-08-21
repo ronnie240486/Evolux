@@ -53,15 +53,12 @@ import com.evolux.tv.ui.theme.TextoClaro
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-private const val CATEGORIA_FAVORITOS = "Favoritos"
-private const val CATEGORIA_JOGOS = "Jogos do Dia"
-
 @Composable
 fun LiveTvScreen(
     canais: List<Canal>,
+    canaisFavoritos: List<Canal> = emptyList(),
     aoAbrirCanal: (Canal) -> Unit,
-    aoAbrirFavoritos: () -> Unit = {},
-    aoAbrirJogos: () -> Unit = {},
+    aoAlternarFavorito: (Canal) -> Unit = {},
     categoriasOcultas: Set<String> = emptySet(),
     ordemInicial: OrdemCatalogo = OrdemCatalogo.PADRAO,
     aoMudarOrdem: (OrdemCatalogo) -> Unit = {}
@@ -70,7 +67,8 @@ fun LiveTvScreen(
         value = withContext(Dispatchers.Default) { construirIndiceCanal(canais) }
     }
     val categorias = remember(indice) {
-        listOf("Todos", CATEGORIA_FAVORITOS, CATEGORIA_JOGOS) + (indice?.categorias ?: emptyList())
+        listOf("Todos", "Favoritos") + (indice?.categorias ?: emptyList())
+            .filterNot { categoriaChave(it) == categoriaChave("Favoritos") }
     }
     var categoriaSelecionada by remember(categorias) {
         mutableStateOf("Todos")
@@ -78,19 +76,20 @@ fun LiveTvScreen(
     var busca by remember(categorias) { mutableStateOf("") }
     var ordem by remember(canais, ordemInicial) { mutableStateOf(ordemInicial) }
     val canaisFiltrados by produceState<List<Canal>>(
-        emptyList(), indice, busca, categoriaSelecionada, ordem
+        emptyList(), indice, canaisFavoritos, busca, categoriaSelecionada, ordem
     ) {
         value = withContext(Dispatchers.Default) {
             val base = when {
                 indice == null -> emptyList()
                 categoriaSelecionada == "Todos" -> indice!!.todos
+                categoriaSelecionada == "Favoritos" -> canaisFavoritos
                 else -> indice!!.porCategoria[categoriaChave(categoriaSelecionada)].orEmpty()
             }
             filtrarEOrdenarCanais(base, busca, "Todos", ordem, emptySet())
         }
     }
     // Enquanto a família é calculada em segundo plano, não deixe a tela parecer vazia.
-    val canaisParaExibir = if (canaisFiltrados.isEmpty() && canais.isNotEmpty() && busca.isBlank()) {
+    val canaisParaExibir = if (canaisFiltrados.isEmpty() && canais.isNotEmpty() && busca.isBlank() && categoriaSelecionada == "Todos") {
         canais.take(30)
     } else {
         canaisFiltrados
@@ -112,13 +111,9 @@ fun LiveTvScreen(
             tvRowItems(categorias) { categoria ->
                 EvoluxClickableSurface(
                     onClick = {
-                        when (categoria) {
-                            CATEGORIA_FAVORITOS -> aoAbrirFavoritos()
-                            CATEGORIA_JOGOS -> aoAbrirJogos()
-                            else -> categoriaSelecionada = categoria
-                        }
+                        categoriaSelecionada = categoria
                     },
-                    containerColor = if (categoria != CATEGORIA_FAVORITOS && categoria != CATEGORIA_JOGOS && categoria == categoriaSelecionada) Color(0xFF283454) else Color(0xFF12172A),
+                    containerColor = if (categoria == categoriaSelecionada) Color(0xFF283454) else Color(0xFF12172A),
                     borderColor = Dourado
                 ) {
                     Text(
@@ -186,8 +181,13 @@ fun LiveTvScreen(
                     horizontalArrangement = Arrangement.spacedBy(if (colunas == 2) 10.dp else 16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    items(canaisDaPagina, key = { it.id }) { canal ->
-                        CardCanal(canal, aoClicar = { aoAbrirCanal(canal) })
+                        items(canaisDaPagina, key = { it.id }) { canal ->
+                        CardCanal(
+                            canal = canal,
+                            favorito = canaisFavoritos.any { it.id == canal.id },
+                            aoClicar = { aoAbrirCanal(canal) },
+                            aoLongClick = { aoAlternarFavorito(canal) }
+                        )
                     }
                 }
             }
@@ -244,9 +244,15 @@ private fun CampoBuscaCanais(valor: String, aoMudar: (String) -> Unit) {
 }
 
 @Composable
-private fun CardCanal(canal: Canal, aoClicar: () -> Unit) {
+private fun CardCanal(
+    canal: Canal,
+    favorito: Boolean,
+    aoClicar: () -> Unit,
+    aoLongClick: () -> Unit
+) {
     EvoluxClickableSurface(
         onClick = aoClicar,
+        onLongClick = aoLongClick,
         containerColor = Color(0xFF12172A),
         modifier = Modifier
     ) {
@@ -262,6 +268,11 @@ private fun CardCanal(canal: Canal, aoClicar: () -> Unit) {
             )
             Spacer(Modifier.height(8.dp))
             Text(canal.nome, color = TextoClaro, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Text(
+                if (favorito) "★ Favorito" else "Segure para favoritar",
+                color = if (favorito) Dourado else TextoCinza,
+                style = MaterialTheme.typography.labelSmall
+            )
             Text(canal.categoria, color = TextoCinza, style = MaterialTheme.typography.labelSmall)
         }
     }
