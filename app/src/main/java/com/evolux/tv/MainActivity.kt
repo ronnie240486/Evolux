@@ -104,6 +104,7 @@ fun EvoluxApp() {
     val escopo = rememberCoroutineScope()
     var macAutorizado by remember { mutableStateOf("") }
     var catalogo by remember { mutableStateOf<PlaylistCatalog?>(null) }
+    var catalogoPronto by remember { mutableStateOf(false) }
     var configuracaoAtual by remember { mutableStateOf<EvoluxConfig?>(null) }
     var fontesConfiguradas by remember { mutableStateOf<List<String>>(emptyList()) }
     var playlistAtiva by remember { mutableStateOf(preferencias.getInt(CHAVE_PLAYLIST_ATIVA, 0)) }
@@ -217,6 +218,7 @@ fun EvoluxApp() {
                 if (cache != null) {
                     progressoCatalogo = 98
                     catalogo = cache
+                    catalogoPronto = true
                     playlistAtiva = indice
                     if (cache.series.none { it.id.startsWith("xtream_series_") }) {
                         carregarSeriesXtreamEmSegundoPlano(urlPlaylist, fingerprint, cache)
@@ -228,14 +230,16 @@ fun EvoluxApp() {
             val catalogoM3u = playlistRepository.carregar(urlPlaylist) { parcial, itensLidos ->
                 withContext(Dispatchers.Main.immediate) {
                     if (playlistUrlAtual == urlPlaylist) {
-                        // A Home abre com o primeiro lote; o restante da M3U continua em segundo plano.
+                        // A Home pode usar o primeiro lote, mas as abas só abrem quando as três áreas estiverem completas.
                         catalogo = parcial
+                        catalogoPronto = false
                         progressoCatalogo = minOf(96, maxOf(20, 15 + itensLidos / 1_000))
                     }
                 }
             }
             progressoCatalogo = 98
             catalogo = catalogoM3u
+            catalogoPronto = true
             playlistAtiva = indice
             preferencias.edit().putInt(CHAVE_PLAYLIST_ATIVA, indice).apply()
             CatalogoCache.salvar(contexto, fingerprint, catalogoM3u)
@@ -290,6 +294,7 @@ fun EvoluxApp() {
                     } else if (precisaCarregar) {
                         // Não mostrar a Home com contadores zerados enquanto a playlist é baixada.
                         catalogo = null
+                        catalogoPronto = false
                         escopo.launch {
                             val erroCatalogo = carregarCatalogo(resultado.configuracao, playlistAtiva)
                             if (erroCatalogo != null) {
@@ -411,7 +416,7 @@ fun EvoluxApp() {
         return
     }
 
-    if (catalogo == null) {
+    if (catalogo == null || !catalogoPronto) {
         CatalogoLoadingScreen(
             estado = estadoLogin,
             carregandoCatalogo = carregandoCatalogo,

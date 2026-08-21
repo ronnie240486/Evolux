@@ -16,7 +16,8 @@ object CatalogoCache {
     private const val NOME_ARQUIVO = "evolux-catalogo-cache-v3.bin"
     private const val MAGIC = "EVOLUX-CATALOG-3"
     private const val PARSER_VERSION = "xtream-series-entities-v5"
-    private const val MAX_CACHE_BYTES = 64L * 1024L * 1024L
+    // O catálogo real possui dezenas de milhares de itens; o limite precisa comportar o snapshot completo.
+    private const val MAX_CACHE_BYTES = 256L * 1024L * 1024L
 
     suspend fun carregar(contexto: Context, fingerprint: String): PlaylistCatalog? = withContext(Dispatchers.IO) {
         val arquivo = File(contexto.filesDir, NOME_ARQUIVO)
@@ -51,7 +52,15 @@ object CatalogoCache {
                 saida.writeBoolean(catalogo.truncado)
             }
             if (temporario.length() <= MAX_CACHE_BYTES) {
-                temporario.renameTo(destino)
+                if (destino.exists() && !destino.delete()) {
+                    temporario.delete()
+                } else {
+                    if (!temporario.renameTo(destino)) {
+                        temporario.delete()
+                    } else {
+                        Unit
+                    }
+                }
             } else {
                 temporario.delete()
             }
