@@ -334,7 +334,9 @@ fun EvoluxApp() {
                     delay(1_500)
                     continue
                 }
-                val jogosDaLista = jogosDaPlaylist(catalogo?.canais.orEmpty())
+                val jogosDaLista = withContext(Dispatchers.Default) {
+                    jogosDaPlaylist(catalogo?.canais.orEmpty())
+                }
                 if (jogosDaLista.isNotEmpty()) {
                     jogosDoDia = withTimeoutOrNull(4_000L) {
                         jogosDoDiaRepository.enriquecerEscudos(jogosDaLista)
@@ -444,15 +446,17 @@ fun EvoluxApp() {
     val seriesDaHome = remember(catalogoAtual) { catalogoAtual.series.take(24).toList() }
     val favoritos = remember { mutableStateListOf<Midia>() }
 
-    LaunchedEffect(preferencias) {
-        val idsSalvos = preferencias
-            .getStringSet(CHAVE_FAVORITOS, emptySet())
-            .orEmpty()
-        favoritos.addAll(
+    LaunchedEffect(preferencias, catalogoAtual) {
+        val idsSalvos = withContext(Dispatchers.IO) {
+            preferencias.getStringSet(CHAVE_FAVORITOS, emptySet()).orEmpty()
+        }
+        val favoritosEncontrados = withContext(Dispatchers.Default) {
             (catalogoAtual.filmes.asSequence() + catalogoAtual.series.asSequence())
                 .filter { it.id in idsSalvos }
                 .toList()
-        )
+        }
+        favoritos.clear()
+        favoritos.addAll(favoritosEncontrados)
     }
 
     val ehFavorito: (Midia) -> Boolean = { midia ->
@@ -468,13 +472,21 @@ fun EvoluxApp() {
     val ocultasLive = categoriasOcultas.filter { it.startsWith("live|") }.map { it.substringAfter('|') }.toSet()
     val ocultasFilmes = categoriasOcultas.filter { it.startsWith("filmes|") }.map { it.substringAfter('|') }.toSet()
     val ocultasSeries = categoriasOcultas.filter { it.startsWith("series|") }.map { it.substringAfter('|') }.toSet()
-    val (categoriasCanais, categoriasFilmes, categoriasSeries) = remember(catalogoAtual) {
-        Triple(
-            catalogoAtual.canais.map { it.categoria.ifBlank { "TV ao vivo" } }.distinct().sorted(),
-            catalogoAtual.filmes.map { it.categoria.ifBlank { "Sem categoria" } }.distinct().sorted(),
-            catalogoAtual.series.map { it.categoria.ifBlank { "Séries" } }.distinct().sorted()
-        )
+    val categorias by produceState<Triple<List<String>, List<String>, List<String>>>(
+        initialValue = Triple(emptyList(), emptyList(), emptyList()),
+        key1 = catalogoAtual
+    ) {
+        value = withContext(Dispatchers.Default) {
+            Triple(
+                catalogoAtual.canais.map { it.categoria.ifBlank { "TV ao vivo" } }.distinct().sorted(),
+                catalogoAtual.filmes.map { it.categoria.ifBlank { "Sem categoria" } }.distinct().sorted(),
+                catalogoAtual.series.map { it.categoria.ifBlank { "Séries" } }.distinct().sorted()
+            )
+        }
     }
+    val categoriasCanais = categorias.first
+    val categoriasFilmes = categorias.second
+    val categoriasSeries = categorias.third
     val aoAlternarCategoriaOculta: (String, String) -> Unit = { secao, categoria ->
         val chave = "$secao|$categoria"
         categoriasOcultas = if (chave in categoriasOcultas) categoriasOcultas - chave else categoriasOcultas + chave

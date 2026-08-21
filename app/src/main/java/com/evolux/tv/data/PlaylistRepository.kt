@@ -124,6 +124,7 @@ class PlaylistRepository {
         var pendente: Entrada? = null
         var totalItens = 0
         var truncado = false
+        var parcialEnviado = false
         val leitorBuffer = leitor as? BufferedReader ?: leitor.buffered()
 
         while (true) {
@@ -187,7 +188,8 @@ class PlaylistRepository {
 
                     // Libera a Home em lotes, sem esperar o M3U inteiro terminar.
                     // O primeiro lote aparece cedo e os seguintes atualizam as fileiras gradualmente.
-                    if (totalItens == 1_000 || totalItens > 1_000 && totalItens % PARCIAL_ITENS == 0) {
+                    if (!parcialEnviado && totalItens >= PRIMEIRO_LOTE_ITENS) {
+                        parcialEnviado = true
                         aoAtualizarParcial(
                             PlaylistCatalog(
                                 canais = canais.toList(),
@@ -555,6 +557,6 @@ class PlaylistRepository {
         // Limites de proteção contra uma resposta malformada, não um corte normal do catálogo.
         // A playlist do usuário com cerca de 12 mil itens passa inteira.
         const val MAX_TOTAL_ITEMS = 100_000
-        const val PARCIAL_ITENS = 5_000
+        const val PRIMEIRO_LOTE_ITENS = 1_000
     }
 }
