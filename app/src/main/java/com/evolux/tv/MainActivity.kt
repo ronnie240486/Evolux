@@ -105,7 +105,9 @@ fun EvoluxApp() {
     val escopo = rememberCoroutineScope()
     var macAutorizado by remember { mutableStateOf("") }
     var catalogo by remember { mutableStateOf<PlaylistCatalog?>(null) }
+    var catalogoPreview by remember { mutableStateOf<PlaylistCatalog?>(null) }
     var catalogoPronto by remember { mutableStateOf(false) }
+    var homePronta by remember { mutableStateOf(false) }
     var configuracaoAtual by remember { mutableStateOf<EvoluxConfig?>(null) }
     var fontesConfiguradas by remember { mutableStateOf<List<String>>(emptyList()) }
     var playlistAtiva by remember { mutableStateOf(preferencias.getInt(CHAVE_PLAYLIST_ATIVA, 0)) }
@@ -222,7 +224,9 @@ fun EvoluxApp() {
                 if (cache != null) {
                     progressoCatalogo = 98
                     catalogo = cache
+                    catalogoPreview = cache
                     catalogoPronto = true
+                    homePronta = true
                     playlistAtiva = indice
                     if (cache.series.none { it.id.startsWith("xtream_series_") }) {
                         carregarSeriesXtreamEmSegundoPlano(urlPlaylist, fingerprint, cache)
@@ -234,17 +238,19 @@ fun EvoluxApp() {
             val catalogoM3u = playlistRepository.carregar(urlPlaylist) { parcial, itensLidos ->
                 withContext(Dispatchers.Main.immediate) {
                     if (playlistUrlAtual == urlPlaylist) {
-                        // Libera a interface com um lote leve; o restante continua sendo processado em segundo plano.
-                        // As telas usam paginação e vão receber os lotes seguintes sem zerar o catálogo.
-                        catalogo = parcial
-                        catalogoPronto = parcial.canais.isNotEmpty() || parcial.filmes.isNotEmpty() || parcial.series.isNotEmpty()
+                        // O preview é usado somente para preparar a Home; as abas aguardam o catálogo completo.
+                        // O lote precisa ter canais, filmes e séries para não abrir uma Home incompleta.
+                        catalogoPreview = parcial
+                        homePronta = parcial.canais.size >= 24 && parcial.filmes.size >= 24 && parcial.series.size >= 24
                         progressoCatalogo = minOf(96, maxOf(20, 15 + itensLidos / 1_000))
                     }
                 }
             }
             progressoCatalogo = 98
             catalogo = catalogoM3u
+            catalogoPreview = catalogoM3u
             catalogoPronto = true
+            homePronta = true
             playlistAtiva = indice
             preferencias.edit().putInt(CHAVE_PLAYLIST_ATIVA, indice).apply()
             CatalogoCache.salvar(contexto, fingerprint, catalogoM3u)
@@ -299,7 +305,9 @@ fun EvoluxApp() {
                     } else if (precisaCarregar) {
                         // Não mostrar a Home com contadores zerados enquanto a playlist é baixada.
                         catalogo = null
+                        catalogoPreview = null
                         catalogoPronto = false
+                        homePronta = false
                         escopo.launch {
                             val erroCatalogo = carregarCatalogo(resultado.configuracao, playlistAtiva)
                             if (erroCatalogo != null) {

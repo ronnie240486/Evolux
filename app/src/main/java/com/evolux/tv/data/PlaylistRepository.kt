@@ -124,7 +124,6 @@ class PlaylistRepository {
         var pendente: Entrada? = null
         var totalItens = 0
         var truncado = false
-        var parcialEnviado = false
         var proximoLote = PRIMEIRO_LOTE_ITENS
         val leitorBuffer = leitor as? BufferedReader ?: leitor.buffered()
 
@@ -189,8 +188,7 @@ class PlaylistRepository {
 
                     // Libera a Home em lotes, sem esperar o M3U inteiro terminar.
                     // O primeiro lote aparece cedo e os seguintes atualizam as telas gradualmente.
-                    if (!parcialEnviado && totalItens >= proximoLote) {
-                        parcialEnviado = true
+                    if (totalItens >= proximoLote) {
                         aoAtualizarParcial(
                             PlaylistCatalog(
                                 canais = canais.toList(),
@@ -428,14 +426,13 @@ class PlaylistRepository {
 
     private fun normalizarTexto(valor: String): String = Normalizer
         .normalize(valor, Normalizer.Form.NFD)
-        .replace("\\p{M}+".toRegex(), "")
+        .replace(DIACRITICS_REGEX, "")
         .lowercase(Locale.ROOT)
 
     private fun String.containsAny(vararg termos: String): Boolean = termos.any(::contains)
 
     private fun atributosExtinf(linha: String): Map<String, String> {
-        val regex = Regex("([A-Za-z0-9_-]+)=\\\"([^\\\"]*)\\\"")
-        return regex.findAll(linha).associate { match ->
+        return EXTINF_ATTRIBUTE_REGEX.findAll(linha).associate { match ->
             match.groupValues[1].lowercase(Locale.ROOT) to match.groupValues[2]
         }
     }
@@ -454,12 +451,7 @@ class PlaylistRepository {
     }
 
     private fun extrairDadosSerie(titulo: String, grupo: String): DadosSerie? {
-        val padroes = listOf(
-            Regex("(?i)^(.*?)[\\s._|:-]+s(?:eason)?\\s*0*(\\d{1,2})[\\s._|:-]*e(?:p(?:is[oó]dio)?)?\\s*0*(\\d{1,3}).*$"),
-            Regex("(?i)^(.*?)[\\s._|:-]+0*(\\d{1,2})x0*(\\d{1,3}).*$"),
-            Regex("(?i)^(.*?)(?:\\s*[-_.| ]*\\s*(?:s|t|season|temporada)\\s*0*(\\d{1,2})(?:\\s*[-_.| ]*\\s*(?:e|ep|epis[oó]dio)?\\s*0*(\\d{1,3}))?.*)$")
-        )
-        for (padrao in padroes) {
+        for (padrao in SERIE_PATTERNS) {
             val encontro = padrao.find(titulo) ?: continue
             val nome = encontro.groupValues[1].trim().trim('-', '.', '|', '_')
             if (nome.isNotBlank()) {
@@ -472,7 +464,7 @@ class PlaylistRepository {
             }
         }
 
-        val temporadaDoGrupo = Regex("(?i)(?:temporada|season|s|t)\\s*0*(\\d{1,2})").find(grupo)
+        val temporadaDoGrupo = SEASON_GROUP_REGEX.find(grupo)
         if (temporadaDoGrupo != null && normalizarTexto(grupo).containsAny("series", "serie", "show", "novela", "anime")) {
             return DadosSerie(
                 serieNome = titulo.substringBefore(" - Temporada", titulo).trim(),
@@ -498,7 +490,7 @@ class PlaylistRepository {
 
     private fun detectarTipoPorUrl(url: String): TipoUrl? {
         val normalizada = url.lowercase(Locale.ROOT)
-        val caminho = runCatching { URL(normalizada).path }.getOrDefault(normalizada)
+        val caminho = normalizada.substringBefore('?')
         return when {
             caminho.contains("/series/") || normalizada.contains("series/") -> TipoUrl.SERIE
             caminho.contains("/movie/") || caminho.contains("/movies/") ||
@@ -561,5 +553,13 @@ class PlaylistRepository {
         const val MAX_TOTAL_ITEMS = 100_000
         const val PRIMEIRO_LOTE_ITENS = 1_000
         const val ITENS_POR_LOTE = 5_000
+        val DIACRITICS_REGEX = "\\p{M}+".toRegex()
+        val EXTINF_ATTRIBUTE_REGEX = Regex("([A-Za-z0-9_-]+)=\\\"([^\\\"]*)\\\"")
+        val SERIE_PATTERNS = listOf(
+            Regex("(?i)^(.*?)[\\s._|:-]+s(?:eason)?\\s*0*(\\d{1,2})[\\s._|:-]*e(?:p(?:is[oó]dio)?)?\\s*0*(\\d{1,3}).*$"),
+            Regex("(?i)^(.*?)[\\s._|:-]+0*(\\d{1,2})x0*(\\d{1,3}).*$"),
+            Regex("(?i)^(.*?)(?:\\s*[-_.| ]*\\s*(?:s|t|season|temporada)\\s*0*(\\d{1,2})(?:\\s*[-_.| ]*\\s*(?:e|ep|epis[oó]dio)?\\s*0*(\\d{1,3}))?.*)$")
+        )
+        val SEASON_GROUP_REGEX = Regex("(?i)(?:temporada|season|s|t)\\s*0*(\\d{1,2})")
     }
 }
