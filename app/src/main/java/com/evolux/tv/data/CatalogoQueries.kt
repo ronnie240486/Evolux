@@ -61,7 +61,6 @@ fun categoriasReaisDeCanais(canais: List<Canal>, categoriasOcultas: Set<String> 
     // A prioridade não cria categorias; apenas ordena os grupos existentes no arquivo.
     return categorias.sortedWith(
         compareBy<String>(::prioridadeCategoriaReal)
-            .thenBy(::normalizarConsulta)
     )
 }
 
