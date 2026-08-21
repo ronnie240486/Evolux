@@ -49,6 +49,7 @@ import coil.compose.AsyncImage
 import com.evolux.tv.R
 import com.evolux.tv.data.Midia
 import com.evolux.tv.data.OrdemCatalogo
+import com.evolux.tv.data.categoriaChave
 import com.evolux.tv.data.filtrarEOrdenarMidias
 import com.evolux.tv.ui.components.EvoluxClickableSurface
 import com.evolux.tv.ui.theme.Dourado
@@ -70,45 +71,31 @@ fun GradeMidiaScreen(
     ordemInicial: OrdemCatalogo = OrdemCatalogo.PADRAO,
     aoMudarOrdem: (OrdemCatalogo) -> Unit = {}
 ) {
-    val categorias by produceState<List<String>>(emptyList(), itens, categoriasOcultas) {
-        value = withContext(Dispatchers.Default) {
-            listOf("Todos") + itens
-                .asSequence()
-                .map { it.categoria.ifBlank { "Sem categoria" } }
-                .distinct()
-                // As categorias reais da M3U sempre ficam visíveis; não aplicar ocultações antigas nesta tela.
-                .sortedWith(String.CASE_INSENSITIVE_ORDER)
-                .toList()
-        }
+    val indice by produceState<IndiceMidia?>(null, itens) {
+        value = withContext(Dispatchers.Default) { construirIndiceMidia(itens) }
     }
+    val categorias = remember(indice) { listOf("Todos") + (indice?.categorias ?: emptyList()) }
     var categoriaSelecionada by remember(categorias) {
         mutableStateOf(categorias.firstOrNull { it != "Todos" } ?: "Todos")
     }
     var busca by remember(categorias) { mutableStateOf("") }
     var ordem by remember(categorias, ordemInicial) { mutableStateOf(ordemInicial) }
     val itensFiltrados by produceState<List<Midia>>(
-        emptyList(), itens, busca, categoriaSelecionada, ordem, categoriasOcultas
+        emptyList(), indice, busca, categoriaSelecionada, ordem
     ) {
         value = withContext(Dispatchers.Default) {
-            val filtrados = filtrarEOrdenarMidias(
-                itens = itens,
+            val base = when {
+                indice == null -> emptyList()
+                categoriaSelecionada == "Todos" -> indice!!.todos
+                else -> indice!!.porCategoria[categoriaChave(categoriaSelecionada)].orEmpty()
+            }
+            filtrarEOrdenarMidias(
+                itens = base,
                 busca = busca,
-                categoria = categoriaSelecionada,
+                categoria = "Todos",
                 ordem = ordem,
                 categoriasOcultas = emptySet()
             )
-            if (filtrados.isEmpty() && itens.isNotEmpty() && busca.isBlank() && categoriaSelecionada != "Todos") {
-                // A categoria pode ter diferença de acento ou nomenclatura no M3U; nunca deixe a tela vazia.
-                filtrarEOrdenarMidias(
-                    itens = itens,
-                    busca = "",
-                    categoria = "Todos",
-                    ordem = ordem,
-                    categoriasOcultas = categoriasOcultas
-                )
-            } else {
-                filtrados
-            }
         }
     }
     // O estado inicial da consulta é vazio enquanto o filtro roda em segundo plano.
@@ -234,7 +221,7 @@ fun GradeMidiaScreen(
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
                 items(itensDaPagina) { midia ->
-                    CardPoster(
+                    CardMidiaPoster(
                         midia = midia,
                         favorito = ehFavorito(midia),
                         aoClicar = { aoSelecionar(midia) },
@@ -275,8 +262,30 @@ private fun CampoBusca(valor: String, placeholder: String, aoMudar: (String) -> 
     }
 }
 
+private data class IndiceMidia(
+    val todos: List<Midia>,
+    val categorias: List<String>,
+    val porCategoria: Map<String, List<Midia>>
+)
+
+private fun construirIndiceMidia(itens: List<Midia>): IndiceMidia {
+    val nomesPorChave = LinkedHashMap<String, String>()
+    val porCategoria = LinkedHashMap<String, MutableList<Midia>>()
+    itens.forEach { item ->
+        val categoria = item.categoria.ifBlank { "Sem categoria" }.trim()
+        val chave = categoriaChave(categoria)
+        nomesPorChave.putIfAbsent(chave, categoria)
+        porCategoria.getOrPut(chave) { ArrayList() }.add(item)
+    }
+    return IndiceMidia(
+        todos = itens,
+        categorias = nomesPorChave.values.sortedWith(String.CASE_INSENSITIVE_ORDER),
+        porCategoria = porCategoria
+    )
+}
+
 @Composable
-private fun CardPoster(
+private fun CardMidiaPoster(
     midia: Midia,
     favorito: Boolean,
     aoClicar: () -> Unit,
