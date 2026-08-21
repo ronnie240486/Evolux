@@ -57,12 +57,16 @@ fun categoriasReaisDeCanais(canais: List<Canal>, categoriasOcultas: Set<String> 
         .filter { categoriaChave(it) !in ocultas }
         .distinctBy(::categoriaChave)
         .toList()
+    val familiaPorCategoria = canais.asSequence()
+        .map { canal ->
+            val categoria = canal.categoria.ifBlank { "TV ao vivo" }.trim()
+            categoriaChave(categoria) to familiaDoCanal(canal)
+        }
+        .distinct()
+        .toMap()
     return categorias.sortedWith(
         compareBy<String> { categoria ->
-            val canalDaCategoria = canais.firstOrNull { canal ->
-                (canal.categoria.ifBlank { "TV ao vivo" }).trim() == categoria
-            }
-            ORDEM_FAMILIAS_CANAIS.indexOf(canalDaCategoria?.let(::familiaDoCanal))
+            ORDEM_FAMILIAS_CANAIS.indexOf(familiaPorCategoria[categoriaChave(categoria)])
                 .let { if (it < 0) Int.MAX_VALUE else it }
         }.thenBy(::normalizarConsulta)
     )

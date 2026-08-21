@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.evolux.tv.data.Destaque
@@ -44,6 +45,22 @@ fun HomeScreen(
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val compacto = maxWidth < 760.dp
         val servicosDaHome = fileirasEspeciais.mapNotNull { it.servico }.distinct()
+        val fileirasGeraisDaHome = remember(fileirasEspeciais, filmes, series) {
+            val exibidos = HashSet<String>()
+            fun chave(item: Midia): String {
+                val titulo = item.titulo.lowercase().replace("[^a-z0-9]+".toRegex(), "")
+                return "${item.tipo}:$titulo"
+            }
+            val especiais = fileirasEspeciais
+                .filter { it.servico == null }
+                .mapNotNull { fileira ->
+                    val unicos = fileira.itens.filter { exibidos.add(chave(it)) }
+                    fileira.copy(itens = unicos).takeIf { it.itens.isNotEmpty() }
+                }
+            val filmesUnicos = filmes.filter { exibidos.add(chave(it)) }
+            val seriesUnicas = series.filter { exibidos.add(chave(it)) }
+            Triple(especiais, filmesUnicos, seriesUnicas)
+        }
         LazyColumn(
             contentPadding = PaddingValues(
                 start = if (compacto) 12.dp else 24.dp,
@@ -120,7 +137,7 @@ fun HomeScreen(
                     }
                 )
             }
-            fileirasEspeciais.filter { it.servico == null }.forEach { fileira ->
+            fileirasGeraisDaHome.first.forEach { fileira ->
                 item {
                     MediaRow(
                         titulo = fileira.titulo,
@@ -134,7 +151,7 @@ fun HomeScreen(
             item {
                 MediaRow(
                     titulo = "FILMES DO SEU CATÁLOGO",
-                    itens = filmes,
+                    itens = fileirasGeraisDaHome.second,
                     aoSelecionar = aoAbrirMidia,
                     ehFavorito = ehFavorito,
                     aoAlternarFavorito = aoAlternarFavorito
@@ -143,7 +160,7 @@ fun HomeScreen(
             item {
                 MediaRow(
                     titulo = "SÉRIES DO SEU CATÁLOGO",
-                    itens = series,
+                    itens = fileirasGeraisDaHome.third,
                     aoSelecionar = aoAbrirMidia,
                     ehFavorito = ehFavorito,
                     aoAlternarFavorito = aoAlternarFavorito
