@@ -109,6 +109,7 @@ fun gerarFileirasEspeciais(catalogo: PlaylistCatalog): List<FileiraCatalogo> {
         listOf("lancamento", "lancamentos", "novidade", "premiere", "new") to "LANÇAMENTOS",
         listOf("asterisco", "estrela", "*") to "DESTAQUES"
     )
+    val chavesJaExibidas = HashSet<String>()
     val fileirasGerais = regrasGerais.mapNotNull { (termos, tituloPadrao) ->
         val itens = midiasElegiveis
             .filter { item ->
@@ -118,7 +119,8 @@ fun gerarFileirasEspeciais(catalogo: PlaylistCatalog): List<FileiraCatalogo> {
                     else grupoNormalizado.contains(normalizarGrupo(termo))
                 }
             }
-            .distinctBy { it.id }
+            .distinctBy(::chaveUnicaHome)
+            .filter { chavesJaExibidas.add(chaveUnicaHome(it)) }
             .take(LIMITE_CARDS_HOME)
             .toList()
         itens.takeIf { it.isNotEmpty() }?.let {
@@ -132,4 +134,9 @@ private fun normalizarGrupo(valor: String): String {
     return java.text.Normalizer.normalize(valor, java.text.Normalizer.Form.NFD)
         .replace("\\p{M}+".toRegex(), "")
         .lowercase()
+}
+
+private fun chaveUnicaHome(item: Midia): String {
+    val titulo = normalizarGrupo(item.titulo).replace("[^a-z0-9]+".toRegex(), "")
+    return "${item.tipo}:$titulo"
 }

@@ -78,7 +78,9 @@ fun HomeScreen(
                             jogos = jogosDoDia,
                             aoAbrirJogo = aoAbrirJogo,
                             aoAbrirTodos = aoAbrirJogos,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(220.dp)
                         )
                     }
                 } else {
@@ -99,7 +101,9 @@ fun HomeScreen(
                             jogos = jogosDoDia,
                             aoAbrirJogo = aoAbrirJogo,
                             aoAbrirTodos = aoAbrirJogos,
-                            modifier = Modifier.fillMaxWidth(0.32f)
+                            modifier = Modifier
+                                .fillMaxWidth(0.32f)
+                                .height(300.dp)
                         )
                     }
                 }
