@@ -429,7 +429,8 @@ fun EvoluxApp() {
         return
     }
 
-    if (catalogo == null || !catalogoPronto) {
+    val previewDisponivel = homePronta && catalogoPreview != null
+    if ((catalogo == null && !previewDisponivel) || (!catalogoPronto && telaAtual != Tela.INICIO)) {
         CatalogoLoadingScreen(
             estado = estadoLogin,
             carregandoCatalogo = carregandoCatalogo,
@@ -439,7 +440,11 @@ fun EvoluxApp() {
         return
     }
 
-    val catalogoAtual = catalogo ?: return
+    val catalogoAtual: PlaylistCatalog = if (catalogoPronto) {
+        catalogo ?: return
+    } else {
+        catalogoPreview ?: return
+    }
     reproducao?.let { atual ->
         PlayerScreen(
             titulo = atual.titulo,
