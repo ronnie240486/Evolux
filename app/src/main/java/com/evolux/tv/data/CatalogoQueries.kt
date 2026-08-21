@@ -57,8 +57,12 @@ fun categoriasReaisDeCanais(canais: List<Canal>, categoriasOcultas: Set<String> 
         .filter { categoriaChave(it) !in ocultas }
         .distinctBy(::categoriaChave)
         .toList()
-    // A M3U pode ter grupos diferentes e em ordens diferentes; preserve a ordem em que o arquivo fornece cada grupo.
-    return categorias
+    // Preserve cada nome real da M3U, mas aproxime categorias semanticamente semelhantes.
+    // A prioridade não cria categorias; apenas ordena os grupos existentes no arquivo.
+    return categorias.sortedWith(
+        compareBy<String>(::prioridadeCategoriaReal)
+            .thenBy(::normalizarConsulta)
+    )
 }
 
 fun filtrarEOrdenarMidias(
