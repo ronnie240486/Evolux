@@ -13,9 +13,9 @@ import java.io.FileOutputStream
 import java.security.MessageDigest
 
 object CatalogoCache {
-    private const val NOME_ARQUIVO = "evolux-catalogo-cache-v3.bin"
-    private const val MAGIC = "EVOLUX-CATALOG-3"
-    private const val PARSER_VERSION = "xtream-series-entities-v5"
+    private const val NOME_ARQUIVO = "evolux-catalogo-cache-v4.bin"
+    private const val MAGIC = "EVOLUX-CATALOG-4"
+    private const val PARSER_VERSION = "xtream-series-entities-v6-complete-catalog"
     // O catálogo real possui dezenas de milhares de itens; o limite precisa comportar o snapshot completo.
     private const val MAX_CACHE_BYTES = 256L * 1024L * 1024L
 
@@ -30,7 +30,7 @@ object CatalogoCache {
                 val filmes = readMidias(entrada)
                 val series = readMidias(entrada)
                 val truncado = entrada.readBoolean()
-                if (canais.isEmpty() && filmes.isEmpty() && series.isEmpty()) null
+                if (canais.isEmpty() || filmes.isEmpty() || series.isEmpty()) null
                 else PlaylistCatalog(canais, filmes, series, truncado)
             }
         }.getOrElse {
