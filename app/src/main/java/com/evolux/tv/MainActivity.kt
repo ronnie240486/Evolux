@@ -574,6 +574,8 @@ fun EvoluxApp() {
             Tela.TV_AO_VIVO -> LiveTvScreen(
                 canais = catalogoAtual.canais,
                 aoAbrirCanal = { abrirConteudo(it.nome, it.streamUrl) },
+                aoAbrirFavoritos = { telaAtual = Tela.FAVORITOS },
+                aoAbrirJogos = { telaAtual = Tela.JOGOS },
                 categoriasOcultas = ocultasLive,
                 ordemInicial = ordens["canais"] ?: OrdemCatalogo.PADRAO,
                 aoMudarOrdem = { aoMudarOrdem("canais", it) }

@@ -44,6 +44,7 @@ import coil.compose.AsyncImage
 import com.evolux.tv.data.Canal
 import com.evolux.tv.data.OrdemCatalogo
 import com.evolux.tv.data.categoriaChave
+import com.evolux.tv.data.categoriasReaisDeCanais
 import com.evolux.tv.data.filtrarEOrdenarCanais
 import com.evolux.tv.ui.components.EvoluxClickableSurface
 import com.evolux.tv.ui.theme.Dourado
@@ -52,10 +53,15 @@ import com.evolux.tv.ui.theme.TextoClaro
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+private const val CATEGORIA_FAVORITOS = "Favoritos"
+private const val CATEGORIA_JOGOS = "Jogos do Dia"
+
 @Composable
 fun LiveTvScreen(
     canais: List<Canal>,
     aoAbrirCanal: (Canal) -> Unit,
+    aoAbrirFavoritos: () -> Unit = {},
+    aoAbrirJogos: () -> Unit = {},
     categoriasOcultas: Set<String> = emptySet(),
     ordemInicial: OrdemCatalogo = OrdemCatalogo.PADRAO,
     aoMudarOrdem: (OrdemCatalogo) -> Unit = {}
@@ -63,9 +69,11 @@ fun LiveTvScreen(
     val indice by produceState<IndiceCanal?>(null, canais) {
         value = withContext(Dispatchers.Default) { construirIndiceCanal(canais) }
     }
-    val categorias = remember(indice) { listOf("Todos") + (indice?.categorias ?: emptyList()) }
+    val categorias = remember(indice) {
+        listOf("Todos", CATEGORIA_FAVORITOS, CATEGORIA_JOGOS) + (indice?.categorias ?: emptyList())
+    }
     var categoriaSelecionada by remember(categorias) {
-        mutableStateOf(categorias.firstOrNull { it != "Todos" } ?: "Todos")
+        mutableStateOf("Todos")
     }
     var busca by remember(categorias) { mutableStateOf("") }
     var ordem by remember(canais, ordemInicial) { mutableStateOf(ordemInicial) }
@@ -103,8 +111,14 @@ fun LiveTvScreen(
         TvLazyRow(modifier = Modifier.focusGroup(), contentPadding = PaddingValues(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             tvRowItems(categorias) { categoria ->
                 EvoluxClickableSurface(
-                    onClick = { categoriaSelecionada = categoria },
-                    containerColor = if (categoria == categoriaSelecionada) Color(0xFF283454) else Color(0xFF12172A),
+                    onClick = {
+                        when (categoria) {
+                            CATEGORIA_FAVORITOS -> aoAbrirFavoritos()
+                            CATEGORIA_JOGOS -> aoAbrirJogos()
+                            else -> categoriaSelecionada = categoria
+                        }
+                    },
+                    containerColor = if (categoria != CATEGORIA_FAVORITOS && categoria != CATEGORIA_JOGOS && categoria == categoriaSelecionada) Color(0xFF283454) else Color(0xFF12172A),
                     borderColor = Dourado
                 ) {
                     Text(
@@ -198,7 +212,7 @@ private fun construirIndiceCanal(canais: List<Canal>): IndiceCanal {
     }
     return IndiceCanal(
         todos = canais,
-        categorias = nomesPorChave.values.sortedWith(String.CASE_INSENSITIVE_ORDER),
+        categorias = categoriasReaisDeCanais(canais),
         porCategoria = porCategoria
     )
 }
