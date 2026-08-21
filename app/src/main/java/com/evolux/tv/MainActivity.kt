@@ -234,9 +234,10 @@ fun EvoluxApp() {
             val catalogoM3u = playlistRepository.carregar(urlPlaylist) { parcial, itensLidos ->
                 withContext(Dispatchers.Main.immediate) {
                     if (playlistUrlAtual == urlPlaylist) {
-                        // A Home pode usar o primeiro lote, mas as abas só abrem quando as três áreas estiverem completas.
+                        // Libera a interface com um lote leve; o restante continua sendo processado em segundo plano.
+                        // As telas usam paginação e vão receber os lotes seguintes sem zerar o catálogo.
                         catalogo = parcial
-                        catalogoPronto = false
+                        catalogoPronto = parcial.canais.isNotEmpty() || parcial.filmes.isNotEmpty() || parcial.series.isNotEmpty()
                         progressoCatalogo = minOf(96, maxOf(20, 15 + itensLidos / 1_000))
                     }
                 }
