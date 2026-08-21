@@ -62,7 +62,8 @@ fun LiveTvScreen(
 ) {
     val categorias by produceState<List<String>>(emptyList(), canais, categoriasOcultas) {
         value = withContext(Dispatchers.Default) {
-            listOf("Todos") + categoriasReaisDeCanais(canais, categoriasOcultas)
+            // A faixa deve refletir os grupos reais da M3U; não usar ocultações antigas aqui.
+            listOf("Todos") + categoriasReaisDeCanais(canais)
         }
     }
     var categoriaSelecionada by remember(categorias) {
@@ -74,10 +75,10 @@ fun LiveTvScreen(
         emptyList(), canais, busca, categoriaSelecionada, ordem, categoriasOcultas
     ) {
         value = withContext(Dispatchers.Default) {
-            val filtrados = filtrarEOrdenarCanais(canais, busca, categoriaSelecionada, ordem, categoriasOcultas)
+            val filtrados = filtrarEOrdenarCanais(canais, busca, categoriaSelecionada, ordem, emptySet())
             if (filtrados.isEmpty() && canais.isNotEmpty() && busca.isBlank() && categoriaSelecionada != "Todos") {
                 // A categoria é somente apresentação; nunca descartar canais por uma diferença de nomenclatura.
-                filtrarEOrdenarCanais(canais, "", "Todos", ordem, categoriasOcultas)
+                filtrarEOrdenarCanais(canais, "", "Todos", ordem, emptySet())
             } else {
                 filtrados
             }

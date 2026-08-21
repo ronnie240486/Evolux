@@ -76,7 +76,7 @@ fun GradeMidiaScreen(
                 .asSequence()
                 .map { it.categoria.ifBlank { "Sem categoria" } }
                 .distinct()
-                .filter { categoria -> categoria !in categoriasOcultas }
+                // As categorias reais da M3U sempre ficam visíveis; não aplicar ocultações antigas nesta tela.
                 .sortedWith(String.CASE_INSENSITIVE_ORDER)
                 .toList()
         }
@@ -95,7 +95,7 @@ fun GradeMidiaScreen(
                 busca = busca,
                 categoria = categoriaSelecionada,
                 ordem = ordem,
-                categoriasOcultas = categoriasOcultas
+                categoriasOcultas = emptySet()
             )
             if (filtrados.isEmpty() && itens.isNotEmpty() && busca.isBlank() && categoriaSelecionada != "Todos") {
                 // A categoria pode ter diferença de acento ou nomenclatura no M3U; nunca deixe a tela vazia.
