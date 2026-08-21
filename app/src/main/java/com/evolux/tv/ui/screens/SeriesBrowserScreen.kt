@@ -28,6 +28,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -81,13 +82,15 @@ fun SeriesBrowserScreen(
     aoMudarOrdem: (OrdemCatalogo) -> Unit = {},
     carregarEpisodios: suspend (Midia) -> List<Midia> = { emptyList() }
 ) {
-    val categorias = remember(itens, categoriasOcultas) {
-        itens.asSequence()
-            .map { it.categoria.ifBlank { "Séries" } }
-            .distinct()
-            .filter { it !in categoriasOcultas }
-            .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it })
-            .toList()
+    val categorias by produceState<List<String>>(emptyList(), itens, categoriasOcultas) {
+        value = withContext(Dispatchers.Default) {
+            itens.asSequence()
+                .map { it.categoria.ifBlank { "Séries" } }
+                .distinct()
+                .filter { it !in categoriasOcultas }
+                .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it })
+                .toList()
+        }
     }
     var categoriaSelecionada by remember(categorias, categoriaInicial) {
         mutableStateOf(
@@ -95,7 +98,7 @@ fun SeriesBrowserScreen(
                 ?: categorias.firstOrNull().orEmpty()
         )
     }
-    var busca by remember(itens) { mutableStateOf("") }
+    var busca by remember(categorias) { mutableStateOf("") }
     var ordem by remember(itens, ordemInicial) { mutableStateOf(ordemInicial) }
     var grupos by remember { mutableStateOf<List<GrupoSerie>>(emptyList()) }
     var preparandoGrupos by remember { mutableStateOf(true) }

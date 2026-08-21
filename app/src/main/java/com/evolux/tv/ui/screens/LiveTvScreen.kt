@@ -23,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
@@ -94,7 +95,7 @@ fun LiveTvScreen(
         Spacer(Modifier.height(12.dp))
         CampoBuscaCanais(busca, { busca = it })
         Spacer(Modifier.height(10.dp))
-        TvLazyRow(contentPadding = PaddingValues(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TvLazyRow(modifier = Modifier.focusGroup(), contentPadding = PaddingValues(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             tvRowItems(categorias) { categoria ->
                 EvoluxClickableSurface(
                     onClick = { categoriaSelecionada = categoria },
@@ -111,7 +112,7 @@ fun LiveTvScreen(
             }
         }
         Spacer(Modifier.height(8.dp))
-        TvLazyRow(contentPadding = PaddingValues(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TvLazyRow(modifier = Modifier.focusGroup(), contentPadding = PaddingValues(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             tvRowItems(listOf(OrdemCatalogo.PADRAO, OrdemCatalogo.NOME_AZ, OrdemCatalogo.NOME_ZA)) { opcao ->
                 EvoluxClickableSurface(
                     onClick = { ordem = opcao; aoMudarOrdem(opcao) },
@@ -161,8 +162,8 @@ fun LiveTvScreen(
                     else -> 5
                 }
                 TvLazyVerticalGrid(
+                    modifier = Modifier.focusGroup().fillMaxWidth(),
                     columns = TvGridCells.Fixed(colunas),
-                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(if (colunas == 2) 10.dp else 16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {

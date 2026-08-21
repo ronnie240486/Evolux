@@ -24,6 +24,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
@@ -121,6 +122,7 @@ fun GradeMidiaScreen(
         )
         Spacer(Modifier.height(10.dp))
         TvLazyRow(
+            modifier = Modifier.focusGroup(),
             contentPadding = PaddingValues(vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -142,6 +144,7 @@ fun GradeMidiaScreen(
         }
         Spacer(Modifier.height(8.dp))
         TvLazyRow(
+            modifier = Modifier.focusGroup(),
             contentPadding = PaddingValues(vertical = 2.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -206,8 +209,8 @@ fun GradeMidiaScreen(
                 else -> 6
             }
             TvLazyVerticalGrid(
+                modifier = Modifier.focusGroup().fillMaxWidth(),
                 columns = TvGridCells.Fixed(colunas),
-                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(if (colunas == 2) 10.dp else 16.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
