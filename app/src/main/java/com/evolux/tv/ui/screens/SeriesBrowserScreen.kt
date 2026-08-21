@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
@@ -142,6 +143,13 @@ fun SeriesBrowserScreen(
     }
 
     val gruposDaCategoria = grupos.filter { it.categoria == categoriaSelecionada }
+    val tamanhoPagina = 24
+    var pagina by remember(categorias, categoriaSelecionada, busca, ordem) { mutableIntStateOf(0) }
+    val totalPaginas = ((gruposDaCategoria.size + tamanhoPagina - 1) / tamanhoPagina).coerceAtLeast(1)
+    val paginaAtual = pagina.coerceIn(0, totalPaginas - 1)
+    val gruposDaPagina = remember(gruposDaCategoria, paginaAtual) {
+        gruposDaCategoria.drop(paginaAtual * tamanhoPagina).take(tamanhoPagina)
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -199,6 +207,30 @@ fun SeriesBrowserScreen(
                 )
             }
         } else {
+            if (totalPaginas > 1) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    EvoluxClickableSurface(
+                        onClick = { if (paginaAtual > 0) pagina-- },
+                        containerColor = if (paginaAtual > 0) FundoCard else Color.Transparent,
+                        modifier = Modifier.width(54.dp).height(42.dp)
+                    ) { Text("‹", color = TextoClaro, style = MaterialTheme.typography.titleLarge) }
+                    Text(
+                        text = "Página ${paginaAtual + 1}/$totalPaginas • ${gruposDaCategoria.size} séries",
+                        color = TextoCinza,
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    )
+                    EvoluxClickableSurface(
+                        onClick = { if (paginaAtual < totalPaginas - 1) pagina++ },
+                        containerColor = if (paginaAtual < totalPaginas - 1) FundoCard else Color.Transparent,
+                        modifier = Modifier.width(54.dp).height(42.dp)
+                    ) { Text("›", color = TextoClaro, style = MaterialTheme.typography.titleLarge) }
+                }
+                Spacer(Modifier.height(10.dp))
+            }
             LazyColumn(
                 contentPadding = PaddingValues(bottom = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -210,7 +242,7 @@ fun SeriesBrowserScreen(
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
-                items(gruposDaCategoria, key = { it.chave }) { grupo ->
+                items(gruposDaPagina, key = { it.chave }) { grupo ->
                     SerieCard(grupo, carregando = chaveCarregando == grupo.chave) { abrirGrupo(grupo) }
                 }
             }
