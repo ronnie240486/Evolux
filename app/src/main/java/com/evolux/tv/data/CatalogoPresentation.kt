@@ -76,8 +76,10 @@ fun gerarFileirasEspeciais(catalogo: PlaylistCatalog): List<FileiraCatalogo> {
     )
     val buckets = servicos.associate { it.second to ArrayList<Midia>(1) }
     val idsPorServico = servicos.associate { it.second to HashSet<String>() }
+    val servicosPendentes = buckets.keys.toMutableSet()
 
     for (item in catalogo.series) {
+        if (servicosPendentes.isEmpty()) break
         if (item.categoria.isBlank() || item.imagemUrl.isBlank() || item.streamUrl.isBlank()) continue
         val grupo = normalizarGrupo(item.categoria)
         for ((termos, nomeServico) in servicos) {
@@ -85,6 +87,7 @@ fun gerarFileirasEspeciais(catalogo: PlaylistCatalog): List<FileiraCatalogo> {
             if (!termos.any { grupo.contains(normalizarGrupo(it)) }) continue
             if (idsPorServico.getValue(nomeServico).add(item.id)) {
                 buckets.getValue(nomeServico).add(item)
+                servicosPendentes.remove(nomeServico)
             }
         }
     }

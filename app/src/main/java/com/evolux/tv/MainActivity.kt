@@ -446,9 +446,13 @@ fun EvoluxApp() {
     val ocultasLive = categoriasOcultas.filter { it.startsWith("live|") }.map { it.substringAfter('|') }.toSet()
     val ocultasFilmes = categoriasOcultas.filter { it.startsWith("filmes|") }.map { it.substringAfter('|') }.toSet()
     val ocultasSeries = categoriasOcultas.filter { it.startsWith("series|") }.map { it.substringAfter('|') }.toSet()
-    val categoriasCanais = catalogoAtual.canais.map { it.categoria.ifBlank { "TV ao vivo" } }.distinct().sorted()
-    val categoriasFilmes = catalogoAtual.filmes.map { it.categoria.ifBlank { "Sem categoria" } }.distinct().sorted()
-    val categoriasSeries = catalogoAtual.series.map { it.categoria.ifBlank { "Séries" } }.distinct().sorted()
+    val (categoriasCanais, categoriasFilmes, categoriasSeries) = remember(catalogoAtual) {
+        Triple(
+            catalogoAtual.canais.map { it.categoria.ifBlank { "TV ao vivo" } }.distinct().sorted(),
+            catalogoAtual.filmes.map { it.categoria.ifBlank { "Sem categoria" } }.distinct().sorted(),
+            catalogoAtual.series.map { it.categoria.ifBlank { "Séries" } }.distinct().sorted()
+        )
+    }
     val aoAlternarCategoriaOculta: (String, String) -> Unit = { secao, categoria ->
         val chave = "$secao|$categoria"
         categoriasOcultas = if (chave in categoriasOcultas) categoriasOcultas - chave else categoriasOcultas + chave
