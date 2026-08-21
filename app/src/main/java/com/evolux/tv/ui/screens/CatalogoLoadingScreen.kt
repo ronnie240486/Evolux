@@ -83,7 +83,7 @@ fun CatalogoLoadingScreen(
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "A lista autorizada será mantida em cache para a próxima abertura.",
+                text = "Sua lista está sendo carregada. Em breve, você terá o melhor conteúdo para curtir.",
                 color = TextoCinza
             )
         }
