@@ -43,7 +43,8 @@ import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 import com.evolux.tv.data.Canal
 import com.evolux.tv.data.OrdemCatalogo
-import com.evolux.tv.data.filtrarEOrdenarCanais
+import com.evolux.tv.data.familiasDeCanais
+import com.evolux.tv.data.filtrarEOrdenarCanaisPorFamilia
 import com.evolux.tv.ui.components.EvoluxClickableSurface
 import com.evolux.tv.ui.theme.Dourado
 import com.evolux.tv.ui.theme.TextoCinza
@@ -61,13 +62,7 @@ fun LiveTvScreen(
 ) {
     val categorias by produceState<List<String>>(emptyList(), canais, categoriasOcultas) {
         value = withContext(Dispatchers.Default) {
-            listOf("Todos") + canais
-                .asSequence()
-                .map { it.categoria.ifBlank { "TV ao vivo" } }
-                .distinct()
-                .filter { it !in categoriasOcultas }
-                .sortedWith(String.CASE_INSENSITIVE_ORDER)
-                .toList()
+            listOf("Todos") + familiasDeCanais(canais)
         }
     }
     var categoriaSelecionada by remember(categorias) {
@@ -79,7 +74,7 @@ fun LiveTvScreen(
         emptyList(), canais, busca, categoriaSelecionada, ordem, categoriasOcultas
     ) {
         value = withContext(Dispatchers.Default) {
-            filtrarEOrdenarCanais(canais, busca, categoriaSelecionada, ordem, categoriasOcultas)
+            filtrarEOrdenarCanaisPorFamilia(canais, busca, categoriaSelecionada, ordem, categoriasOcultas)
         }
     }
     val tamanhoPagina = 30
