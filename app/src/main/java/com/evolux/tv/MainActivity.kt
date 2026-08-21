@@ -73,6 +73,15 @@ private fun lerOrdem(valor: String?): OrdemCatalogo = runCatching {
     OrdemCatalogo.valueOf(valor.orEmpty())
 }.getOrDefault(OrdemCatalogo.PADRAO)
 
+private fun criarPreviewHome(catalogo: PlaylistCatalog): PlaylistCatalog {
+    return PlaylistCatalog(
+        canais = catalogo.canais.take(48).toList(),
+        filmes = catalogo.filmes.take(200).toList(),
+        series = catalogo.series.take(200).toList(),
+        truncado = catalogo.truncado
+    )
+}
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -224,7 +233,7 @@ fun EvoluxApp() {
                 if (cache != null) {
                     progressoCatalogo = 98
                     catalogo = cache
-                    catalogoPreview = cache
+                    catalogoPreview = criarPreviewHome(cache)
                     catalogoPronto = true
                     homePronta = true
                     playlistAtiva = indice
@@ -238,17 +247,23 @@ fun EvoluxApp() {
             val catalogoM3u = playlistRepository.carregar(urlPlaylist) { parcial, itensLidos ->
                 withContext(Dispatchers.Main.immediate) {
                     if (playlistUrlAtual == urlPlaylist) {
-                        // O preview é usado somente para preparar a Home; as abas aguardam o catálogo completo.
-                        // O lote precisa ter canais, filmes e séries para não abrir uma Home incompleta.
-                        catalogoPreview = parcial
-                        homePronta = parcial.canais.size >= 24 && parcial.filmes.size >= 24 && parcial.series.size >= 24
+                        // Depois que a Home visual já está completa, não troque seus cards a cada lote.
+                        // O catálogo integral continua sendo montado apenas para as telas internas/cache.
+                        if (!homePronta) {
+                            catalogoPreview = criarPreviewHome(parcial)
+                            homePronta = parcial.canais.size >= 24 && parcial.filmes.size >= 24 && parcial.series.size >= 24
+                        }
                         progressoCatalogo = minOf(96, maxOf(20, 15 + itensLidos / 1_000))
                     }
                 }
             }
             progressoCatalogo = 98
             catalogo = catalogoM3u
-            catalogoPreview = catalogoM3u
+            // Nunca entregue o catálogo integral à Home. Ele fica reservado às telas paginadas.
+            // Preserva o primeiro preview para que a troca para catalogoPronto não recomponha a Home.
+            if (!homePronta || catalogoPreview == null) {
+                catalogoPreview = criarPreviewHome(catalogoM3u)
+            }
             catalogoPronto = true
             homePronta = true
             playlistAtiva = indice
@@ -440,10 +455,12 @@ fun EvoluxApp() {
         return
     }
 
-    val catalogoAtual: PlaylistCatalog = if (catalogoPronto) {
-        catalogo ?: return
+    // A Home e as telas internas usam fontes separadas para evitar que a Home observe o catálogo integral.
+    val catalogoHome: PlaylistCatalog = catalogoPreview ?: return
+    val catalogoAtual: PlaylistCatalog = if (telaAtual == Tela.INICIO || !catalogoPronto) {
+        catalogoHome
     } else {
-        catalogoPreview ?: return
+        catalogo ?: return
     }
     reproducao?.let { atual ->
         PlayerScreen(
@@ -455,18 +472,18 @@ fun EvoluxApp() {
     }
     // O parser já entrega filmes e séries separados por group-title.
     // A preparação dos destaques pode percorrer milhares de itens; por isso fica fora da UI.
-    val homePresentation by produceState<HomePresentation?>(initialValue = null, catalogoAtual) {
+    val homePresentation by produceState<HomePresentation?>(initialValue = null, catalogoHome) {
         value = withContext(Dispatchers.Default) {
             HomePresentation(
-                destaques = gerarDestaques(catalogoAtual),
-                fileirasEspeciais = gerarFileirasEspeciais(catalogoAtual)
+                destaques = gerarDestaques(catalogoHome),
+                fileirasEspeciais = gerarFileirasEspeciais(catalogoHome)
             )
         }
     }
     val destaques = homePresentation?.destaques.orEmpty()
     val fileirasEspeciais = homePresentation?.fileirasEspeciais.orEmpty()
-    val filmesDaHome = remember(catalogoAtual) { catalogoAtual.filmes.take(24).toList() }
-    val seriesDaHome = remember(catalogoAtual) { catalogoAtual.series.take(24).toList() }
+    val filmesDaHome = remember(catalogoHome) { catalogoHome.filmes.take(24).toList() }
+    val seriesDaHome = remember(catalogoHome) { catalogoHome.series.take(24).toList() }
     val favoritos = remember { mutableStateListOf<Midia>() }
 
     LaunchedEffect(preferencias, catalogoAtual) {
