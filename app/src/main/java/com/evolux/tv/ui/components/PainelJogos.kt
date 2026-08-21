@@ -248,6 +248,12 @@ private fun EscudoTime(logoUrl: String, sigla: String) {
                         .size(38.dp)
                         .clip(RoundedCornerShape(8.dp))
                 )
+                else -> Icon(
+                    imageVector = Icons.Filled.SportsSoccer,
+                    contentDescription = sigla,
+                    tint = Dourado,
+                    modifier = Modifier.size(28.dp)
+                )
             }
         }
         Text(sigla, color = TextoClaro, style = MaterialTheme.typography.labelSmall)
