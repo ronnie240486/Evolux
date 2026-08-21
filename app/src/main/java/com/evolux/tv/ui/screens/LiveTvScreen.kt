@@ -43,9 +43,8 @@ import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 import com.evolux.tv.data.Canal
 import com.evolux.tv.data.OrdemCatalogo
-import com.evolux.tv.data.familiasDeCanais
+import com.evolux.tv.data.categoriasReaisDeCanais
 import com.evolux.tv.data.filtrarEOrdenarCanais
-import com.evolux.tv.data.filtrarEOrdenarCanaisPorFamilia
 import com.evolux.tv.ui.components.EvoluxClickableSurface
 import com.evolux.tv.ui.theme.Dourado
 import com.evolux.tv.ui.theme.TextoCinza
@@ -63,7 +62,7 @@ fun LiveTvScreen(
 ) {
     val categorias by produceState<List<String>>(emptyList(), canais, categoriasOcultas) {
         value = withContext(Dispatchers.Default) {
-            listOf("Todos") + familiasDeCanais(canais)
+            listOf("Todos") + categoriasReaisDeCanais(canais, categoriasOcultas)
         }
     }
     var categoriaSelecionada by remember(categorias) {
@@ -75,9 +74,9 @@ fun LiveTvScreen(
         emptyList(), canais, busca, categoriaSelecionada, ordem, categoriasOcultas
     ) {
         value = withContext(Dispatchers.Default) {
-            val filtrados = filtrarEOrdenarCanaisPorFamilia(canais, busca, categoriaSelecionada, ordem, categoriasOcultas)
+            val filtrados = filtrarEOrdenarCanais(canais, busca, categoriaSelecionada, ordem, categoriasOcultas)
             if (filtrados.isEmpty() && canais.isNotEmpty() && busca.isBlank() && categoriaSelecionada != "Todos") {
-                // A família é somente apresentação; nunca descartar canais por uma diferença de nomenclatura.
+                // A categoria é somente apresentação; nunca descartar canais por uma diferença de nomenclatura.
                 filtrarEOrdenarCanais(canais, "", "Todos", ordem, categoriasOcultas)
             } else {
                 filtrados

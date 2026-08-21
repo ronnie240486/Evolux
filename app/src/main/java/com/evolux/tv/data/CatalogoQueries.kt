@@ -49,6 +49,25 @@ fun familiasDeCanais(canais: List<Canal>): List<String> {
     return ORDEM_FAMILIAS_CANAIS.filter { it in presentes }
 }
 
+/** Categorias originais do group-title, ordenadas por família sem perder o nome real. */
+fun categoriasReaisDeCanais(canais: List<Canal>, categoriasOcultas: Set<String> = emptySet()): List<String> {
+    val ocultas = categoriasOcultas.map(::categoriaChave).toSet()
+    val categorias = canais.asSequence()
+        .map { it.categoria.ifBlank { "TV ao vivo" }.trim() }
+        .filter { categoriaChave(it) !in ocultas }
+        .distinctBy(::categoriaChave)
+        .toList()
+    return categorias.sortedWith(
+        compareBy<String> { categoria ->
+            val canalDaCategoria = canais.firstOrNull { canal ->
+                (canal.categoria.ifBlank { "TV ao vivo" }).trim() == categoria
+            }
+            ORDEM_FAMILIAS_CANAIS.indexOf(canalDaCategoria?.let(::familiaDoCanal))
+                .let { if (it < 0) Int.MAX_VALUE else it }
+        }.thenBy(::normalizarConsulta)
+    )
+}
+
 fun filtrarEOrdenarMidias(
     itens: List<Midia>,
     busca: String,
@@ -59,10 +78,10 @@ fun filtrarEOrdenarMidias(
     val buscaNormalizada = normalizarConsulta(busca)
     val categoriaNormalizada = categoria?.takeUnless { it == "Todos" }
         ?.let(::normalizarConsulta)
-    val ocultas = categoriasOcultas.map(::normalizarConsulta).toSet()
+    val ocultas = categoriasOcultas.map(::categoriaChave).toSet()
     val filtradas = itens.asSequence()
-        .filter { midia -> normalizarConsulta(midia.categoria.ifBlank { "Sem categoria" }) !in ocultas }
-        .filter { midia -> categoriaNormalizada == null || normalizarConsulta(midia.categoria.ifBlank { "Sem categoria" }) == categoriaNormalizada }
+        .filter { midia -> categoriaChave(midia.categoria.ifBlank { "Sem categoria" }) !in ocultas }
+        .filter { midia -> categoriaNormalizada == null || categoriaChave(midia.categoria.ifBlank { "Sem categoria" }) == categoriaChave(categoriaNormalizada) }
         .filter { midia ->
             buscaNormalizada.isBlank() || listOf(midia.titulo, midia.categoria, midia.sinopse)
                 .any { normalizarConsulta(it).contains(buscaNormalizada) }
@@ -80,9 +99,9 @@ fun filtrarEOrdenarCanaisPorFamilia(
     val buscaNormalizada = normalizarConsulta(busca)
     val familiaNormalizada = familia?.takeUnless { it == "Todos" }
         ?.let(::normalizarConsulta)
-    val ocultas = categoriasOcultas.map(::normalizarConsulta).toSet()
+    val ocultas = categoriasOcultas.map(::categoriaChave).toSet()
     val filtradas = itens.asSequence()
-        .filter { canal -> normalizarConsulta(canal.categoria.ifBlank { "TV ao vivo" }) !in ocultas }
+        .filter { canal -> categoriaChave(canal.categoria.ifBlank { "TV ao vivo" }) !in ocultas }
         .filter { canal -> familiaNormalizada == null || normalizarConsulta(familiaDoCanal(canal)) == familiaNormalizada }
         .filter { canal ->
             buscaNormalizada.isBlank() || listOf(canal.nome, canal.categoria)
@@ -105,10 +124,10 @@ fun filtrarEOrdenarCanais(
     val buscaNormalizada = normalizarConsulta(busca)
     val categoriaNormalizada = categoria?.takeUnless { it == "Todos" }
         ?.let(::normalizarConsulta)
-    val ocultas = categoriasOcultas.map(::normalizarConsulta).toSet()
+    val ocultas = categoriasOcultas.map(::categoriaChave).toSet()
     val filtradas = itens.asSequence()
-        .filter { canal -> normalizarConsulta(canal.categoria.ifBlank { "TV ao vivo" }) !in ocultas }
-        .filter { canal -> categoriaNormalizada == null || normalizarConsulta(canal.categoria.ifBlank { "TV ao vivo" }) == categoriaNormalizada }
+        .filter { canal -> categoriaChave(canal.categoria.ifBlank { "TV ao vivo" }) !in ocultas }
+        .filter { canal -> categoriaNormalizada == null || categoriaChave(canal.categoria.ifBlank { "TV ao vivo" }) == categoriaChave(categoriaNormalizada) }
         .filter { canal -> buscaNormalizada.isBlank() || listOf(canal.nome, canal.categoria).any { normalizarConsulta(it).contains(buscaNormalizada) } }
         .toList()
     return when (ordem) {
@@ -134,6 +153,8 @@ private fun ordenarMidias(itens: List<Midia>, ordem: OrdemCatalogo): List<Midia>
         OrdemCatalogo.POPULARIDADE -> itens.sortedWith(compareByDescending<Midia> { it.popularidade ?: Long.MIN_VALUE }.thenBy { normalizarConsulta(it.titulo) })
     }
 }
+
+fun categoriaChave(valor: String): String = normalizarConsulta(valor).replace(Regex("[^a-z0-9]+"), "")
 
 private fun normalizarTexto(valor: String): String = normalizarConsulta(valor)
 
