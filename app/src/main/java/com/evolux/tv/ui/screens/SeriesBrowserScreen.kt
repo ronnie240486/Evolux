@@ -109,23 +109,32 @@ fun SeriesBrowserScreen(
     }
     var busca by remember(categorias) { mutableStateOf("") }
     var ordem by remember(chaveItens, ordemInicial) { mutableStateOf(ordemInicial) }
-    var grupos by remember { mutableStateOf<List<GrupoSerie>>(emptyList()) }
-    var preparandoGrupos by remember { mutableStateOf(true) }
-    LaunchedEffect(chaveItens, categoriaSelecionada, busca, ordem, categoriasOcultas, servicoInicial) {
-        preparandoGrupos = true
-        val resultado = withContext(Dispatchers.Default) {
-            construirGruposSerie(
-                itens = itens,
-                categoriaSelecionada = categoriaSelecionada,
-                busca = busca,
-                ordem = ordem,
-                categoriasOcultas = categoriasOcultas,
-                servicoInicial = servicoInicial
+    val indiceSeries by produceState<Map<String, List<GrupoSerie>>?>(
+        initialValue = null,
+        chaveItens,
+        categoriasOcultas
+    ) {
+        value = withContext(Dispatchers.Default) {
+            construirIndiceGruposSerie(itens, categoriasOcultas)
+        }
+    }
+    val grupos by produceState<List<GrupoSerie>>(
+        initialValue = emptyList(),
+        indiceSeries,
+        categoriaSelecionada,
+        busca,
+        ordem
+    ) {
+        val indice = indiceSeries ?: return@produceState
+        value = withContext(Dispatchers.Default) {
+            ordenarGruposSerie(
+                indice[categoriaSelecionada].orEmpty(),
+                busca,
+                ordem
             )
         }
-        grupos = resultado
-        preparandoGrupos = false
     }
+    val preparandoGrupos = indiceSeries == null
     var serieSelecionada by remember { mutableStateOf<GrupoSerie?>(null) }
     var episodiosCarregados by remember { mutableStateOf<Map<String, List<Midia>>>(emptyMap()) }
     var chaveCarregando by remember { mutableStateOf<String?>(null) }
@@ -267,28 +276,13 @@ fun SeriesBrowserScreen(
     }
 }
 
-private fun construirGruposSerie(
+private fun construirIndiceGruposSerie(
     itens: List<Midia>,
-    categoriaSelecionada: String,
-    busca: String,
-    ordem: OrdemCatalogo,
-    categoriasOcultas: Set<String>,
-    servicoInicial: String? = null
-): List<GrupoSerie> {
-    val consulta = normalizarConsulta(busca)
-    val chavesServico = servicoInicial?.let(::chavesDoServico).orEmpty()
-    val usandoFiltroServico = chavesServico.isNotEmpty() && categoriaSelecionada == servicoInicial
-    val resultado = itens.asSequence()
-        .filter { item ->
-            val categoria = item.categoria.ifBlank { "Séries" }
-            if (usandoFiltroServico) {
-                val categoriaNormalizada = chaveCategoriaServico(categoria)
-                chavesServico.any { categoriaNormalizada.contains(it) }
-            } else {
-                categoria == categoriaSelecionada
-            }
-        }
-        .filter { it.categoria.ifBlank { "Séries" } !in categoriasOcultas }
+    categoriasOcultas: Set<String>
+): Map<String, List<GrupoSerie>> {
+    val ocultas = categoriasOcultas.toSet()
+    return itens.asSequence()
+        .filter { it.categoria.ifBlank { "Séries" } !in ocultas }
         .groupBy { item ->
             val categoria = item.categoria.ifBlank { "Séries" }
             val nomeBase = item.serieNome?.takeIf { it.isNotBlank() }
@@ -296,11 +290,6 @@ private fun construirGruposSerie(
             "${normalizarChave(categoria)}::${normalizarChave(nomeBase)}"
         }
         .map { (chave, episodios) ->
-            val ordenados = episodios.sortedWith(
-                compareBy<Midia> { it.temporadaNumero ?: 1 }
-                    .thenBy { it.episodioNumero ?: Int.MAX_VALUE }
-                    .thenBy { it.titulo }
-            )
             GrupoSerie(
                 chave = chave,
                 nome = episodios.firstNotNullOfOrNull { it.serieNome }
@@ -308,16 +297,28 @@ private fun construirGruposSerie(
                 categoria = episodios.firstOrNull()?.categoria.orEmpty().ifBlank { "Séries" },
                 capa = selecionarCapaSerie(episodios),
                 sinopse = episodios.firstOrNull { it.sinopse.isNotBlank() }?.sinopse.orEmpty(),
-                episodios = ordenados
+                episodios = episodios.sortedWith(
+                    compareBy<Midia> { it.temporadaNumero ?: 1 }
+                        .thenBy { it.episodioNumero ?: Int.MAX_VALUE }
+                        .thenBy { it.titulo }
+                )
             )
         }
-        .filter { grupo ->
-            consulta.isBlank() || normalizarConsulta("${grupo.nome} ${grupo.categoria} ${grupo.sinopse}").contains(consulta)
-        }
-        .toList()
+        .groupBy { it.categoria }
+}
+
+private fun ordenarGruposSerie(
+    grupos: List<GrupoSerie>,
+    busca: String,
+    ordem: OrdemCatalogo
+): List<GrupoSerie> {
+    val consulta = normalizarConsulta(busca)
+    val filtrados = grupos.filter { grupo ->
+        consulta.isBlank() || normalizarConsulta("${grupo.nome} ${grupo.categoria} ${grupo.sinopse}").contains(consulta)
+    }
     return when (ordem) {
-        OrdemCatalogo.NOME_ZA -> resultado.sortedByDescending { normalizarConsulta(it.nome) }
-        else -> resultado.sortedBy { normalizarConsulta(it.nome) }
+        OrdemCatalogo.NOME_ZA -> filtrados.sortedByDescending { normalizarConsulta(it.nome) }
+        else -> filtrados.sortedBy { normalizarConsulta(it.nome) }
     }
 }
 
