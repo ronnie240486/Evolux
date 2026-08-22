@@ -14,6 +14,7 @@ import java.security.MessageDigest
 
 object CatalogoCache {
     private const val NOME_ARQUIVO = "evolux-catalogo-cache-v4.bin"
+    private const val NOME_ARQUIVO_BACKUP = "evolux-catalogo-cache-v4.bin.bak"
     private const val NOME_ARQUIVO_PREVIEW = "evolux-home-preview-v1.bin"
     private const val NOME_ARQUIVO_INDICE = "evolux-catalogo-indice-v1.bin"
     private const val MAGIC = "EVOLUX-CATALOG-4"
@@ -45,21 +46,22 @@ object CatalogoCache {
     }
 
     suspend fun carregar(contexto: Context, fingerprint: String): PlaylistCatalog? = withContext(Dispatchers.IO) {
-        val arquivo = validarArquivo(contexto) ?: return@withContext null
-        runCatching {
-            DataInputStream(BufferedInputStream(FileInputStream(arquivo))).use { entrada ->
-                if (!validarCabecalho(entrada, fingerprint)) return@use null
-                val canais = readCanais(entrada)
-                val filmes = readMidias(entrada)
-                val series = readMidias(entrada)
-                val truncado = entrada.readBoolean()
-                if (canais.isEmpty() || filmes.isEmpty() || series.isEmpty()) null
-                else PlaylistCatalog(canais, filmes, series, truncado)
-            }
-        }.getOrElse {
-            arquivo.delete()
-            null
+        val arquivos = validarArquivos(contexto)
+        for (arquivo in arquivos) {
+            val resultado = runCatching {
+                DataInputStream(BufferedInputStream(FileInputStream(arquivo))).use { entrada ->
+                    if (!validarCabecalho(entrada, fingerprint)) return@use null
+                    val canais = readCanais(entrada)
+                    val filmes = readMidias(entrada)
+                    val series = readMidias(entrada)
+                    val truncado = entrada.readBoolean()
+                    if (canais.isEmpty() || filmes.isEmpty() || series.isEmpty()) null
+                    else PlaylistCatalog(canais, filmes, series, truncado)
+                }
+            }.getOrNull()
+            if (resultado != null) return@withContext resultado
         }
+        null
     }
 
     suspend fun carregarPreview(
@@ -73,21 +75,24 @@ object CatalogoCache {
         if (previewDireto != null) return@withContext previewDireto
 
         // Compatibilidade com a versão anterior: migra o preview do cache grande uma única vez.
-        val arquivoCompleto = validarArquivo(contexto) ?: return@withContext null
-        runCatching {
-            DataInputStream(BufferedInputStream(FileInputStream(arquivoCompleto))).use { entrada ->
-                if (!validarCabecalho(entrada, fingerprint)) return@use null
-                val canais = readCanaisPreview(entrada, limiteCanais)
-                val filmes = readMidiasPreview(entrada, limiteMidias)
-                val series = readMidiasPreview(entrada, limiteMidias)
-                val truncado = entrada.readBoolean()
-                if (canais.isEmpty() || filmes.isEmpty() || series.isEmpty()) null
-                else PlaylistCatalog(canais, filmes, series, truncado)
+        for (arquivoCompleto in validarArquivos(contexto)) {
+            val preview = runCatching {
+                DataInputStream(BufferedInputStream(FileInputStream(arquivoCompleto))).use { entrada ->
+                    if (!validarCabecalho(entrada, fingerprint)) return@use null
+                    val canais = readCanaisPreview(entrada, limiteCanais)
+                    val filmes = readMidiasPreview(entrada, limiteMidias)
+                    val series = readMidiasPreview(entrada, limiteMidias)
+                    val truncado = entrada.readBoolean()
+                    if (canais.isEmpty() || filmes.isEmpty() || series.isEmpty()) null
+                    else PlaylistCatalog(canais, filmes, series, truncado)
+                }
+            }.getOrNull()
+            if (preview != null) {
+                salvarPreviewInterno(arquivoPreview, fingerprint, preview)
+                return@withContext preview
             }
-        }.getOrElse {
-            arquivoCompleto.delete()
-            null
-        }?.also { salvarPreviewInterno(arquivoPreview, fingerprint, it) }
+        }
+        null
     }
 
     suspend fun salvarPreview(
@@ -167,9 +172,12 @@ object CatalogoCache {
         }
     }
 
-    private fun validarArquivo(contexto: Context): File? {
-        val arquivo = File(contexto.filesDir, NOME_ARQUIVO)
-        return arquivo.takeIf { it.exists() && it.length() <= MAX_CACHE_BYTES }
+    private fun validarArquivos(contexto: Context): List<File> {
+        return listOf(
+            File(contexto.filesDir, NOME_ARQUIVO),
+            File(contexto.filesDir, NOME_ARQUIVO_BACKUP)
+        ).filter { it.exists() && it.length() in 1..MAX_CACHE_BYTES }
+            .sortedByDescending { it.lastModified() }
     }
 
     private fun validarCabecalho(entrada: DataInputStream, fingerprint: String): Boolean {
@@ -179,7 +187,9 @@ object CatalogoCache {
     suspend fun salvar(contexto: Context, fingerprint: String, catalogo: PlaylistCatalog) = withContext(Dispatchers.IO) {
         val temporario = File(contexto.filesDir, "$NOME_ARQUIVO.tmp")
         val destino = File(contexto.filesDir, NOME_ARQUIVO)
+        val backup = File(contexto.filesDir, NOME_ARQUIVO_BACKUP)
         runCatching {
+            if (temporario.exists()) temporario.delete()
             DataOutputStream(BufferedOutputStream(FileOutputStream(temporario))).use { saida ->
                 saida.writeUTF(MAGIC)
                 saida.writeUTF(fingerprint)
@@ -187,19 +197,22 @@ object CatalogoCache {
                 writeMidias(saida, catalogo.filmes)
                 writeMidias(saida, catalogo.series)
                 saida.writeBoolean(catalogo.truncado)
+                saida.flush()
             }
-            if (temporario.length() <= MAX_CACHE_BYTES) {
-                if (destino.exists() && !destino.delete()) {
-                    temporario.delete()
-                } else {
-                    if (!temporario.renameTo(destino)) {
-                        temporario.delete()
-                    } else {
-                        Unit
-                    }
-                }
-            } else {
+            if (temporario.length() !in 1..MAX_CACHE_BYTES) {
                 temporario.delete()
+            } else {
+                // Mantém o último cache intacto até o temporário estar fechado e sincronizado.
+                if (backup.exists()) backup.delete()
+                val tinhaDestino = destino.exists()
+                if (tinhaDestino && !destino.renameTo(backup)) {
+                    temporario.delete()
+                } else if (temporario.renameTo(destino)) {
+                    // O backup é mantido como recuperação caso a próxima gravação falhe.
+                } else {
+                    if (tinhaDestino && backup.exists()) backup.renameTo(destino)
+                    temporario.delete()
+                }
             }
         }
     }
