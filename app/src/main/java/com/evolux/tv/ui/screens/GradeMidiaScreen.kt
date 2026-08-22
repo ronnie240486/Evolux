@@ -103,26 +103,18 @@ fun GradeMidiaScreen(
             )
         }
     }
-    // O estado inicial da consulta é vazio enquanto o filtro roda em segundo plano.
-    // Mostramos uma página imediata do catálogo para não deixar a tela aparentemente sem conteúdo.
-    val itensParaExibir = if (itensFiltrados.isEmpty() && itens.isNotEmpty() && busca.isBlank()) {
-        itens.take(30)
-    } else {
-        itensFiltrados
-    }
+    // A lista lógica permanece completa; a grade TV é virtualizada e monta apenas
+    // os cards visíveis. Nenhum item é removido para formar a página atual.
+    val itensParaExibir = itensFiltrados
     val tamanhoPagina = 30
     val totalPaginas = ((itensParaExibir.size + tamanhoPagina - 1) / tamanhoPagina).coerceAtLeast(1)
     var paginaAtual by remember(chaveItens, categorias, categoriaSelecionada, busca, ordem) {
         mutableIntStateOf(0)
     }
     val paginaAtualSegura = paginaAtual.coerceIn(0, totalPaginas - 1)
-    val itensDaPagina = remember(itensParaExibir, paginaAtualSegura) {
-        itensParaExibir.drop(paginaAtualSegura * tamanhoPagina).take(tamanhoPagina)
-    }
     val aoFocarItem: (Int) -> Unit = { indice ->
-        if (indice >= itensDaPagina.size - 6 && paginaAtualSegura < totalPaginas - 1) {
-            paginaAtual = paginaAtualSegura + 1
-        }
+        // O índice é absoluto na lista completa: 0..29 = 1/N, 30..59 = 2/N.
+        paginaAtual = (indice / tamanhoPagina).coerceIn(0, totalPaginas - 1)
     }
 
     Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 18.dp)) {
@@ -222,7 +214,7 @@ fun GradeMidiaScreen(
                 horizontalArrangement = Arrangement.spacedBy(if (colunas == 2) 10.dp else 16.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                itemsIndexed(itensDaPagina, key = { _, item -> item.id }) { indice, midia ->
+                itemsIndexed(itensParaExibir, key = { _, item -> item.id }) { indice, midia ->
                     CardMidiaPoster(
                         midia = midia,
                         favorito = ehFavorito(midia),

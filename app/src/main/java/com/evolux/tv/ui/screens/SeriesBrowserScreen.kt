@@ -177,13 +177,11 @@ fun SeriesBrowserScreen(
         mutableIntStateOf(0)
     }
     val paginaAtualSegura = paginaAtual.coerceIn(0, totalPaginas - 1)
-    val gruposDaPagina = remember(gruposDaCategoria, paginaAtualSegura) {
-        gruposDaCategoria.drop(paginaAtualSegura * tamanhoPagina).take(tamanhoPagina)
-    }
+    // Todos os grupos ficam na lista lógica; LazyColumn monta somente o que
+    // está visível. O índice acompanha a posição absoluta do foco.
     val aoFocarSerie: (Int) -> Unit = { indice ->
-        if (indice >= gruposDaPagina.size - 4 && paginaAtualSegura < totalPaginas - 1) {
-            paginaAtual = paginaAtualSegura + 1
-        }
+        // 0..23 = página 1, 24..47 = página 2, etc.
+        paginaAtual = (indice / tamanhoPagina).coerceIn(0, totalPaginas - 1)
     }
     Column(
         modifier = Modifier
@@ -259,7 +257,7 @@ fun SeriesBrowserScreen(
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
-                lazyItemsIndexed(gruposDaPagina, key = { _, item -> item.chave }) { indice, grupo ->
+                lazyItemsIndexed(gruposDaCategoria, key = { _, item -> item.chave }) { indice, grupo ->
                     SerieCard(
                         grupo,
                         carregando = chaveCarregando == grupo.chave,

@@ -93,25 +93,18 @@ fun LiveTvScreen(
             filtrarEOrdenarCanais(base, busca, "Todos", ordem, emptySet())
         }
     }
-    // Enquanto a família é calculada em segundo plano, não deixe a tela parecer vazia.
-    val canaisParaExibir = if (canaisFiltrados.isEmpty() && canais.isNotEmpty() && busca.isBlank() && categoriaSelecionada == "Todos") {
-        canais.take(30)
-    } else {
-        canaisFiltrados
-    }
+    // A lista lógica completa permanece disponível. A grade TV é virtualizada,
+    // portanto apenas os canais visíveis e seus logos são montados.
+    val canaisParaExibir = canaisFiltrados
     val tamanhoPagina = 30
     val totalPaginas = ((canaisParaExibir.size + tamanhoPagina - 1) / tamanhoPagina).coerceAtLeast(1)
     var paginaAtual by remember(chaveCanais, categorias, categoriaSelecionada, busca, ordem) {
         mutableIntStateOf(0)
     }
     val paginaAtualSegura = paginaAtual.coerceIn(0, totalPaginas - 1)
-    val canaisDaPagina = remember(canaisParaExibir, paginaAtualSegura) {
-        canaisParaExibir.drop(paginaAtualSegura * tamanhoPagina).take(tamanhoPagina)
-    }
     val aoFocarCanal: (Int) -> Unit = { indice ->
-        if (indice >= canaisDaPagina.size - 6 && paginaAtualSegura < totalPaginas - 1) {
-            paginaAtual = paginaAtualSegura + 1
-        }
+        // 0..29 = página 1, 30..59 = página 2, etc.
+        paginaAtual = (indice / tamanhoPagina).coerceIn(0, totalPaginas - 1)
     }
 
     Column(modifier = Modifier.padding(24.dp)) {
@@ -183,7 +176,7 @@ fun LiveTvScreen(
                     horizontalArrangement = Arrangement.spacedBy(if (colunas == 2) 10.dp else 16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                        itemsIndexed(canaisDaPagina, key = { _, item -> item.id }) { indice, canal ->
+                        itemsIndexed(canaisParaExibir, key = { _, item -> item.id }) { indice, canal ->
                             CardCanal(
                                 canal = canal,
                                 favorito = canaisFavoritos.any { it.id == canal.id },
