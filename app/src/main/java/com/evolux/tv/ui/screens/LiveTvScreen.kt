@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.tv.foundation.lazy.grid.TvGridCells
 import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
 import androidx.tv.foundation.lazy.grid.items
+import androidx.tv.foundation.lazy.grid.itemsIndexed
 import androidx.tv.foundation.lazy.list.TvLazyRow
 import androidx.tv.foundation.lazy.list.items as tvRowItems
 import androidx.tv.material3.MaterialTheme
@@ -98,12 +99,17 @@ fun LiveTvScreen(
     } else {
         canaisFiltrados
     }
-    val tamanhoPagina = 30
-    var pagina by remember(chaveCanais, categorias, categoriaSelecionada, busca, ordem) { mutableIntStateOf(0) }
-    val totalPaginas = ((canaisParaExibir.size + tamanhoPagina - 1) / tamanhoPagina).coerceAtLeast(1)
-    val paginaAtual = pagina.coerceIn(0, totalPaginas - 1)
-    val canaisDaPagina = remember(canaisParaExibir, paginaAtual) {
-        canaisParaExibir.drop(paginaAtual * tamanhoPagina).take(tamanhoPagina)
+    val tamanhoLote = 30
+    var limiteVisivel by remember(chaveCanais, categorias, categoriaSelecionada, busca, ordem) {
+        mutableIntStateOf(tamanhoLote)
+    }
+    val canaisDaPagina = remember(canaisParaExibir, limiteVisivel) {
+        canaisParaExibir.take(limiteVisivel)
+    }
+    val carregamentoContinuo = { indice: Int ->
+        if (indice >= canaisDaPagina.size - 8 && canaisDaPagina.size < canaisParaExibir.size) {
+            limiteVisivel = (limiteVisivel + tamanhoLote).coerceAtMost(canaisParaExibir.size)
+        }
     }
 
     Column(modifier = Modifier.padding(24.dp)) {
@@ -146,29 +152,13 @@ fun LiveTvScreen(
             }
         }
         Spacer(Modifier.height(14.dp))
-        if (canaisParaExibir.isNotEmpty() && totalPaginas > 1) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                EvoluxClickableSurface(
-                    onClick = { if (paginaAtual > 0) pagina-- },
-                    containerColor = if (paginaAtual > 0) Color(0xFF12172A) else Color.Transparent,
-                    modifier = Modifier.width(54.dp).height(42.dp)
-                ) { Text("‹", color = TextoClaro, style = MaterialTheme.typography.titleLarge) }
-                Text(
-                    text = "Página ${paginaAtual + 1}/$totalPaginas • ${canaisParaExibir.size} canais",
-                    color = TextoCinza,
-                    modifier = Modifier.padding(horizontal = 12.dp)
-                )
-                EvoluxClickableSurface(
-                    onClick = { if (paginaAtual < totalPaginas - 1) pagina++ },
-                    containerColor = if (paginaAtual < totalPaginas - 1) Color(0xFF12172A) else Color.Transparent,
-                    modifier = Modifier.width(54.dp).height(42.dp)
-                ) { Text("›", color = TextoClaro, style = MaterialTheme.typography.titleLarge) }
-            }
-            Spacer(Modifier.height(10.dp))
+        if (canaisParaExibir.isNotEmpty() && canaisDaPagina.size < canaisParaExibir.size) {
+            Text(
+                text = "Mostrando ${canaisDaPagina.size} de ${canaisParaExibir.size} • continue descendo para carregar mais",
+                color = TextoCinza,
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
+            Spacer(Modifier.height(6.dp))
         }
         if (canaisParaExibir.isEmpty()) {
             Text(if (canais.isEmpty()) "Nenhum canal disponível." else "Nenhum canal encontrado.", color = TextoCinza)
@@ -185,14 +175,15 @@ fun LiveTvScreen(
                     horizontalArrangement = Arrangement.spacedBy(if (colunas == 2) 10.dp else 16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                        items(canaisDaPagina, key = { it.id }) { canal ->
-                        CardCanal(
-                            canal = canal,
-                            favorito = canaisFavoritos.any { it.id == canal.id },
-                            aoClicar = { aoAbrirCanal(canal) },
-                            aoLongClick = { aoAlternarFavorito(canal) }
-                        )
-                    }
+                        itemsIndexed(canaisDaPagina, key = { _, item -> item.id }) { indice, canal ->
+                            CardCanal(
+                                canal = canal,
+                                favorito = canaisFavoritos.any { it.id == canal.id },
+                                aoClicar = { aoAbrirCanal(canal) },
+                                aoLongClick = { aoAlternarFavorito(canal) },
+                                aoFocar = { carregamentoContinuo(indice) }
+                            )
+                        }
                 }
             }
         }
@@ -252,7 +243,8 @@ private fun CardCanal(
     canal: Canal,
     favorito: Boolean,
     aoClicar: () -> Unit,
-    aoLongClick: () -> Unit
+    aoLongClick: () -> Unit,
+    aoFocar: () -> Unit = {}
 ) {
     val contexto = LocalContext.current
     val pedidoImagem = remember(canal.logoUrl) {
@@ -266,7 +258,9 @@ private fun CardCanal(
         onClick = aoClicar,
         onLongClick = aoLongClick,
         containerColor = Color(0xFF12172A),
-        modifier = Modifier
+        modifier = Modifier.onFocusChanged {
+            if (it.isFocused) aoFocar()
+        }
     ) {
         Column(
             modifier = Modifier.padding(16.dp),

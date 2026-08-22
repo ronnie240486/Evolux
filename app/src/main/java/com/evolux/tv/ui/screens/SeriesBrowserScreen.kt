@@ -17,8 +17,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items as lazyItems
+import androidx.compose.foundation.lazy.itemsIndexed as lazyItemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -149,12 +149,17 @@ fun SeriesBrowserScreen(
     }
 
     val gruposDaCategoria = grupos.filter { it.categoria == categoriaSelecionada }
-    val tamanhoPagina = 24
-    var pagina by remember(chaveItens, categorias, categoriaSelecionada, busca, ordem) { mutableIntStateOf(0) }
-    val totalPaginas = ((gruposDaCategoria.size + tamanhoPagina - 1) / tamanhoPagina).coerceAtLeast(1)
-    val paginaAtual = pagina.coerceIn(0, totalPaginas - 1)
-    val gruposDaPagina = remember(gruposDaCategoria, paginaAtual) {
-        gruposDaCategoria.drop(paginaAtual * tamanhoPagina).take(tamanhoPagina)
+    val tamanhoLote = 24
+    var limiteVisivel by remember(chaveItens, categorias, categoriaSelecionada, busca, ordem) {
+        mutableIntStateOf(tamanhoLote)
+    }
+    val gruposDaPagina = remember(gruposDaCategoria, limiteVisivel) {
+        gruposDaCategoria.take(limiteVisivel)
+    }
+    val carregamentoContinuo = { indice: Int ->
+        if (indice >= gruposDaPagina.size - 6 && gruposDaPagina.size < gruposDaCategoria.size) {
+            limiteVisivel = (limiteVisivel + tamanhoLote).coerceAtMost(gruposDaCategoria.size)
+        }
     }
     Column(
         modifier = Modifier
@@ -171,7 +176,7 @@ fun SeriesBrowserScreen(
         CampoBuscaSeries(valor = busca, aoMudar = { busca = it })
         Spacer(Modifier.height(10.dp))
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(OrdemCatalogo.entries.toList(), key = { it.name }) { opcao ->
+            lazyItems(OrdemCatalogo.entries.toList(), key = { it.name }) { opcao ->
                 FiltroCategoria(
                     nome = opcao.rotulo,
                     selecionada = opcao == ordem,
@@ -185,7 +190,7 @@ fun SeriesBrowserScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 contentPadding = PaddingValues(end = 24.dp)
             ) {
-                items(categorias, key = { it }) { categoria ->
+                lazyItems(categorias, key = { it }) { categoria ->
                     FiltroCategoria(
                         nome = categoria,
                         selecionada = categoria == categoriaSelecionada,
@@ -213,29 +218,13 @@ fun SeriesBrowserScreen(
                 )
             }
         } else {
-            if (totalPaginas > 1) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    EvoluxClickableSurface(
-                        onClick = { if (paginaAtual > 0) pagina-- },
-                        containerColor = if (paginaAtual > 0) FundoCard else Color.Transparent,
-                        modifier = Modifier.width(54.dp).height(42.dp)
-                    ) { Text("‹", color = TextoClaro, style = MaterialTheme.typography.titleLarge) }
-                    Text(
-                        text = "Página ${paginaAtual + 1}/$totalPaginas • ${gruposDaCategoria.size} séries",
-                        color = TextoCinza,
-                        modifier = Modifier.padding(horizontal = 12.dp)
-                    )
-                    EvoluxClickableSurface(
-                        onClick = { if (paginaAtual < totalPaginas - 1) pagina++ },
-                        containerColor = if (paginaAtual < totalPaginas - 1) FundoCard else Color.Transparent,
-                        modifier = Modifier.width(54.dp).height(42.dp)
-                    ) { Text("›", color = TextoClaro, style = MaterialTheme.typography.titleLarge) }
-                }
-                Spacer(Modifier.height(10.dp))
+            if (gruposDaPagina.size < gruposDaCategoria.size) {
+                Text(
+                    text = "Mostrando ${gruposDaPagina.size} de ${gruposDaCategoria.size} • continue descendo para carregar mais",
+                    color = TextoCinza,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+                Spacer(Modifier.height(6.dp))
             }
             LazyColumn(
                 contentPadding = PaddingValues(bottom = 32.dp),
@@ -248,8 +237,12 @@ fun SeriesBrowserScreen(
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
-                items(gruposDaPagina, key = { it.chave }) { grupo ->
-                    SerieCard(grupo, carregando = chaveCarregando == grupo.chave) { abrirGrupo(grupo) }
+                lazyItemsIndexed(gruposDaPagina, key = { _, item -> item.chave }) { indice, grupo ->
+                    SerieCard(
+                        grupo,
+                        carregando = chaveCarregando == grupo.chave,
+                        aoFocar = { carregamentoContinuo(indice) }
+                    ) { abrirGrupo(grupo) }
                 }
             }
         }
@@ -329,7 +322,12 @@ private fun FiltroCategoria(nome: String, selecionada: Boolean, aoClicar: () -> 
 }
 
 @Composable
-private fun SerieCard(grupo: GrupoSerie, carregando: Boolean = false, aoClicar: () -> Unit) {
+private fun SerieCard(
+    grupo: GrupoSerie,
+    carregando: Boolean = false,
+    aoFocar: () -> Unit = {},
+    aoClicar: () -> Unit
+) {
     val contexto = LocalContext.current
     val pedidoImagem = remember(grupo.capa) {
         ImageRequest.Builder(contexto)
@@ -344,6 +342,7 @@ private fun SerieCard(grupo: GrupoSerie, carregando: Boolean = false, aoClicar: 
         modifier = Modifier
             .fillMaxWidth()
             .widthIn(max = 900.dp)
+            .onFocusChanged { if (it.isFocused) aoFocar() }
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -470,7 +469,7 @@ private fun SeriesDetailDialog(
                 Text("Temporadas", color = TextoClaro, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(8.dp))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    itemsIndexed(temporadas.keys.toList(), key = { _, numero -> numero }) { _, numero ->
+                    lazyItemsIndexed(temporadas.keys.toList(), key = { _, numero -> numero }) { _, numero ->
                         FiltroCategoria(
                             nome = "Temporada $numero",
                             selecionada = numero == temporadaSelecionada,
@@ -485,7 +484,7 @@ private fun SeriesDetailDialog(
                     contentPadding = PaddingValues(bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(episodios, key = { it.id }) { episodio ->
+                    lazyItems(episodios, key = { it.id }) { episodio ->
                         EpisodioRow(episodio) { aoAssistir(episodio) }
                     }
                 }

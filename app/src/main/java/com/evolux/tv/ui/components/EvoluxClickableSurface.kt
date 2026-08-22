@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
@@ -22,6 +23,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -34,6 +36,8 @@ fun EvoluxClickableSurface(
     focusedColor: Color = Color(0xFF2A3558),
     borderColor: Color = Color(0xFFE5BD61),
     shape: RoundedCornerShape = RoundedCornerShape(12.dp),
+    focusedScale: Float = 1f,
+    focusedBorderWidth: Dp = 2.dp,
     content: @Composable () -> Unit
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -41,6 +45,7 @@ fun EvoluxClickableSurface(
         modifier = modifier
             .clip(shape)
             .background(if (focused) focusedColor else containerColor)
+            .scale(if (focused) focusedScale else 1f)
             .focusable()
             .onFocusChanged { focused = it.isFocused }
             .combinedClickable(
@@ -59,7 +64,7 @@ fun EvoluxClickableSurface(
                 }
             }
             .border(
-                width = if (focused) 2.dp else 0.dp,
+                width = if (focused) focusedBorderWidth else 0.dp,
                 color = if (focused) borderColor else Color.Transparent,
                 shape = shape
             )

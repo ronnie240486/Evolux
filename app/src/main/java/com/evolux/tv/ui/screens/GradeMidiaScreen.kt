@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.tv.foundation.lazy.grid.items
+import androidx.tv.foundation.lazy.grid.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -109,12 +110,17 @@ fun GradeMidiaScreen(
     } else {
         itensFiltrados
     }
-    val tamanhoPagina = 30
-    var pagina by remember(chaveItens, categorias, categoriaSelecionada, busca, ordem) { mutableIntStateOf(0) }
-    val totalPaginas = ((itensParaExibir.size + tamanhoPagina - 1) / tamanhoPagina).coerceAtLeast(1)
-    val paginaAtual = pagina.coerceIn(0, totalPaginas - 1)
-    val itensDaPagina = remember(itensParaExibir, paginaAtual) {
-        itensParaExibir.drop(paginaAtual * tamanhoPagina).take(tamanhoPagina)
+    val tamanhoLote = 30
+    var limiteVisivel by remember(chaveItens, categorias, categoriaSelecionada, busca, ordem) {
+        mutableIntStateOf(tamanhoLote)
+    }
+    val itensDaPagina = remember(itensParaExibir, limiteVisivel) {
+        itensParaExibir.take(limiteVisivel)
+    }
+    val carregamentoContinuo = { indice: Int ->
+        if (indice >= itensDaPagina.size - 8 && itensDaPagina.size < itensParaExibir.size) {
+            limiteVisivel = (limiteVisivel + tamanhoLote).coerceAtMost(itensParaExibir.size)
+        }
     }
 
     Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 18.dp)) {
@@ -179,29 +185,13 @@ fun GradeMidiaScreen(
         }
         Spacer(Modifier.height(14.dp))
 
-        if (itensParaExibir.isNotEmpty() && totalPaginas > 1) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-            ) {
-                EvoluxClickableSurface(
-                    onClick = { if (paginaAtual > 0) pagina-- },
-                    containerColor = if (paginaAtual > 0) Color(0xFF12172A) else Color.Transparent,
-                    modifier = Modifier.width(54.dp).height(42.dp)
-                ) { Text("‹", color = TextoClaro, style = MaterialTheme.typography.titleLarge) }
-                Text(
-                    text = "Página ${paginaAtual + 1}/$totalPaginas • ${itensParaExibir.size} itens",
-                    color = TextoCinza,
-                    modifier = Modifier.padding(horizontal = 12.dp)
-                )
-                EvoluxClickableSurface(
-                    onClick = { if (paginaAtual < totalPaginas - 1) pagina++ },
-                    containerColor = if (paginaAtual < totalPaginas - 1) Color(0xFF12172A) else Color.Transparent,
-                    modifier = Modifier.width(54.dp).height(42.dp)
-                ) { Text("›", color = TextoClaro, style = MaterialTheme.typography.titleLarge) }
-            }
-            Spacer(Modifier.height(10.dp))
+        if (itensParaExibir.isNotEmpty() && itensDaPagina.size < itensParaExibir.size) {
+            Text(
+                text = "Mostrando ${itensDaPagina.size} de ${itensParaExibir.size} • continue descendo para carregar mais",
+                color = TextoCinza,
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
+            Spacer(Modifier.height(6.dp))
         }
 
         if (itensParaExibir.isEmpty()) {
@@ -224,12 +214,13 @@ fun GradeMidiaScreen(
                 horizontalArrangement = Arrangement.spacedBy(if (colunas == 2) 10.dp else 16.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                items(itensDaPagina, key = { it.id }) { midia ->
+                itemsIndexed(itensDaPagina, key = { _, item -> item.id }) { indice, midia ->
                     CardMidiaPoster(
                         midia = midia,
                         favorito = ehFavorito(midia),
                         aoClicar = { aoSelecionar(midia) },
-                        aoAlternarFavorito = { aoAlternarFavorito(midia) }
+                        aoAlternarFavorito = { aoAlternarFavorito(midia) },
+                        aoFocar = { carregamentoContinuo(indice) }
                     )
                 }
             }
@@ -293,7 +284,8 @@ private fun CardMidiaPoster(
     midia: Midia,
     favorito: Boolean,
     aoClicar: () -> Unit,
-    aoAlternarFavorito: () -> Unit
+    aoAlternarFavorito: () -> Unit,
+    aoFocar: () -> Unit = {}
 ) {
     var focado by remember { mutableStateOf(false) }
     val contexto = LocalContext.current
@@ -310,7 +302,10 @@ private fun CardMidiaPoster(
             containerColor = Color(0xFF12172A),
             modifier = Modifier
                 .fillMaxWidth()
-                .onFocusChanged { focado = it.isFocused }
+                .onFocusChanged {
+                    focado = it.isFocused
+                    if (it.isFocused) aoFocar()
+                }
                 .scale(if (focado) 1.06f else 1f)
                 .semantics(mergeDescendants = true) {
                     contentDescription = if (favorito) {
