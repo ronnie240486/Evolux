@@ -45,6 +45,7 @@ import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.evolux.tv.data.Canal
+import com.evolux.tv.data.CatalogoStore
 import com.evolux.tv.data.OrdemCatalogo
 import com.evolux.tv.data.categoriaChave
 import com.evolux.tv.data.categoriasReaisDeCanais
@@ -64,46 +65,56 @@ fun LiveTvScreen(
     aoAlternarFavorito: (Canal) -> Unit = {},
     categoriasOcultas: Set<String> = emptySet(),
     ordemInicial: OrdemCatalogo = OrdemCatalogo.PADRAO,
-    aoMudarOrdem: (OrdemCatalogo) -> Unit = {}
+    aoMudarOrdem: (OrdemCatalogo) -> Unit = {},
+    catalogoStore: CatalogoStore? = null,
+    catalogoFingerprint: String? = null
 ) {
     val chaveCanais = Triple(canais.size, canais.firstOrNull()?.id, canais.lastOrNull()?.id)
     val indice by produceState<IndiceCanal?>(null, chaveCanais) {
         value = withContext(Dispatchers.Default) { construirIndiceCanal(canais) }
     }
     val chaveIndice = indice?.let { System.identityHashCode(it) } ?: 0
-    val categorias = remember(chaveIndice) {
-        listOf("Todos", "Favoritos") + (indice?.categorias ?: emptyList())
+    val storeDisponivel = catalogoStore != null && !catalogoFingerprint.isNullOrBlank()
+    val categoriasDoStore by produceState<List<String>>(emptyList(), catalogoStore, catalogoFingerprint) {
+        value = if (storeDisponivel) catalogoStore!!.categorias(catalogoFingerprint!!, "CANAL") else emptyList()
+    }
+    val categorias = remember(chaveIndice, categoriasDoStore) {
+        listOf("Todos", "Favoritos") + if (storeDisponivel) categoriasDoStore else (indice?.categorias ?: emptyList())
             .filterNot { categoriaChave(it) == categoriaChave("Favoritos") }
     }
-    var categoriaSelecionada by remember(categorias) {
-        mutableStateOf("Todos")
-    }
+    var categoriaSelecionada by remember(categorias) { mutableStateOf("Todos") }
     var busca by remember(categorias) { mutableStateOf("") }
     var ordem by remember(canais, ordemInicial) { mutableStateOf(ordemInicial) }
-    val canaisFiltrados by produceState<List<Canal>>(
-        emptyList(), chaveIndice, canaisFavoritos, busca, categoriaSelecionada, ordem
+    val usarStore = storeDisponivel && categoriaSelecionada != "Favoritos"
+    val tamanhoPagina = 30
+    var paginaAtual by remember(chaveCanais, categorias, categoriaSelecionada, busca, ordem) { mutableIntStateOf(0) }
+    val paginaDoStore by produceState<CatalogoStore.Pagina<Canal>>(
+        initialValue = CatalogoStore.Pagina(emptyList(), 0),
+        catalogoStore, catalogoFingerprint, categoriaSelecionada, busca, paginaAtual
     ) {
-        value = withContext(Dispatchers.Default) {
-            val base = when {
-                indice == null -> emptyList()
-                categoriaSelecionada == "Todos" -> indice!!.todos
-                categoriaSelecionada == "Favoritos" -> canaisFavoritos
-                else -> indice!!.porCategoria[categoriaChave(categoriaSelecionada)].orEmpty()
+        value = if (usarStore) catalogoStore!!.paginaCanais(catalogoFingerprint!!, categoriaSelecionada, busca, paginaAtual, tamanhoPagina)
+        else CatalogoStore.Pagina(emptyList(), 0)
+    }
+    val canaisFiltrados by produceState<List<Canal>>(
+        emptyList(), chaveIndice, canaisFavoritos, busca, categoriaSelecionada, ordem, paginaAtual
+    ) {
+        if (!usarStore) {
+            value = withContext(Dispatchers.Default) {
+                val base = when {
+                    indice == null -> emptyList()
+                    categoriaSelecionada == "Todos" -> indice!!.todos
+                    categoriaSelecionada == "Favoritos" -> canaisFavoritos
+                    else -> indice!!.porCategoria[categoriaChave(categoriaSelecionada)].orEmpty()
+                }
+                filtrarEOrdenarCanais(base, busca, "Todos", ordem, emptySet())
             }
-            filtrarEOrdenarCanais(base, busca, "Todos", ordem, emptySet())
         }
     }
-    // A lista lógica completa permanece disponível. A grade TV é virtualizada,
-    // portanto apenas os canais visíveis e seus logos são montados.
-    val canaisParaExibir = canaisFiltrados
-    val tamanhoPagina = 30
-    val totalPaginas = ((canaisParaExibir.size + tamanhoPagina - 1) / tamanhoPagina).coerceAtLeast(1)
-    var paginaAtual by remember(chaveCanais, categorias, categoriaSelecionada, busca, ordem) {
-        mutableIntStateOf(0)
-    }
+    val canaisParaExibir = if (usarStore) paginaDoStore.itens else canaisFiltrados
+    val totalItens = if (usarStore) paginaDoStore.total else canaisFiltrados.size
+    val totalPaginas = ((totalItens + tamanhoPagina - 1) / tamanhoPagina).coerceAtLeast(1)
     val paginaAtualSegura = paginaAtual.coerceIn(0, totalPaginas - 1)
     val aoFocarCanal: (Int) -> Unit = { indice ->
-        // 0..29 = página 1, 30..59 = página 2, etc.
         paginaAtual = (indice / tamanhoPagina).coerceIn(0, totalPaginas - 1)
     }
 
@@ -117,6 +128,7 @@ fun LiveTvScreen(
                 EvoluxClickableSurface(
                     onClick = {
                         categoriaSelecionada = categoria
+                        paginaAtual = 0
                     },
                     containerColor = if (categoria == categoriaSelecionada) Color(0xFF283454) else Color(0xFF12172A),
                     borderColor = Dourado

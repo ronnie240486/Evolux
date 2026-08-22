@@ -34,6 +34,7 @@ import com.evolux.tv.data.EvoluxRepository
 import com.evolux.tv.data.Destaque
 import com.evolux.tv.data.EvoluxConfig
 import com.evolux.tv.data.CatalogoCache
+import com.evolux.tv.data.CatalogoStore
 import com.evolux.tv.data.MacAddressUtils
 import com.evolux.tv.data.PlaylistCatalog
 import com.evolux.tv.data.PlaylistRepository
@@ -129,6 +130,7 @@ fun EvoluxApp(atividadeScope: CoroutineScope) {
     val playlistRepository = remember { PlaylistRepository() }
     val xtreamRepository = remember { XtreamRepository() }
     val jogosDoDiaRepository = remember { JogosDoDiaRepository() }
+    val catalogoStore = remember(contexto) { CatalogoStore(contexto) }
     // O catálogo precisa sobreviver às recomposições e trocas de tela.
     // O cancelamento ocorre somente quando a Activity é destruída.
     val escopo = atividadeScope
@@ -156,6 +158,7 @@ fun EvoluxApp(atividadeScope: CoroutineScope) {
     var carregandoCatalogo by remember { mutableStateOf(false) }
     var restaurandoCatalogoCompleto by remember { mutableStateOf(false) }
     var tentativaRestauracaoCompleta by remember { mutableStateOf(false) }
+    var catalogoStoreFingerprint by remember { mutableStateOf<String?>(null) }
     var progressoCatalogo by remember { mutableStateOf(1) }
     var segundosCatalogo by remember { mutableStateOf(0) }
     var reproducao by remember { mutableStateOf<Reproducao?>(null) }
@@ -178,6 +181,18 @@ fun EvoluxApp(atividadeScope: CoroutineScope) {
 
     fun extrairHorarioJogo(nome: String): String {
         return Regex("\\b([01]?\\d|2[0-3]):[0-5]\\d\\b").find(nome)?.value ?: "Hoje"
+    }
+
+    fun indexarCatalogoLocalAsync(fingerprint: String, catalogoCompleto: PlaylistCatalog, urlEsperada: String) {
+        escopo.launch(Dispatchers.IO) {
+            val jaPronto = catalogoStore.pronto(fingerprint)
+            val ok = jaPronto || catalogoStore.substituir(fingerprint, catalogoCompleto)
+            if (ok) {
+                withContext(Dispatchers.Main.immediate) {
+                    if (playlistUrlAtual == urlEsperada) catalogoStoreFingerprint = fingerprint
+                }
+            }
+        }
     }
 
     fun jogosDaPlaylist(canais: List<com.evolux.tv.data.Canal>): List<Jogo> {
@@ -259,6 +274,7 @@ fun EvoluxApp(atividadeScope: CoroutineScope) {
                 homePronta = true
             }
             CatalogoCache.salvar(contexto, fingerprint, atualizado)
+            indexarCatalogoLocalAsync(fingerprint, atualizado, urlPlaylist)
             escopo.launch(Dispatchers.IO) {
                 CatalogoCache.salvarIndice(contexto, fingerprint, atualizado)
             }
@@ -291,6 +307,7 @@ fun EvoluxApp(atividadeScope: CoroutineScope) {
                     homePronta = true
                     playlistAtiva = indice
                     carregarSeriesXtreamEmSegundoPlano(urlPlaylist, fingerprint, cacheCompleto)
+                    indexarCatalogoLocalAsync(fingerprint, cacheCompleto, urlPlaylist)
                     return null
                 }
                 val cachePreview = CatalogoCache.carregarPreview(contexto, fingerprint)
@@ -364,6 +381,7 @@ fun EvoluxApp(atividadeScope: CoroutineScope) {
                 }
             }
             carregarSeriesXtreamEmSegundoPlano(urlPlaylist, fingerprint, catalogoM3u)
+            indexarCatalogoLocalAsync(fingerprint, catalogoM3u, urlPlaylist)
             return null
         } catch (erro: Exception) {
             return erro.message?.takeIf { it.isNotBlank() } ?: "Não foi possível interpretar o catálogo."
@@ -389,6 +407,7 @@ fun EvoluxApp(atividadeScope: CoroutineScope) {
                 tentativaRestauracaoCompleta = true
                 if (completo.series.none { it.id.startsWith("xtream_series_") }) {
                     carregarSeriesXtreamEmSegundoPlano(urlPlaylist, fingerprint, completo)
+                    indexarCatalogoLocalAsync(fingerprint, completo, urlPlaylist)
                 }
             } else if (playlistUrlAtual == urlPlaylist) {
                 // Evita repetir infinitamente uma restauração que falhou.
@@ -633,6 +652,10 @@ fun EvoluxApp(atividadeScope: CoroutineScope) {
     }
     // Chave O(1): nunca comparar estruturalmente as listas completas em cada recomposição.
     val catalogoChave = System.identityHashCode(catalogoAtual)
+    val fingerprintAtual = configuracaoAtual?.let { configuracao ->
+        playlistUrlAtual?.let { url -> CatalogoCache.fingerprint(configuracao, url) }
+    }
+    val storeAtivo = catalogoStoreFingerprint != null && catalogoStoreFingerprint == fingerprintAtual && catalogoPronto
     reproducao?.let { atual ->
         PlayerScreen(
             titulo = atual.titulo,
@@ -807,28 +830,33 @@ fun EvoluxApp(atividadeScope: CoroutineScope) {
             )
 
             Tela.TV_AO_VIVO -> LiveTvScreen(
-                canais = catalogoAtual.canais,
+                canais = if (storeAtivo) emptyList() else catalogoAtual.canais,
                 canaisFavoritos = canaisFavoritos,
                 aoAbrirCanal = { abrirConteudo(it.nome, it.streamUrl) },
                 aoAlternarFavorito = aoAlternarFavoritoCanal,
                 categoriasOcultas = ocultasLive,
                 ordemInicial = ordens["canais"] ?: OrdemCatalogo.PADRAO,
-                aoMudarOrdem = { aoMudarOrdem("canais", it) }
+                aoMudarOrdem = { aoMudarOrdem("canais", it) },
+                catalogoStore = if (storeAtivo) catalogoStore else null,
+                catalogoFingerprint = if (storeAtivo) fingerprintAtual else null
             )
 
             Tela.FILMES -> GradeMidiaScreen(
                 titulo = "Filmes",
-                itens = catalogoAtual.filmes,
+                itens = if (storeAtivo) emptyList() else catalogoAtual.filmes,
                 aoSelecionar = { abrirConteudo(it.titulo, it.streamUrl) },
                 ehFavorito = ehFavorito,
                 aoAlternarFavorito = aoAlternarFavorito,
                 categoriasOcultas = ocultasFilmes,
                 ordemInicial = ordens["filmes"] ?: OrdemCatalogo.PADRAO,
-                aoMudarOrdem = { aoMudarOrdem("filmes", it) }
+                aoMudarOrdem = { aoMudarOrdem("filmes", it) },
+                catalogoStore = if (storeAtivo) catalogoStore else null,
+                catalogoFingerprint = if (storeAtivo) fingerprintAtual else null,
+                tipoPersistido = if (storeAtivo) "FILME" else null
             )
 
             Tela.SERIES -> SeriesBrowserScreen(
-                itens = catalogoAtual.series,
+                itens = if (storeAtivo) emptyList() else catalogoAtual.series,
                 categoriaInicial = categoriaInicialSeries,
                 servicoInicial = servicoInicialSeries,
                 aoAssistir = { abrirConteudo(it.episodioNome ?: it.titulo, it.streamUrl) },
@@ -842,7 +870,9 @@ fun EvoluxApp(atividadeScope: CoroutineScope) {
                     } else {
                         emptyList()
                     }
-                }
+                },
+                catalogoStore = if (storeAtivo) catalogoStore else null,
+                catalogoFingerprint = if (storeAtivo) fingerprintAtual else null
             )
 
             Tela.JOGOS -> GamesScreen(

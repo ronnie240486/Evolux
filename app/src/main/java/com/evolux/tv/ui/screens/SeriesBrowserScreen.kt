@@ -38,6 +38,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -59,6 +61,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.evolux.tv.R
+import com.evolux.tv.data.CatalogoStore
 import com.evolux.tv.data.Midia
 import com.evolux.tv.data.OrdemCatalogo
 import com.evolux.tv.data.normalizarConsulta
@@ -86,21 +89,29 @@ fun SeriesBrowserScreen(
     categoriasOcultas: Set<String> = emptySet(),
     ordemInicial: OrdemCatalogo = OrdemCatalogo.PADRAO,
     aoMudarOrdem: (OrdemCatalogo) -> Unit = {},
-    carregarEpisodios: suspend (Midia) -> List<Midia> = { emptyList() }
+    carregarEpisodios: suspend (Midia) -> List<Midia> = { emptyList() },
+    catalogoStore: CatalogoStore? = null,
+    catalogoFingerprint: String? = null
 ) {
     val chaveItens = Triple(itens.size, itens.firstOrNull()?.id, itens.lastOrNull()?.id)
-    val categorias by produceState<List<String>>(emptyList(), chaveItens, categoriasOcultas, servicoInicial) {
-        value = withContext(Dispatchers.Default) {
-            val reais = itens.asSequence()
-                .map { it.categoria.ifBlank { "Séries" } }
-                .distinct()
-                .filter { it !in categoriasOcultas }
-                .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it })
-                .toList()
-            if (!servicoInicial.isNullOrBlank() && servicoInicial !in reais) {
-                listOf(servicoInicial) + reais
-            } else {
-                reais
+    val storeDisponivel = catalogoStore != null && !catalogoFingerprint.isNullOrBlank()
+    val categoriasDoStore by produceState<List<String>>(emptyList(), catalogoStore, catalogoFingerprint, categoriasOcultas) {
+        value = if (storeDisponivel) {
+            catalogoStore!!.categorias(catalogoFingerprint!!, "SERIE")
+                .filterNot { it in categoriasOcultas }
+        } else emptyList()
+    }
+    val categorias by produceState<List<String>>(emptyList(), chaveItens, categoriasDoStore, categoriasOcultas, servicoInicial) {
+        value = if (storeDisponivel) {
+            categoriasDoStore
+        } else {
+            withContext(Dispatchers.Default) {
+                itens.asSequence()
+                    .map { it.categoria.ifBlank { "Séries" } }
+                    .distinct()
+                    .filter { it !in categoriasOcultas }
+                    .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it })
+                    .toList()
             }
         }
     }
@@ -117,9 +128,25 @@ fun SeriesBrowserScreen(
         chaveItens,
         categoriasOcultas
     ) {
-        value = withContext(Dispatchers.Default) {
-            construirIndiceGruposSerie(itens, categoriasOcultas)
+        value = if (storeDisponivel) emptyMap() else withContext(Dispatchers.Default) {
+            SeriesIndiceMemo.obter(itens, categoriasOcultas)
         }
+    }
+    var paginaAtual by remember(chaveItens, categoriaSelecionada, busca, ordem) { mutableIntStateOf(0) }
+    val gruposStore by produceState<CatalogoStore.Pagina<CatalogoStore.GrupoSerieResumo>>(
+        initialValue = CatalogoStore.Pagina(emptyList(), -1),
+        catalogoStore, catalogoFingerprint, categoriaSelecionada, busca, ordem, paginaAtual
+    ) {
+        value = if (storeDisponivel) {
+            catalogoStore!!.gruposSeries(catalogoFingerprint!!, categoriaSelecionada, busca, ordem, paginaAtual, 24)
+        } else CatalogoStore.Pagina(emptyList(), 0)
+    }
+    val gruposEmPagina = gruposStore.itens.map { resumo ->
+        GrupoSerie(
+            chave = resumo.chave, nome = resumo.nome, categoria = resumo.categoria,
+            capa = resumo.capa, sinopse = resumo.sinopse,
+            episodios = listOf(resumo.representante)
+        )
     }
     val grupos by produceState<List<GrupoSerie>>(
         initialValue = emptyList(),
@@ -128,16 +155,20 @@ fun SeriesBrowserScreen(
         busca,
         ordem
     ) {
-        val indice = indiceSeries ?: return@produceState
-        value = withContext(Dispatchers.Default) {
-            ordenarGruposSerie(
-                indice[categoriaSelecionada].orEmpty(),
-                busca,
-                ordem
-            )
+        if (!storeDisponivel) {
+            val indice = indiceSeries ?: return@produceState
+            value = withContext(Dispatchers.Default) {
+                ordenarGruposSerie(indice[categoriaSelecionada].orEmpty(), busca, ordem)
+            }
         }
     }
-    val preparandoGrupos = indiceSeries == null
+    val preparandoGrupos = if (storeDisponivel) gruposStore.total < 0 else indiceSeries == null
+    val focoPrimeiraCategoria = remember { FocusRequester() }
+    LaunchedEffect(categorias) {
+        if (categorias.isNotEmpty()) {
+            focoPrimeiraCategoria.requestFocus()
+        }
+    }
     var serieSelecionada by remember { mutableStateOf<GrupoSerie?>(null) }
     var episodiosCarregados by remember { mutableStateOf<Map<String, List<Midia>>>(emptyMap()) }
     var chaveCarregando by remember { mutableStateOf<String?>(null) }
@@ -153,15 +184,15 @@ fun SeriesBrowserScreen(
             return
         }
         val representante = grupo.episodios.firstOrNull()
-        val ehXtream = representante?.streamUrl?.startsWith("xtream://series/") == true
-        if (!ehXtream) {
-            serieSelecionada = grupo
-            return
-        }
         if (chaveCarregando == grupo.chave) return
         chaveCarregando = grupo.chave
         escopo.launch {
-            val carregados = representante?.let { carregarEpisodios(it) }.orEmpty()
+            val carregados = if (storeDisponivel) {
+                catalogoStore!!.episodiosDaSerie(catalogoFingerprint!!, grupo.categoria, grupo.nome)
+            } else {
+                val ehXtream = representante?.streamUrl?.startsWith("xtream://series/") == true
+                if (ehXtream) representante?.let { carregarEpisodios(it) }.orEmpty() else emptyList()
+            }
             if (carregados.isNotEmpty()) {
                 episodiosCarregados = episodiosCarregados + (grupo.chave to carregados)
                 serieSelecionada = grupo.copy(episodios = carregados)
@@ -176,18 +207,19 @@ fun SeriesBrowserScreen(
         serieSelecionada = null
     }
 
-    val gruposDaCategoria = grupos.filter { it.categoria == categoriaSelecionada }
+    val gruposDaCategoria = if (storeDisponivel) gruposEmPagina else grupos.filter { it.categoria == categoriaSelecionada }
     val tamanhoPagina = 24
-    val totalPaginas = ((gruposDaCategoria.size + tamanhoPagina - 1) / tamanhoPagina).coerceAtLeast(1)
-    var paginaAtual by remember(chaveItens, categorias, categoriaSelecionada, busca, ordem) {
-        mutableIntStateOf(0)
-    }
+    val totalItens = if (storeDisponivel) gruposStore.total.coerceAtLeast(0) else gruposDaCategoria.size
+    val totalPaginas = ((totalItens + tamanhoPagina - 1) / tamanhoPagina).coerceAtLeast(1)
     val paginaAtualSegura = paginaAtual.coerceIn(0, totalPaginas - 1)
-    // Todos os grupos ficam na lista lógica; LazyColumn monta somente o que
-    // está visível. O índice acompanha a posição absoluta do foco.
     val aoFocarSerie: (Int) -> Unit = { indice ->
-        // 0..23 = página 1, 24..47 = página 2, etc.
-        paginaAtual = (indice / tamanhoPagina).coerceIn(0, totalPaginas - 1)
+        if (storeDisponivel) {
+            if (indice >= gruposDaCategoria.size - 3) {
+                paginaAtual = (paginaAtual + 1).coerceAtMost(totalPaginas - 1)
+            }
+        } else {
+            paginaAtual = (indice / tamanhoPagina).coerceIn(0, totalPaginas - 1)
+        }
     }
     Column(
         modifier = Modifier
@@ -218,10 +250,11 @@ fun SeriesBrowserScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 contentPadding = PaddingValues(end = 24.dp)
             ) {
-                lazyItems(categorias, key = { it }) { categoria ->
+                lazyItemsIndexed(categorias, key = { _, it -> it }) { indice, categoria ->
                     FiltroCategoria(
                         nome = categoria,
                         selecionada = categoria == categoriaSelecionada,
+                        modifier = if (indice == 0) Modifier.focusRequester(focoPrimeiraCategoria) else Modifier,
                         aoClicar = { categoriaSelecionada = categoria }
                     )
                 }
@@ -247,7 +280,7 @@ fun SeriesBrowserScreen(
             }
         } else {
             Text(
-                text = "Página ${paginaAtualSegura + 1}/$totalPaginas • ${gruposDaCategoria.size} séries",
+                                        text = "Página ${paginaAtualSegura + 1}/$totalPaginas • ${totalItens} séries",
                 color = TextoCinza,
                 modifier = Modifier.padding(vertical = 4.dp)
             )
@@ -258,12 +291,12 @@ fun SeriesBrowserScreen(
             ) {
                 item {
                     Text(
-                        text = "${categoriaSelecionada.ifBlank { "Séries" }} • ${gruposDaCategoria.size} séries",
+                        text = "${categoriaSelecionada.ifBlank { "Séries" }} • ${totalItens} séries",
                         color = TextoCinza,
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
-                lazyItemsIndexed(gruposDaCategoria, key = { _, item -> item.chave }) { indice, grupo ->
+                        lazyItemsIndexed(gruposDaCategoria, key = { _, item -> item.chave }) { indice, grupo ->
                     SerieCard(
                         grupo,
                         carregando = chaveCarregando == grupo.chave,
@@ -280,6 +313,24 @@ fun SeriesBrowserScreen(
             aoFechar = { serieSelecionada = null },
             aoAssistir = aoAssistir
         )
+    }
+}
+
+private object SeriesIndiceMemo {
+    private var itensReferencia: List<Midia>? = null
+    private var categoriasReferencia: Set<String> = emptySet()
+    private var valor: Map<String, List<GrupoSerie>> = emptyMap()
+
+    @Synchronized
+    fun obter(itens: List<Midia>, categoriasOcultas: Set<String>): Map<String, List<GrupoSerie>> {
+        if (itensReferencia === itens && categoriasReferencia == categoriasOcultas && valor.isNotEmpty()) {
+            return valor
+        }
+        val novo = construirIndiceGruposSerie(itens, categoriasOcultas)
+        itensReferencia = itens
+        categoriasReferencia = categoriasOcultas.toSet()
+        valor = novo
+        return novo
     }
 }
 
@@ -330,12 +381,17 @@ private fun ordenarGruposSerie(
 }
 
 @Composable
-private fun FiltroCategoria(nome: String, selecionada: Boolean, aoClicar: () -> Unit) {
+private fun FiltroCategoria(
+    nome: String,
+    selecionada: Boolean,
+    modifier: Modifier = Modifier,
+    aoClicar: () -> Unit
+) {
     EvoluxClickableSurface(
         onClick = aoClicar,
         containerColor = if (selecionada) Dourado else FundoCard,
         focusedColor = if (selecionada) Dourado else Color(0xFF2A3558),
-        modifier = Modifier.height(48.dp)
+        modifier = modifier.height(48.dp)
     ) {
         Box(
             modifier = Modifier.padding(horizontal = 18.dp),

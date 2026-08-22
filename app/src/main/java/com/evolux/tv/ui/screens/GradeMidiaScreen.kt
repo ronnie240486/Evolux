@@ -50,6 +50,7 @@ import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.evolux.tv.R
+import com.evolux.tv.data.CatalogoStore
 import com.evolux.tv.data.Midia
 import com.evolux.tv.data.OrdemCatalogo
 import com.evolux.tv.data.categoriaChave
@@ -72,48 +73,61 @@ fun GradeMidiaScreen(
     mensagemVazio: String = "Nada por aqui ainda.",
     categoriasOcultas: Set<String> = emptySet(),
     ordemInicial: OrdemCatalogo = OrdemCatalogo.PADRAO,
-    aoMudarOrdem: (OrdemCatalogo) -> Unit = {}
+    aoMudarOrdem: (OrdemCatalogo) -> Unit = {},
+    catalogoStore: CatalogoStore? = null,
+    catalogoFingerprint: String? = null,
+    tipoPersistido: String? = null
 ) {
     val chaveItens = Triple(itens.size, itens.firstOrNull()?.id, itens.lastOrNull()?.id)
     val indice by produceState<IndiceMidia?>(null, chaveItens) {
         value = withContext(Dispatchers.Default) { construirIndiceMidia(itens) }
     }
     val chaveIndice = indice?.let { System.identityHashCode(it) } ?: 0
-    val categorias = remember(chaveIndice) { listOf("Todos") + (indice?.categorias ?: emptyList()) }
+    val usarStore = catalogoStore != null && !catalogoFingerprint.isNullOrBlank() && !tipoPersistido.isNullOrBlank()
+    val categoriasDoStore by produceState<List<String>>(emptyList(), catalogoStore, catalogoFingerprint, tipoPersistido) {
+        value = if (usarStore) {
+            catalogoStore!!.categorias(catalogoFingerprint!!, tipoPersistido!!)
+        } else emptyList()
+    }
+    val categorias = remember(chaveIndice, categoriasDoStore) {
+        listOf("Todos") + if (usarStore) categoriasDoStore else (indice?.categorias ?: emptyList())
+    }
     var categoriaSelecionada by remember(categorias) {
         mutableStateOf(categorias.firstOrNull { it != "Todos" } ?: "Todos")
     }
     var busca by remember(categorias) { mutableStateOf("") }
     var ordem by remember(categorias, ordemInicial) { mutableStateOf(ordemInicial) }
-    val itensFiltrados by produceState<List<Midia>>(
-        emptyList(), chaveIndice, busca, categoriaSelecionada, ordem
-    ) {
-        value = withContext(Dispatchers.Default) {
-            val base = when {
-                indice == null -> emptyList()
-                categoriaSelecionada == "Todos" -> indice!!.todos
-                else -> indice!!.porCategoria[categoriaChave(categoriaSelecionada)].orEmpty()
-            }
-            filtrarEOrdenarMidias(
-                itens = base,
-                busca = busca,
-                categoria = "Todos",
-                ordem = ordem,
-                categoriasOcultas = emptySet()
-            )
-        }
-    }
-    // A lista lógica permanece completa; a grade TV é virtualizada e monta apenas
-    // os cards visíveis. Nenhum item é removido para formar a página atual.
-    val itensParaExibir = itensFiltrados
     val tamanhoPagina = 30
-    val totalPaginas = ((itensParaExibir.size + tamanhoPagina - 1) / tamanhoPagina).coerceAtLeast(1)
     var paginaAtual by remember(chaveItens, categorias, categoriaSelecionada, busca, ordem) {
         mutableIntStateOf(0)
     }
+    val paginaDoStore by produceState<CatalogoStore.Pagina<Midia>>(
+        initialValue = CatalogoStore.Pagina(emptyList(), 0),
+        catalogoStore, catalogoFingerprint, tipoPersistido, categoriaSelecionada, busca, ordem, paginaAtual
+    ) {
+        value = if (usarStore) {
+            catalogoStore!!.paginaMidias(catalogoFingerprint!!, tipoPersistido!!, categoriaSelecionada, busca, ordem, paginaAtual, tamanhoPagina)
+        } else CatalogoStore.Pagina(emptyList(), 0)
+    }
+    val itensFiltrados by produceState<List<Midia>>(
+        emptyList(), chaveIndice, busca, categoriaSelecionada, ordem, paginaAtual
+    ) {
+        if (!usarStore) {
+            value = withContext(Dispatchers.Default) {
+                val base = when {
+                    indice == null -> emptyList()
+                    categoriaSelecionada == "Todos" -> indice!!.todos
+                    else -> indice!!.porCategoria[categoriaChave(categoriaSelecionada)].orEmpty()
+                }
+                filtrarEOrdenarMidias(base, busca, "Todos", ordem, emptySet())
+            }
+        }
+    }
+    val itensParaExibir = if (usarStore) paginaDoStore.itens else itensFiltrados
+    val totalItens = if (usarStore) paginaDoStore.total else itensFiltrados.size
+    val totalPaginas = ((totalItens + tamanhoPagina - 1) / tamanhoPagina).coerceAtLeast(1)
     val paginaAtualSegura = paginaAtual.coerceIn(0, totalPaginas - 1)
     val aoFocarItem: (Int) -> Unit = { indice ->
-        // O índice é absoluto na lista completa: 0..29 = 1/N, 30..59 = 2/N.
         paginaAtual = (indice / tamanhoPagina).coerceIn(0, totalPaginas - 1)
     }
 
@@ -138,7 +152,7 @@ fun GradeMidiaScreen(
         ) {
             tvRowItems(categorias) { categoria ->
                 EvoluxClickableSurface(
-                    onClick = { categoriaSelecionada = categoria },
+                    onClick = { categoriaSelecionada = categoria; paginaAtual = 0 },
                     containerColor = if (categoria == categoriaSelecionada) Color(0xFF283454) else Color(0xFF12172A),
                     borderColor = Dourado,
                     modifier = Modifier
@@ -239,7 +253,7 @@ private fun CampoBusca(valor: String, placeholder: String, aoMudar: (String) -> 
     ) {
         BasicTextField(
             value = valor,
-            onValueChange = aoMudar,
+            onValueChange = { novo -> aoMudar(novo) },
             singleLine = true,
             textStyle = TextStyle(color = TextoClaro, fontSize = MaterialTheme.typography.bodyLarge.fontSize),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
