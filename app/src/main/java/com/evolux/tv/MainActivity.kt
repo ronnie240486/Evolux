@@ -235,6 +235,17 @@ fun EvoluxApp() {
         var previewPersistido = false
         try {
             if (!forcar) {
+                val cacheIndice = CatalogoCache.carregarIndice(contexto, fingerprint)
+                if (cacheIndice != null) {
+                    progressoCatalogo = 98
+                    catalogo = cacheIndice
+                    catalogoPreview = criarPreviewHome(cacheIndice)
+                    catalogoPronto = true
+                    tentativaRestauracaoCompleta = true
+                    homePronta = cacheIndice.canais.size >= 24 && cacheIndice.filmes.size >= 24 && cacheIndice.series.size >= 24
+                    playlistAtiva = indice
+                    return null
+                }
                 val cachePreview = CatalogoCache.carregarPreview(contexto, fingerprint)
                 if (cachePreview != null) {
                     // Cache válido libera a Home sem reconstruir dezenas de milhares de objetos.
@@ -295,6 +306,9 @@ fun EvoluxApp() {
             playlistAtiva = indice
             preferencias.edit().putInt(CHAVE_PLAYLIST_ATIVA, indice).apply()
             CatalogoCache.salvar(contexto, fingerprint, catalogoM3u)
+            escopo.launch(Dispatchers.IO) {
+                CatalogoCache.salvarIndice(contexto, fingerprint, catalogoM3u)
+            }
             return null
         } catch (erro: Exception) {
             return erro.message?.takeIf { it.isNotBlank() } ?: "Não foi possível interpretar o catálogo."
@@ -320,6 +334,9 @@ fun EvoluxApp() {
                 tentativaRestauracaoCompleta = true
                 if (completo.series.none { it.id.startsWith("xtream_series_") }) {
                     carregarSeriesXtreamEmSegundoPlano(urlPlaylist, fingerprint, completo)
+                }
+                escopo.launch(Dispatchers.IO) {
+                    CatalogoCache.salvarIndice(contexto, fingerprint, completo)
                 }
             } else if (playlistUrlAtual == urlPlaylist) {
                 // Evita repetir infinitamente uma restauração que falhou.

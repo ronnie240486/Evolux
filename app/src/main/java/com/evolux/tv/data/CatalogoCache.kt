@@ -15,11 +15,34 @@ import java.security.MessageDigest
 object CatalogoCache {
     private const val NOME_ARQUIVO = "evolux-catalogo-cache-v4.bin"
     private const val NOME_ARQUIVO_PREVIEW = "evolux-home-preview-v1.bin"
+    private const val NOME_ARQUIVO_INDICE = "evolux-catalogo-indice-v1.bin"
     private const val MAGIC = "EVOLUX-CATALOG-4"
     private const val MAGIC_PREVIEW = "EVOLUX-HOME-PREVIEW-1"
+    private const val MAGIC_INDICE = "EVOLUX-CATALOG-INDEX-1"
     private const val PARSER_VERSION = "xtream-series-entities-v6-complete-catalog"
     // O catálogo real possui dezenas de milhares de itens; o limite precisa comportar o snapshot completo.
     private const val MAX_CACHE_BYTES = 256L * 1024L * 1024L
+    private const val MAX_INDICE_BYTES = 160L * 1024L * 1024L
+
+    suspend fun carregarIndice(contexto: Context, fingerprint: String): PlaylistCatalog? = withContext(Dispatchers.IO) {
+        val arquivo = File(contexto.filesDir, NOME_ARQUIVO_INDICE)
+        if (!arquivo.exists() || arquivo.length() > MAX_INDICE_BYTES) return@withContext null
+        runCatching {
+            DataInputStream(BufferedInputStream(FileInputStream(arquivo))).use { entrada ->
+                if (entrada.readUTF() != MAGIC_INDICE) return@use null
+                if (entrada.readUTF() != fingerprint) return@use null
+                val canais = readCanais(entrada)
+                val filmes = readMidiasIndice(entrada)
+                val series = readMidiasIndice(entrada)
+                val truncado = entrada.readBoolean()
+                if (canais.isEmpty() || filmes.isEmpty() || series.isEmpty()) null
+                else PlaylistCatalog(canais, filmes, series, truncado)
+            }
+        }.getOrElse {
+            arquivo.delete()
+            null
+        }
+    }
 
     suspend fun carregar(contexto: Context, fingerprint: String): PlaylistCatalog? = withContext(Dispatchers.IO) {
         val arquivo = validarArquivo(contexto) ?: return@withContext null
@@ -73,6 +96,33 @@ object CatalogoCache {
         preview: PlaylistCatalog
     ) = withContext(Dispatchers.IO) {
         salvarPreviewInterno(File(contexto.filesDir, NOME_ARQUIVO_PREVIEW), fingerprint, preview)
+    }
+
+    suspend fun salvarIndice(
+        contexto: Context,
+        fingerprint: String,
+        catalogo: PlaylistCatalog
+    ) = withContext(Dispatchers.IO) {
+        val destino = File(contexto.filesDir, NOME_ARQUIVO_INDICE)
+        val temporario = File(contexto.filesDir, "$NOME_ARQUIVO_INDICE.tmp")
+        runCatching {
+            DataOutputStream(BufferedOutputStream(FileOutputStream(temporario))).use { saida ->
+                saida.writeUTF(MAGIC_INDICE)
+                saida.writeUTF(fingerprint)
+                writeCanais(saida, catalogo.canais)
+                writeMidiasIndice(saida, catalogo.filmes)
+                writeMidiasIndice(saida, catalogo.series)
+                saida.writeBoolean(catalogo.truncado)
+            }
+            if (temporario.length() <= MAX_INDICE_BYTES) {
+                if (destino.exists()) destino.delete()
+                if (!temporario.renameTo(destino)) temporario.delete()
+                Unit
+            } else {
+                temporario.delete()
+                Unit
+            }
+        }
     }
 
     private fun lerPreviewDireto(arquivo: File, fingerprint: String): PlaylistCatalog? {
@@ -238,6 +288,50 @@ object CatalogoCache {
         val quantidade = entrada.readInt().coerceIn(0, 100_000)
         return buildList(quantidade) {
             repeat(quantidade) { add(readMidia(entrada)) }
+        }
+    }
+
+    private fun writeMidiasIndice(saida: DataOutputStream, midias: List<Midia>) {
+        saida.writeInt(midias.size)
+        midias.forEach { midia ->
+            saida.writeUTF(midia.id)
+            saida.writeUTF(midia.titulo)
+            saida.writeUTF(midia.imagemUrl)
+            saida.writeUTF(midia.tipo.name)
+            saida.writeUTF(midia.streamUrl)
+            saida.writeUTF(midia.categoria)
+            writeNullableString(saida, midia.serieId)
+            writeNullableString(saida, midia.serieNome)
+            writeNullableString(saida, midia.episodioNome)
+            writeNullableInt(saida, midia.temporadaNumero)
+            writeNullableInt(saida, midia.episodioNumero)
+        }
+    }
+
+    private fun readMidiasIndice(entrada: DataInputStream): List<Midia> {
+        val quantidade = entrada.readInt().coerceIn(0, 100_000)
+        return buildList(quantidade) {
+            repeat(quantidade) {
+                add(
+                    Midia(
+                        id = entrada.readUTF(),
+                        titulo = entrada.readUTF(),
+                        imagemUrl = entrada.readUTF(),
+                        tipo = runCatching { TipoMidia.valueOf(entrada.readUTF()) }.getOrDefault(TipoMidia.FILME),
+                        streamUrl = entrada.readUTF(),
+                        progresso = null,
+                        categoria = entrada.readUTF(),
+                        nota = null,
+                        popularidade = null,
+                        sinopse = "",
+                        serieId = readNullableString(entrada),
+                        serieNome = readNullableString(entrada),
+                        episodioNome = readNullableString(entrada),
+                        temporadaNumero = readNullableInt(entrada),
+                        episodioNumero = readNullableInt(entrada)
+                    )
+                )
+            }
         }
     }
 
