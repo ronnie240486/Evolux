@@ -702,7 +702,18 @@ fun EvoluxApp() {
                 }
             )
 
-            when (telaAtual) {
+            if (telaAtual != Tela.INICIO && catalogo == null) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = androidx.compose.ui.Alignment.Center
+                ) {
+                    androidx.tv.material3.Text(
+                        text = "Preparando catálogo completo...",
+                        color = Color(0xFFE5BD61),
+                        style = androidx.tv.material3.MaterialTheme.typography.titleLarge
+                    )
+                }
+            } else when (telaAtual) {
             Tela.INICIO -> HomeScreen(
                 destaques = destaques,
                 canaisCount = catalogoAtual.canais.size,
@@ -809,9 +820,9 @@ fun EvoluxApp() {
                     telaAtual = Tela.INICIO
                 }
             )
+            }
         }
     }
-}
 }
 
 private fun pertenceAFamiliaFilmes(categoria: String): Boolean {

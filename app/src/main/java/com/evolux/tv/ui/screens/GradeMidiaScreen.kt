@@ -116,11 +116,14 @@ fun GradeMidiaScreen(
         mutableIntStateOf(0)
     }
     val paginaAtualSegura = paginaAtual.coerceIn(0, totalPaginas - 1)
-    val aoFocarItem: (Int) -> Unit = { indice ->
-        paginaAtual = (indice / tamanhoPagina).coerceIn(0, totalPaginas - 1)
+    val itensDaPagina = remember(itensParaExibir, paginaAtualSegura) {
+        itensParaExibir.drop(paginaAtualSegura * tamanhoPagina).take(tamanhoPagina)
     }
-    // A grade permanece completa e virtualizada; o índice acompanha a posição do foco.
-    val itensDaPagina = itensParaExibir
+    val aoFocarItem: (Int) -> Unit = { indice ->
+        if (indice >= itensDaPagina.size - 6 && paginaAtualSegura < totalPaginas - 1) {
+            paginaAtual = paginaAtualSegura + 1
+        }
+    }
 
     Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 18.dp)) {
         Text(

@@ -105,11 +105,14 @@ fun LiveTvScreen(
         mutableIntStateOf(0)
     }
     val paginaAtualSegura = paginaAtual.coerceIn(0, totalPaginas - 1)
-    val aoFocarCanal: (Int) -> Unit = { indice ->
-        paginaAtual = (indice / tamanhoPagina).coerceIn(0, totalPaginas - 1)
+    val canaisDaPagina = remember(canaisParaExibir, paginaAtualSegura) {
+        canaisParaExibir.drop(paginaAtualSegura * tamanhoPagina).take(tamanhoPagina)
     }
-    // Todos os canais permanecem na grade virtualizada; o índice acompanha o foco.
-    val canaisDaPagina = canaisParaExibir
+    val aoFocarCanal: (Int) -> Unit = { indice ->
+        if (indice >= canaisDaPagina.size - 6 && paginaAtualSegura < totalPaginas - 1) {
+            paginaAtual = paginaAtualSegura + 1
+        }
+    }
 
     Column(modifier = Modifier.padding(24.dp)) {
         Text("TV AO VIVO", color = Dourado, fontWeight = FontWeight.Black, style = MaterialTheme.typography.headlineSmall)

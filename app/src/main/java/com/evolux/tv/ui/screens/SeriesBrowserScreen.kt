@@ -177,11 +177,14 @@ fun SeriesBrowserScreen(
         mutableIntStateOf(0)
     }
     val paginaAtualSegura = paginaAtual.coerceIn(0, totalPaginas - 1)
-    val aoFocarSerie: (Int) -> Unit = { indice ->
-        paginaAtual = (indice / tamanhoPagina).coerceIn(0, totalPaginas - 1)
+    val gruposDaPagina = remember(gruposDaCategoria, paginaAtualSegura) {
+        gruposDaCategoria.drop(paginaAtualSegura * tamanhoPagina).take(tamanhoPagina)
     }
-    // Todos os grupos permanecem na LazyColumn virtualizada; o índice acompanha o foco.
-    val gruposDaPagina = gruposDaCategoria
+    val aoFocarSerie: (Int) -> Unit = { indice ->
+        if (indice >= gruposDaPagina.size - 4 && paginaAtualSegura < totalPaginas - 1) {
+            paginaAtual = paginaAtualSegura + 1
+        }
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
