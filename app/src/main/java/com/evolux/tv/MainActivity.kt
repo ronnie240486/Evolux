@@ -235,14 +235,16 @@ fun EvoluxApp() {
         var previewPersistido = false
         try {
             if (!forcar) {
-                val cacheIndice = CatalogoCache.carregarIndice(contexto, fingerprint)
-                if (cacheIndice != null) {
-                    progressoCatalogo = 98
-                    catalogo = cacheIndice
-                    catalogoPreview = criarPreviewHome(cacheIndice)
+                // A abertura normal exige o cache detalhado completo. O índice leve é usado
+                // apenas como apoio, nunca para liberar uma tela com conteúdo parcial.
+                val cacheCompleto = CatalogoCache.carregar(contexto, fingerprint)
+                if (cacheCompleto != null) {
+                    progressoCatalogo = 100
+                    catalogo = cacheCompleto
+                    catalogoPreview = criarPreviewHome(cacheCompleto)
                     catalogoPronto = true
                     tentativaRestauracaoCompleta = true
-                    homePronta = cacheIndice.canais.size >= 24 && cacheIndice.filmes.size >= 24 && cacheIndice.series.size >= 24
+                    homePronta = true
                     playlistAtiva = indice
                     return null
                 }
@@ -559,9 +561,9 @@ fun EvoluxApp() {
     }
 
     val previewDisponivel = homePronta && catalogoPreview != null
-    // A tela de carregamento só aparece quando não existe nem preview.
-    // Com a Home disponível, a restauração integral acontece em segundo plano e não bloqueia botões.
-    if (catalogo == null && !previewDisponivel) {
+    // A Home só é liberada depois que o catálogo detalhado completo está em memória.
+    // O preview existe apenas durante a carga e nunca libera a interface principal.
+    if (catalogo == null || !catalogoPronto || !previewDisponivel) {
         CatalogoLoadingScreen(
             estado = estadoLogin,
             carregandoCatalogo = carregandoCatalogo,
