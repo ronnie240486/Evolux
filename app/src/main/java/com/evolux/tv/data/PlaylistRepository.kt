@@ -125,6 +125,10 @@ class PlaylistRepository {
         var totalItens = 0
         var truncado = false
         var proximoLote = PRIMEIRO_LOTE_ITENS
+        // As playlists repetem os mesmos grupos milhares de vezes. Normalizar e classificar
+        // cada group-title de novo custa CPU, especialmente em TV Boxes de baixo custo.
+        val grupoNormalizadoCache = HashMap<String, String>()
+        val familiaGrupoCache = HashMap<String, FamiliaGrupo>()
         val leitorBuffer = leitor as? BufferedReader ?: leitor.buffered()
 
         while (true) {
@@ -138,7 +142,7 @@ class PlaylistRepository {
                             atributos["group"],
                             atributos["category"]
                         ).joinToString(" | ")
-                    val grupoNormalizado = normalizarTexto(grupo)
+                    val grupoNormalizado = grupoNormalizadoCache.getOrPut(grupo) { normalizarTexto(grupo) }
                     val grupoPodeConterSerie = grupoNormalizado.startsWith("series") ||
                         grupoNormalizado.containsAny("serie", "show", "novela", "anime", "season", "temporada")
                     val dadosSerie = if (grupoPodeConterSerie) extrairDadosSerie(titulo, grupo) else null
@@ -169,6 +173,9 @@ class PlaylistRepository {
                 linha.isNotEmpty() && !linha.startsWith("#") -> {
                     totalItens++
                     val entrada = pendente ?: Entrada("Item $totalItens", "", "", null, null, null, null)
+                    val grupoNormalizadoEntrada = grupoNormalizadoCache.getOrPut(entrada.grupo) {
+                        normalizarTexto(entrada.grupo)
+                    }
                     if (!adicionarEntrada(
                         indice = totalItens - 1,
                             titulo = entrada.titulo,
@@ -182,7 +189,11 @@ class PlaylistRepository {
                             serieNome = entrada.serieNome,
                             temporadaNumero = entrada.temporadaNumero,
                             episodioNumero = entrada.episodioNumero,
-                            aplicarFamiliaM3u = true
+                            aplicarFamiliaM3u = true,
+                            grupoNormalizadoPrecalculado = grupoNormalizadoEntrada,
+                            familiaGrupoPrecalculada = familiaGrupoCache.getOrPut(grupoNormalizadoEntrada) {
+                                classificarFamiliaGrupo(grupoNormalizadoEntrada, aplicarFamiliaM3u = true)
+                            }
                         )
                     ) {
                         truncado = true
@@ -351,12 +362,15 @@ class PlaylistRepository {
         serieNome: String? = null,
         temporadaNumero: Int? = null,
         episodioNumero: Int? = null,
-        aplicarFamiliaM3u: Boolean = false
+        aplicarFamiliaM3u: Boolean = false,
+        grupoNormalizadoPrecalculado: String? = null,
+        familiaGrupoPrecalculada: FamiliaGrupo? = null
     ): Boolean {
         if (indice >= MAX_TOTAL_ITEMS) return false
         val tipoNormalizado = normalizarTexto(tipoHint.orEmpty())
-        val grupoNormalizado = normalizarTexto(grupo)
-        val familiaGrupo = classificarFamiliaGrupo(grupoNormalizado, aplicarFamiliaM3u)
+        val grupoNormalizado = grupoNormalizadoPrecalculado ?: normalizarTexto(grupo)
+        val familiaGrupo = familiaGrupoPrecalculada
+            ?: classificarFamiliaGrupo(grupoNormalizado, aplicarFamiliaM3u)
         val id = "playlist_${indice}_${titulo.hashCode().toUInt()}"
         val tipoPorUrl = detectarTipoPorUrl(url)
         val tipoExplicitoSerie = tipoNormalizado.containsAny("series", "serie", "show")
