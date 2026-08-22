@@ -499,6 +499,34 @@ fun EvoluxApp() {
             abrirConteudo(destaque.titulo, destaque.streamUrl)
         }
     }
+    fun chaveServicoAtalho(nome: String): String {
+        return com.evolux.tv.data.normalizarConsulta(nome)
+            .replace("plus", "")
+            .replace("mais", "")
+            .replace("+", "")
+            .replace("[^a-z0-9]".toRegex(), "")
+    }
+    fun tokensServicoAtalho(nome: String): List<String> {
+        val chave = chaveServicoAtalho(nome)
+        return when {
+            "max" in chave || "hbo" in chave -> listOf("max", "hbo")
+            "prime" in chave || "amazon" in chave -> listOf("prime", "amazon")
+            "star" in chave -> listOf("star")
+            else -> listOf(chave)
+        }
+    }
+    fun categoriaRealDoServico(nomeServico: String): String? {
+        val fonte = catalogo ?: catalogoPreview ?: return null
+        val tokens = tokensServicoAtalho(nomeServico)
+        return fonte.series.asSequence()
+            .map { it.categoria.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .firstOrNull { categoria ->
+                val chave = chaveServicoAtalho(categoria)
+                tokens.any { token -> token.isNotBlank() && chave.contains(token) }
+            }
+    }
     if (macAutorizado.isBlank() && estadoLogin !is EstadoLoginMac.Carregando) {
         MacLoginScreen(
             estado = estadoLogin,
@@ -693,9 +721,14 @@ fun EvoluxApp() {
                     telaAtual = Tela.SERIES
                 },
                 aoAbrirServico = { servico ->
-                    categoriaInicialSeries = null
-                    servicoInicialSeries = servico
-                    telaAtual = Tela.SERIES
+                    val categoriaReal = categoriaRealDoServico(servico)
+                    if (categoriaReal != null) {
+                        categoriaInicialSeries = categoriaReal
+                        servicoInicialSeries = null
+                        telaAtual = Tela.SERIES
+                    } else {
+                        Toast.makeText(contexto, "Categoria de $servico não encontrada na lista.", Toast.LENGTH_SHORT).show()
+                    }
                 },
                 jogosDoDia = jogosDoDia,
                 aoAbrirJogos = { telaAtual = Tela.JOGOS },
