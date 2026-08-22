@@ -20,7 +20,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -91,18 +94,25 @@ private fun criarPreviewHome(catalogo: PlaylistCatalog): PlaylistCatalog {
 }
 
 class MainActivity : ComponentActivity() {
+    private val atividadeScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             EvoluxTheme {
-                EvoluxApp()
+                EvoluxApp(atividadeScope)
             }
         }
+    }
+
+    override fun onDestroy() {
+        atividadeScope.cancel()
+        super.onDestroy()
     }
 }
 
 @Composable
-fun EvoluxApp() {
+fun EvoluxApp(atividadeScope: CoroutineScope) {
     var telaAtual by remember { mutableStateOf(Tela.INICIO) }
     val contexto = LocalContext.current
     val preferencias = remember(contexto) {
@@ -119,7 +129,9 @@ fun EvoluxApp() {
     val playlistRepository = remember { PlaylistRepository() }
     val xtreamRepository = remember { XtreamRepository() }
     val jogosDoDiaRepository = remember { JogosDoDiaRepository() }
-    val escopo = rememberCoroutineScope()
+    // O catálogo precisa sobreviver às recomposições e trocas de tela.
+    // O cancelamento ocorre somente quando a Activity é destruída.
+    val escopo = atividadeScope
     var macAutorizado by remember { mutableStateOf("") }
     var catalogo by remember { mutableStateOf<PlaylistCatalog?>(null) }
     var catalogoPreview by remember { mutableStateOf<PlaylistCatalog?>(null) }
