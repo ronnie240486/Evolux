@@ -18,6 +18,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items as lazyItems
+import androidx.compose.foundation.lazy.itemsIndexed as lazyItemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -161,7 +162,16 @@ fun SeriesBrowserScreen(
     }
 
     val gruposDaCategoria = grupos.filter { it.categoria == categoriaSelecionada }
-    // A LazyColumn é virtualizada e pode receber todos os grupos sem montar tudo de uma vez.
+    val tamanhoPagina = 24
+    val totalPaginas = ((gruposDaCategoria.size + tamanhoPagina - 1) / tamanhoPagina).coerceAtLeast(1)
+    var paginaAtual by remember(chaveItens, categorias, categoriaSelecionada, busca, ordem) {
+        mutableIntStateOf(0)
+    }
+    val paginaAtualSegura = paginaAtual.coerceIn(0, totalPaginas - 1)
+    val aoFocarSerie: (Int) -> Unit = { indice ->
+        paginaAtual = (indice / tamanhoPagina).coerceIn(0, totalPaginas - 1)
+    }
+    // Todos os grupos permanecem na LazyColumn virtualizada; o índice acompanha o foco.
     val gruposDaPagina = gruposDaCategoria
     Column(
         modifier = Modifier
@@ -221,7 +231,7 @@ fun SeriesBrowserScreen(
             }
         } else {
             Text(
-                text = "${gruposDaCategoria.size} séries • use as setas para navegar",
+                text = "Página ${paginaAtualSegura + 1}/$totalPaginas • ${gruposDaCategoria.size} séries",
                 color = TextoCinza,
                 modifier = Modifier.padding(vertical = 4.dp)
             )
@@ -237,10 +247,11 @@ fun SeriesBrowserScreen(
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
-                lazyItems(gruposDaPagina, key = { it.chave }) { grupo ->
+                lazyItemsIndexed(gruposDaPagina, key = { _, item -> item.chave }) { indice, grupo ->
                     SerieCard(
                         grupo,
-                        carregando = chaveCarregando == grupo.chave
+                        carregando = chaveCarregando == grupo.chave,
+                        aoFocar = { aoFocarSerie(indice) }
                     ) { abrirGrupo(grupo) }
                 }
             }
@@ -335,6 +346,7 @@ private fun FiltroCategoria(nome: String, selecionada: Boolean, aoClicar: () -> 
 private fun SerieCard(
     grupo: GrupoSerie,
     carregando: Boolean = false,
+    aoFocar: () -> Unit = {},
     aoClicar: () -> Unit
 ) {
     val contexto = LocalContext.current
@@ -351,6 +363,7 @@ private fun SerieCard(
         modifier = Modifier
             .fillMaxWidth()
             .widthIn(max = 900.dp)
+            .onFocusChanged { if (it.isFocused) aoFocar() }
     ) {
         Row(
             modifier = Modifier.padding(12.dp),

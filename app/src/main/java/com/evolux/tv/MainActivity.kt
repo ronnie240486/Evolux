@@ -499,8 +499,9 @@ fun EvoluxApp() {
     }
 
     val previewDisponivel = homePronta && catalogoPreview != null
-    val catalogoProntoParaAbas = catalogoPronto
-    if (catalogo == null && !previewDisponivel) {
+    // O preview é exclusivo da Home. Nunca mostrar uma amostra como se fosse a aba completa.
+    val precisaCatalogoCompleto = telaAtual != Tela.INICIO && !catalogoPronto
+    if (catalogo == null && (!previewDisponivel || precisaCatalogoCompleto)) {
         CatalogoLoadingScreen(
             estado = estadoLogin,
             carregandoCatalogo = carregandoCatalogo,
@@ -512,7 +513,7 @@ fun EvoluxApp() {
 
     // A Home e as telas internas usam fontes separadas para evitar que a Home observe o catálogo integral.
     val catalogoHome: PlaylistCatalog = catalogoPreview ?: return
-    val catalogoAtual: PlaylistCatalog = if (telaAtual == Tela.INICIO || !catalogoProntoParaAbas) {
+    val catalogoAtual: PlaylistCatalog = if (telaAtual == Tela.INICIO) {
         catalogoHome
     } else {
         catalogo ?: return
