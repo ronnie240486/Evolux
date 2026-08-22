@@ -31,6 +31,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -46,6 +47,7 @@ import androidx.tv.foundation.lazy.list.items as tvRowItems
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.evolux.tv.R
 import com.evolux.tv.data.Midia
 import com.evolux.tv.data.OrdemCatalogo
@@ -71,17 +73,19 @@ fun GradeMidiaScreen(
     ordemInicial: OrdemCatalogo = OrdemCatalogo.PADRAO,
     aoMudarOrdem: (OrdemCatalogo) -> Unit = {}
 ) {
-    val indice by produceState<IndiceMidia?>(null, itens) {
+    val chaveItens = Triple(itens.size, itens.firstOrNull()?.id, itens.lastOrNull()?.id)
+    val indice by produceState<IndiceMidia?>(null, chaveItens) {
         value = withContext(Dispatchers.Default) { construirIndiceMidia(itens) }
     }
-    val categorias = remember(indice) { listOf("Todos") + (indice?.categorias ?: emptyList()) }
+    val chaveIndice = indice?.let { System.identityHashCode(it) } ?: 0
+    val categorias = remember(chaveIndice) { listOf("Todos") + (indice?.categorias ?: emptyList()) }
     var categoriaSelecionada by remember(categorias) {
         mutableStateOf(categorias.firstOrNull { it != "Todos" } ?: "Todos")
     }
     var busca by remember(categorias) { mutableStateOf("") }
     var ordem by remember(categorias, ordemInicial) { mutableStateOf(ordemInicial) }
     val itensFiltrados by produceState<List<Midia>>(
-        emptyList(), indice, busca, categoriaSelecionada, ordem
+        emptyList(), chaveIndice, busca, categoriaSelecionada, ordem
     ) {
         value = withContext(Dispatchers.Default) {
             val base = when {
@@ -106,7 +110,7 @@ fun GradeMidiaScreen(
         itensFiltrados
     }
     val tamanhoPagina = 30
-    var pagina by remember(itens, categorias, categoriaSelecionada, busca, ordem) { mutableIntStateOf(0) }
+    var pagina by remember(chaveItens, categorias, categoriaSelecionada, busca, ordem) { mutableIntStateOf(0) }
     val totalPaginas = ((itensParaExibir.size + tamanhoPagina - 1) / tamanhoPagina).coerceAtLeast(1)
     val paginaAtual = pagina.coerceIn(0, totalPaginas - 1)
     val itensDaPagina = remember(itensParaExibir, paginaAtual) {
@@ -220,7 +224,7 @@ fun GradeMidiaScreen(
                 horizontalArrangement = Arrangement.spacedBy(if (colunas == 2) 10.dp else 16.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                items(itensDaPagina) { midia ->
+                items(itensDaPagina, key = { it.id }) { midia ->
                     CardMidiaPoster(
                         midia = midia,
                         favorito = ehFavorito(midia),
@@ -292,6 +296,14 @@ private fun CardMidiaPoster(
     aoAlternarFavorito: () -> Unit
 ) {
     var focado by remember { mutableStateOf(false) }
+    val contexto = LocalContext.current
+    val pedidoImagem = remember(midia.imagemUrl) {
+        ImageRequest.Builder(contexto)
+            .data(midia.imagemUrl.takeIf { it.isNotBlank() })
+            .size(240, 360)
+            .crossfade(false)
+            .build()
+    }
     Column(modifier = Modifier.fillMaxWidth()) {
         EvoluxClickableSurface(
             onClick = aoClicar,
@@ -310,7 +322,7 @@ private fun CardMidiaPoster(
         ) {
             Column {
                 AsyncImage(
-                    model = midia.imagemUrl.takeIf { it.isNotBlank() },
+                    model = pedidoImagem,
                     placeholder = painterResource(R.drawable.evolux_logo),
                     error = painterResource(R.drawable.evolux_logo),
                     fallback = painterResource(R.drawable.evolux_logo),

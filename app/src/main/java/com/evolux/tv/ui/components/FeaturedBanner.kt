@@ -16,8 +16,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.evolux.tv.R
@@ -37,13 +39,19 @@ fun FeaturedBanner(
     modifier: Modifier = Modifier
 ) {
     if (destaques.isEmpty()) return
-    val indice by produceState(initialValue = 0, destaques, intervaloMs) {
-        while (true) {
-            delay(intervaloMs)
-            value = (value + 1) % destaques.size
-        }
+    val indice by produceState(initialValue = 0, destaques) {
+        // O banner permanece estável; a troca automática foi removida para não competir com o D-pad.
+        value = 0
     }
     val destaque = destaques[indice % destaques.size]
+    val contexto = LocalContext.current
+    val pedidoImagem = androidx.compose.runtime.remember(destaque.imagemUrl) {
+        ImageRequest.Builder(contexto)
+            .data(destaque.imagemUrl.takeIf { it.isNotBlank() })
+            .size(960, 540)
+            .crossfade(false)
+            .build()
+    }
 
     EvoluxClickableSurface(
         onClick = { aoAssistir(destaque) },
@@ -57,7 +65,7 @@ fun FeaturedBanner(
             contentAlignment = Alignment.BottomStart
         ) {
             AsyncImage(
-                model = destaque.imagemUrl.takeIf { it.isNotBlank() },
+                model = pedidoImagem,
                 placeholder = painterResource(R.drawable.evolux_logo),
                 error = painterResource(R.drawable.evolux_logo),
                 fallback = painterResource(R.drawable.evolux_logo),

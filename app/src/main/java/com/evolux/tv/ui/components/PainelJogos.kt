@@ -1,10 +1,5 @@
 package com.evolux.tv.ui.components
 
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.background
@@ -72,21 +67,12 @@ fun PainelJogosDoDia(
                     }
                 }
         ) {
-            val transicao = rememberInfiniteTransition(label = "futebol_painel")
-            val brilho by transicao.animateFloat(
-                initialValue = 0.72f,
-                targetValue = 0.98f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(durationMillis = 2600),
-                    repeatMode = RepeatMode.Reverse
-                ),
-                label = "brilho_painel"
-            )
             Image(
                 painter = painterResource(R.drawable.evolux_no_games_football),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.matchParentSize().alpha(brilho)
+                // Fundo estático: evita uma animação infinita competindo com o foco do D-pad.
+                modifier = Modifier.matchParentSize().alpha(0.84f)
             )
             Box(
                 modifier = Modifier

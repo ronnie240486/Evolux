@@ -39,6 +39,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.TextStyle
@@ -50,6 +51,7 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -82,7 +84,8 @@ fun SeriesBrowserScreen(
     aoMudarOrdem: (OrdemCatalogo) -> Unit = {},
     carregarEpisodios: suspend (Midia) -> List<Midia> = { emptyList() }
 ) {
-    val categorias by produceState<List<String>>(emptyList(), itens, categoriasOcultas) {
+    val chaveItens = Triple(itens.size, itens.firstOrNull()?.id, itens.lastOrNull()?.id)
+    val categorias by produceState<List<String>>(emptyList(), chaveItens, categoriasOcultas) {
         value = withContext(Dispatchers.Default) {
             itens.asSequence()
                 .map { it.categoria.ifBlank { "Séries" } }
@@ -99,10 +102,10 @@ fun SeriesBrowserScreen(
         )
     }
     var busca by remember(categorias) { mutableStateOf("") }
-    var ordem by remember(itens, ordemInicial) { mutableStateOf(ordemInicial) }
+    var ordem by remember(chaveItens, ordemInicial) { mutableStateOf(ordemInicial) }
     var grupos by remember { mutableStateOf<List<GrupoSerie>>(emptyList()) }
     var preparandoGrupos by remember { mutableStateOf(true) }
-    LaunchedEffect(itens, categoriaSelecionada, busca, ordem, categoriasOcultas) {
+    LaunchedEffect(chaveItens, categoriaSelecionada, busca, ordem, categoriasOcultas) {
         preparandoGrupos = true
         val resultado = withContext(Dispatchers.Default) {
             construirGruposSerie(itens, categoriaSelecionada, busca, ordem, categoriasOcultas)
@@ -147,7 +150,7 @@ fun SeriesBrowserScreen(
 
     val gruposDaCategoria = grupos.filter { it.categoria == categoriaSelecionada }
     val tamanhoPagina = 24
-    var pagina by remember(categorias, categoriaSelecionada, busca, ordem) { mutableIntStateOf(0) }
+    var pagina by remember(chaveItens, categorias, categoriaSelecionada, busca, ordem) { mutableIntStateOf(0) }
     val totalPaginas = ((gruposDaCategoria.size + tamanhoPagina - 1) / tamanhoPagina).coerceAtLeast(1)
     val paginaAtual = pagina.coerceIn(0, totalPaginas - 1)
     val gruposDaPagina = remember(gruposDaCategoria, paginaAtual) {
@@ -327,6 +330,14 @@ private fun FiltroCategoria(nome: String, selecionada: Boolean, aoClicar: () -> 
 
 @Composable
 private fun SerieCard(grupo: GrupoSerie, carregando: Boolean = false, aoClicar: () -> Unit) {
+    val contexto = LocalContext.current
+    val pedidoImagem = remember(grupo.capa) {
+        ImageRequest.Builder(contexto)
+            .data(grupo.capa.takeIf { it.isNotBlank() })
+            .size(252, 320)
+            .crossfade(false)
+            .build()
+    }
     EvoluxClickableSurface(
         onClick = aoClicar,
         containerColor = FundoCard,
@@ -340,7 +351,7 @@ private fun SerieCard(grupo: GrupoSerie, carregando: Boolean = false, aoClicar: 
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             AsyncImage(
-                model = grupo.capa.takeIf { it.isNotBlank() },
+                model = pedidoImagem,
                 placeholder = painterResource(R.drawable.evolux_logo),
                 error = painterResource(R.drawable.evolux_logo),
                 fallback = painterResource(R.drawable.evolux_logo),
@@ -396,6 +407,14 @@ private fun SeriesDetailDialog(
     }
     val episodios = temporadas[temporadaSelecionada].orEmpty()
         .sortedWith(compareBy<Midia> { it.episodioNumero ?: Int.MAX_VALUE }.thenBy { it.titulo })
+    val contexto = LocalContext.current
+    val pedidoImagem = remember(grupo.capa) {
+        ImageRequest.Builder(contexto)
+            .data(grupo.capa.takeIf { it.isNotBlank() })
+            .size(240, 300)
+            .crossfade(false)
+            .build()
+    }
 
     Dialog(onDismissRequest = aoFechar) {
         Box(
@@ -417,7 +436,7 @@ private fun SeriesDetailDialog(
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         AsyncImage(
-                            model = grupo.capa.takeIf { it.isNotBlank() },
+                            model = pedidoImagem,
                             placeholder = painterResource(R.drawable.evolux_logo),
                             error = painterResource(R.drawable.evolux_logo),
                             fallback = painterResource(R.drawable.evolux_logo),

@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.text.KeyboardOptions
@@ -41,6 +42,7 @@ import androidx.tv.foundation.lazy.list.items as tvRowItems
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.evolux.tv.data.Canal
 import com.evolux.tv.data.OrdemCatalogo
 import com.evolux.tv.data.categoriaChave
@@ -63,10 +65,12 @@ fun LiveTvScreen(
     ordemInicial: OrdemCatalogo = OrdemCatalogo.PADRAO,
     aoMudarOrdem: (OrdemCatalogo) -> Unit = {}
 ) {
-    val indice by produceState<IndiceCanal?>(null, canais) {
+    val chaveCanais = Triple(canais.size, canais.firstOrNull()?.id, canais.lastOrNull()?.id)
+    val indice by produceState<IndiceCanal?>(null, chaveCanais) {
         value = withContext(Dispatchers.Default) { construirIndiceCanal(canais) }
     }
-    val categorias = remember(indice) {
+    val chaveIndice = indice?.let { System.identityHashCode(it) } ?: 0
+    val categorias = remember(chaveIndice) {
         listOf("Todos", "Favoritos") + (indice?.categorias ?: emptyList())
             .filterNot { categoriaChave(it) == categoriaChave("Favoritos") }
     }
@@ -76,7 +80,7 @@ fun LiveTvScreen(
     var busca by remember(categorias) { mutableStateOf("") }
     var ordem by remember(canais, ordemInicial) { mutableStateOf(ordemInicial) }
     val canaisFiltrados by produceState<List<Canal>>(
-        emptyList(), indice, canaisFavoritos, busca, categoriaSelecionada, ordem
+        emptyList(), chaveIndice, canaisFavoritos, busca, categoriaSelecionada, ordem
     ) {
         value = withContext(Dispatchers.Default) {
             val base = when {
@@ -95,7 +99,7 @@ fun LiveTvScreen(
         canaisFiltrados
     }
     val tamanhoPagina = 30
-    var pagina by remember(canais, categorias, categoriaSelecionada, busca, ordem) { mutableIntStateOf(0) }
+    var pagina by remember(chaveCanais, categorias, categoriaSelecionada, busca, ordem) { mutableIntStateOf(0) }
     val totalPaginas = ((canaisParaExibir.size + tamanhoPagina - 1) / tamanhoPagina).coerceAtLeast(1)
     val paginaAtual = pagina.coerceIn(0, totalPaginas - 1)
     val canaisDaPagina = remember(canaisParaExibir, paginaAtual) {
@@ -250,6 +254,14 @@ private fun CardCanal(
     aoClicar: () -> Unit,
     aoLongClick: () -> Unit
 ) {
+    val contexto = LocalContext.current
+    val pedidoImagem = remember(canal.logoUrl) {
+        ImageRequest.Builder(contexto)
+            .data(canal.logoUrl.takeIf { it.isNotBlank() })
+            .size(128, 128)
+            .crossfade(false)
+            .build()
+    }
     EvoluxClickableSurface(
         onClick = aoClicar,
         onLongClick = aoLongClick,
@@ -261,7 +273,7 @@ private fun CardCanal(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             AsyncImage(
-                model = canal.logoUrl.takeIf { it.isNotBlank() },
+                model = pedidoImagem,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.size(64.dp).clip(RoundedCornerShape(8.dp))

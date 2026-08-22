@@ -514,6 +514,8 @@ fun EvoluxApp() {
     } else {
         catalogo ?: return
     }
+    // Chave O(1): nunca comparar estruturalmente as listas completas em cada recomposição.
+    val catalogoChave = System.identityHashCode(catalogoAtual)
     reproducao?.let { atual ->
         PlayerScreen(
             titulo = atual.titulo,
@@ -538,7 +540,7 @@ fun EvoluxApp() {
     val seriesDaHome = remember(catalogoHome) { catalogoHome.series.take(24).toList() }
     val favoritos = remember { mutableStateListOf<Midia>() }
 
-    LaunchedEffect(preferencias, catalogoAtual) {
+    LaunchedEffect(preferencias, catalogoChave) {
         val idsSalvos = withContext(Dispatchers.IO) {
             preferencias.getStringSet(CHAVE_FAVORITOS, emptySet()).orEmpty()
         }
@@ -551,7 +553,7 @@ fun EvoluxApp() {
         favoritos.addAll(favoritosEncontrados)
     }
 
-    val canaisFavoritos = remember(catalogoAtual, canaisFavoritosIds) {
+    val canaisFavoritos = remember(catalogoChave, canaisFavoritosIds) {
         catalogoAtual.canais.filter { it.id in canaisFavoritosIds }
     }
     val aoAlternarFavoritoCanal: (com.evolux.tv.data.Canal) -> Unit = { canal ->
@@ -578,7 +580,7 @@ fun EvoluxApp() {
     val ocultasSeries = categoriasOcultas.filter { it.startsWith("series|") }.map { it.substringAfter('|') }.toSet()
     val categorias by produceState<Triple<List<String>, List<String>, List<String>>>(
         initialValue = Triple(emptyList(), emptyList(), emptyList()),
-        key1 = catalogoAtual
+        key1 = catalogoChave
     ) {
         value = withContext(Dispatchers.Default) {
             Triple(
