@@ -337,8 +337,8 @@ fun EvoluxApp() {
         }
     }
 
-    LaunchedEffect(telaAtual, catalogoPronto, catalogoPreview, playlistUrlAtual, carregandoCatalogo) {
-        if (telaAtual != Tela.INICIO && catalogoPreview != null && !catalogoPronto && !carregandoCatalogo && !tentativaRestauracaoCompleta) {
+    LaunchedEffect(catalogoPronto, catalogoPreview, playlistUrlAtual, carregandoCatalogo, tentativaRestauracaoCompleta) {
+        if (catalogoPreview != null && !catalogoPronto && !carregandoCatalogo && !tentativaRestauracaoCompleta) {
             restaurarCatalogoCompletoDoCache()
         }
     }
@@ -528,9 +528,12 @@ fun EvoluxApp() {
 
     // A Home e as telas internas usam fontes separadas para evitar que a Home observe o catálogo integral.
     val catalogoHome: PlaylistCatalog = catalogoPreview ?: return
-    // A tela escolhida continua sendo renderizada mesmo durante a restauração.
-    // Enquanto o catálogo integral não chega, as telas usam o preview e se atualizam depois.
-    val catalogoAtual: PlaylistCatalog = catalogo ?: catalogoHome
+    // A Home permanece leve; apenas as telas internas recebem o catálogo completo.
+    val catalogoAtual: PlaylistCatalog = if (telaAtual == Tela.INICIO) {
+        catalogoHome
+    } else {
+        catalogo ?: catalogoHome
+    }
     // Chave O(1): nunca comparar estruturalmente as listas completas em cada recomposição.
     val catalogoChave = System.identityHashCode(catalogoAtual)
     reproducao?.let { atual ->
