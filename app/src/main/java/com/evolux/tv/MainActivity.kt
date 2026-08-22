@@ -528,12 +528,9 @@ fun EvoluxApp() {
 
     // A Home e as telas internas usam fontes separadas para evitar que a Home observe o catálogo integral.
     val catalogoHome: PlaylistCatalog = catalogoPreview ?: return
-    val telaRenderizada = if (catalogo == null) Tela.INICIO else telaAtual
-    val catalogoAtual: PlaylistCatalog = if (telaRenderizada == Tela.INICIO) {
-        catalogoHome
-    } else {
-        catalogo ?: return
-    }
+    // A tela escolhida continua sendo renderizada mesmo durante a restauração.
+    // Enquanto o catálogo integral não chega, as telas usam o preview e se atualizam depois.
+    val catalogoAtual: PlaylistCatalog = catalogo ?: catalogoHome
     // Chave O(1): nunca comparar estruturalmente as listas completas em cada recomposição.
     val catalogoChave = System.identityHashCode(catalogoAtual)
     reproducao?.let { atual ->
@@ -664,7 +661,7 @@ fun EvoluxApp() {
                 .background(Color.Transparent)
         ) {
             TopNavBar(
-                telaSelecionada = telaRenderizada,
+                telaSelecionada = telaAtual,
                 aoSelecionar = {
                     if (it == Tela.SERIES) {
                         categoriaInicialSeries = null
@@ -674,7 +671,7 @@ fun EvoluxApp() {
                 }
             )
 
-            when (telaRenderizada) {
+            when (telaAtual) {
             Tela.INICIO -> HomeScreen(
                 destaques = destaques,
                 canaisCount = catalogoAtual.canais.size,
