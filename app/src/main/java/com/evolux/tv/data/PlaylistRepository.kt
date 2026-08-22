@@ -132,7 +132,9 @@ class PlaylistRepository {
         val leitorBuffer = leitor as? BufferedReader ?: leitor.buffered()
 
         while (true) {
-            val linha = leitorBuffer.readLine()?.trim() ?: break
+            // M3U padrão não usa espaços antes das diretivas/URLs. Evitar trim() por linha
+            // remove uma alocação de String para cada linha da playlist inteira.
+            val linha = leitorBuffer.readLine() ?: break
             when {
                 linha.startsWith("#EXTINF", ignoreCase = true) -> {
                     val atributos = atributosExtinf(linha)
