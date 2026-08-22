@@ -514,9 +514,9 @@ fun EvoluxApp() {
     }
 
     val previewDisponivel = homePronta && catalogoPreview != null
-    // O preview é exclusivo da Home. Nunca mostrar uma amostra como se fosse a aba completa.
-    val precisaCatalogoCompleto = telaAtual != Tela.INICIO && !catalogoPronto
-    if (catalogo == null && (!previewDisponivel || precisaCatalogoCompleto)) {
+    // A tela de carregamento só aparece quando não existe nem preview.
+    // Com a Home disponível, a restauração integral acontece em segundo plano e não bloqueia botões.
+    if (catalogo == null && !previewDisponivel) {
         CatalogoLoadingScreen(
             estado = estadoLogin,
             carregandoCatalogo = carregandoCatalogo,
@@ -528,7 +528,8 @@ fun EvoluxApp() {
 
     // A Home e as telas internas usam fontes separadas para evitar que a Home observe o catálogo integral.
     val catalogoHome: PlaylistCatalog = catalogoPreview ?: return
-    val catalogoAtual: PlaylistCatalog = if (telaAtual == Tela.INICIO) {
+    val telaRenderizada = if (catalogo == null) Tela.INICIO else telaAtual
+    val catalogoAtual: PlaylistCatalog = if (telaRenderizada == Tela.INICIO) {
         catalogoHome
     } else {
         catalogo ?: return
@@ -663,7 +664,7 @@ fun EvoluxApp() {
                 .background(Color.Transparent)
         ) {
             TopNavBar(
-                telaSelecionada = telaAtual,
+                telaSelecionada = telaRenderizada,
                 aoSelecionar = {
                     if (it == Tela.SERIES) {
                         categoriaInicialSeries = null
@@ -673,7 +674,7 @@ fun EvoluxApp() {
                 }
             )
 
-            when (telaAtual) {
+            when (telaRenderizada) {
             Tela.INICIO -> HomeScreen(
                 destaques = destaques,
                 canaisCount = catalogoAtual.canais.size,
