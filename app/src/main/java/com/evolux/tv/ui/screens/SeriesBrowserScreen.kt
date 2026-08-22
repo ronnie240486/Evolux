@@ -78,6 +78,7 @@ private data class GrupoSerie(
 fun SeriesBrowserScreen(
     itens: List<Midia>,
     categoriaInicial: String? = null,
+    servicoInicial: String? = null,
     aoAssistir: (Midia) -> Unit,
     categoriasOcultas: Set<String> = emptySet(),
     ordemInicial: OrdemCatalogo = OrdemCatalogo.PADRAO,
@@ -85,14 +86,19 @@ fun SeriesBrowserScreen(
     carregarEpisodios: suspend (Midia) -> List<Midia> = { emptyList() }
 ) {
     val chaveItens = Triple(itens.size, itens.firstOrNull()?.id, itens.lastOrNull()?.id)
-    val categorias by produceState<List<String>>(emptyList(), chaveItens, categoriasOcultas) {
+    val categorias by produceState<List<String>>(emptyList(), chaveItens, categoriasOcultas, servicoInicial) {
         value = withContext(Dispatchers.Default) {
-            itens.asSequence()
+            val reais = itens.asSequence()
                 .map { it.categoria.ifBlank { "Séries" } }
                 .distinct()
                 .filter { it !in categoriasOcultas }
                 .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it })
                 .toList()
+            if (!servicoInicial.isNullOrBlank() && servicoInicial !in reais) {
+                listOf(servicoInicial) + reais
+            } else {
+                reais
+            }
         }
     }
     var categoriaSelecionada by remember(categorias, categoriaInicial) {
@@ -105,10 +111,17 @@ fun SeriesBrowserScreen(
     var ordem by remember(chaveItens, ordemInicial) { mutableStateOf(ordemInicial) }
     var grupos by remember { mutableStateOf<List<GrupoSerie>>(emptyList()) }
     var preparandoGrupos by remember { mutableStateOf(true) }
-    LaunchedEffect(chaveItens, categoriaSelecionada, busca, ordem, categoriasOcultas) {
+    LaunchedEffect(chaveItens, categoriaSelecionada, busca, ordem, categoriasOcultas, servicoInicial) {
         preparandoGrupos = true
         val resultado = withContext(Dispatchers.Default) {
-            construirGruposSerie(itens, categoriaSelecionada, busca, ordem, categoriasOcultas)
+            construirGruposSerie(
+                itens = itens,
+                categoriaSelecionada = categoriaSelecionada,
+                busca = busca,
+                ordem = ordem,
+                categoriasOcultas = categoriasOcultas,
+                servicoInicial = servicoInicial
+            )
         }
         grupos = resultado
         preparandoGrupos = false
@@ -262,11 +275,22 @@ private fun construirGruposSerie(
     categoriaSelecionada: String,
     busca: String,
     ordem: OrdemCatalogo,
-    categoriasOcultas: Set<String>
+    categoriasOcultas: Set<String>,
+    servicoInicial: String? = null
 ): List<GrupoSerie> {
     val consulta = normalizarConsulta(busca)
+    val chavesServico = servicoInicial?.let(::chavesDoServico).orEmpty()
+    val usandoFiltroServico = chavesServico.isNotEmpty() && categoriaSelecionada == servicoInicial
     val resultado = itens.asSequence()
-        .filter { it.categoria.ifBlank { "Séries" } == categoriaSelecionada }
+        .filter { item ->
+            val categoria = item.categoria.ifBlank { "Séries" }
+            if (usandoFiltroServico) {
+                val categoriaNormalizada = chaveCategoriaServico(categoria)
+                chavesServico.any { categoriaNormalizada.contains(it) }
+            } else {
+                categoria == categoriaSelecionada
+            }
+        }
         .filter { it.categoria.ifBlank { "Séries" } !in categoriasOcultas }
         .groupBy { item ->
             val categoria = item.categoria.ifBlank { "Séries" }
@@ -561,6 +585,35 @@ private fun selecionarCapaSerie(episodios: List<Midia>): String {
         .firstOrNull()
         ?.key
         .orEmpty()
+}
+
+private fun chavesDoServico(nome: String): List<String> {
+    val chave = chaveCategoriaServico(nome)
+    return when {
+        "disney" in chave -> listOf("disney")
+        "netflix" in chave -> listOf("netflix")
+        "prime" in chave || "amazon" in chave -> listOf("prime", "amazon")
+        "max" in chave || "hbo" in chave -> listOf("max", "hbo")
+        "paramount" in chave -> listOf("paramount")
+        "globoplay" in chave -> listOf("globoplay")
+        "pluto" in chave -> listOf("pluto")
+        "crunchyroll" in chave -> listOf("crunchyroll")
+        "funimation" in chave -> listOf("funimation")
+        "discovery" in chave -> listOf("discovery")
+        "apple" in chave -> listOf("apple")
+        "star" in chave -> listOf("star")
+        else -> listOf(chave)
+    }
+}
+
+private fun chaveCategoriaServico(valor: String): String {
+    return normalizarConsulta(valor)
+        .replace("series", "")
+        .replace("serie", "")
+        .replace("plus", "")
+        .replace("mais", "")
+        .replace("+", "")
+        .replace("[^a-z0-9]".toRegex(), "")
 }
 
 private fun normalizarChave(valor: String): String = valor.trim().lowercase().replace("\\s+".toRegex(), " ")

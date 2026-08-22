@@ -143,6 +143,7 @@ fun EvoluxApp() {
         mutableStateOf(preferencias.getStringSet(CHAVE_CANAIS_FAVORITOS, emptySet()).orEmpty())
     }
     var categoriaInicialSeries by remember { mutableStateOf<String?>(null) }
+    var servicoInicialSeries by remember { mutableStateOf<String?>(null) }
 
     fun abreviarEquipe(nome: String): String {
         val limpo = nome.replace(Regex("[^A-Za-zÀ-ÿ0-9 ]"), " ")
@@ -468,6 +469,7 @@ fun EvoluxApp() {
     val abrirMidiaDaHome: (Midia) -> Unit = { midia ->
         if (midia.tipo == TipoMidia.SERIE) {
             categoriaInicialSeries = midia.categoria
+            servicoInicialSeries = null
             telaAtual = Tela.SERIES
         } else {
             abrirConteudo(midia.titulo, midia.streamUrl)
@@ -476,6 +478,7 @@ fun EvoluxApp() {
     val abrirDestaqueDaHome: (Destaque) -> Unit = { destaque ->
         if (destaque.tipo == TipoMidia.SERIE) {
             categoriaInicialSeries = destaque.categoria
+            servicoInicialSeries = null
             telaAtual = Tela.SERIES
         } else {
             abrirConteudo(destaque.titulo, destaque.streamUrl)
@@ -646,7 +649,10 @@ fun EvoluxApp() {
             TopNavBar(
                 telaSelecionada = telaAtual,
                 aoSelecionar = {
-                    if (it == Tela.SERIES) categoriaInicialSeries = null
+                    if (it == Tela.SERIES) {
+                        categoriaInicialSeries = null
+                        servicoInicialSeries = null
+                    }
                     telaAtual = it
                 }
             )
@@ -664,7 +670,16 @@ fun EvoluxApp() {
                 aoAssistirDestaque = abrirDestaqueDaHome,
                 aoAbrirCanais = { telaAtual = Tela.TV_AO_VIVO },
                 aoAbrirFilmes = { telaAtual = Tela.FILMES },
-                aoAbrirSeries = { telaAtual = Tela.SERIES },
+                aoAbrirSeries = {
+                    categoriaInicialSeries = null
+                    servicoInicialSeries = null
+                    telaAtual = Tela.SERIES
+                },
+                aoAbrirServico = { servico ->
+                    categoriaInicialSeries = null
+                    servicoInicialSeries = servico
+                    telaAtual = Tela.SERIES
+                },
                 jogosDoDia = jogosDoDia,
                 aoAbrirJogos = { telaAtual = Tela.JOGOS },
                 aoAbrirJogo = { jogo -> abrirConteudo("${jogo.timeCasaSigla} x ${jogo.timeVisitanteSigla}", jogo.streamUrl) },
@@ -696,6 +711,7 @@ fun EvoluxApp() {
             Tela.SERIES -> SeriesBrowserScreen(
                 itens = catalogoAtual.series,
                 categoriaInicial = categoriaInicialSeries,
+                servicoInicial = servicoInicialSeries,
                 aoAssistir = { abrirConteudo(it.episodioNome ?: it.titulo, it.streamUrl) },
                 categoriasOcultas = ocultasSeries,
                 ordemInicial = ordens["series"] ?: OrdemCatalogo.PADRAO,

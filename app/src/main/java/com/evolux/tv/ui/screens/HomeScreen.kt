@@ -49,6 +49,7 @@ fun HomeScreen(
     aoAbrirCanais: () -> Unit,
     aoAbrirFilmes: () -> Unit,
     aoAbrirSeries: () -> Unit,
+    aoAbrirServico: (String) -> Unit = {},
     jogosDoDia: List<Jogo> = emptyList(),
     aoAbrirJogos: () -> Unit = {},
     aoAbrirJogo: (Jogo) -> Unit = {},
@@ -159,13 +160,7 @@ fun HomeScreen(
             item {
                 FileiraLogosServicos(
                     servicos = servicosDaHome,
-                    aoSelecionar = { servico ->
-                        fileirasEspeciais
-                            .firstOrNull { it.servico == servico }
-                            ?.itens
-                            ?.firstOrNull()
-                            ?.let(aoAbrirMidia)
-                    }
+                    aoSelecionar = aoAbrirServico
                 )
             }
             fileirasGeraisDaHome.first.forEach { fileira ->
