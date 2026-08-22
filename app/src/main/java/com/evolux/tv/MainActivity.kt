@@ -352,11 +352,18 @@ fun EvoluxApp(atividadeScope: CoroutineScope) {
             homePronta = true
             playlistAtiva = indice
             preferencias.edit().putInt(CHAVE_PLAYLIST_ATIVA, indice).apply()
-            CatalogoCache.salvar(contexto, fingerprint, catalogoM3u)
-            carregarSeriesXtreamEmSegundoPlano(urlPlaylist, fingerprint, catalogoM3u)
+            // O catálogo já está completo neste ponto. Não mantenha a UI presa em 97/98%
+            // enquanto duas serializações grandes (cache detalhado + índice) são gravadas.
+            // A Home e as abas podem usar o catálogo em memória imediatamente; a persistência
+            // continua em segundo plano e não bloqueia o cliente.
+            progressoCatalogo = 100
+            carregandoCatalogo = false
             escopo.launch(Dispatchers.IO) {
-                CatalogoCache.salvarIndice(contexto, fingerprint, catalogoM3u)
+                runCatching {
+                    CatalogoCache.salvar(contexto, fingerprint, catalogoM3u)
+                }
             }
+            carregarSeriesXtreamEmSegundoPlano(urlPlaylist, fingerprint, catalogoM3u)
             return null
         } catch (erro: Exception) {
             return erro.message?.takeIf { it.isNotBlank() } ?: "Não foi possível interpretar o catálogo."
@@ -382,9 +389,6 @@ fun EvoluxApp(atividadeScope: CoroutineScope) {
                 tentativaRestauracaoCompleta = true
                 if (completo.series.none { it.id.startsWith("xtream_series_") }) {
                     carregarSeriesXtreamEmSegundoPlano(urlPlaylist, fingerprint, completo)
-                }
-                escopo.launch(Dispatchers.IO) {
-                    CatalogoCache.salvarIndice(contexto, fingerprint, completo)
                 }
             } else if (playlistUrlAtual == urlPlaylist) {
                 // Evita repetir infinitamente uma restauração que falhou.
