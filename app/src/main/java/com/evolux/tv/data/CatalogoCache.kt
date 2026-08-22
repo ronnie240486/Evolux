@@ -14,7 +14,9 @@ import java.security.MessageDigest
 
 object CatalogoCache {
     private const val NOME_ARQUIVO = "evolux-catalogo-cache-v4.bin"
+    private const val NOME_ARQUIVO_PREVIEW = "evolux-home-preview-v1.bin"
     private const val MAGIC = "EVOLUX-CATALOG-4"
+    private const val MAGIC_PREVIEW = "EVOLUX-HOME-PREVIEW-1"
     private const val PARSER_VERSION = "xtream-series-entities-v6-complete-catalog"
     // O catálogo real possui dezenas de milhares de itens; o limite precisa comportar o snapshot completo.
     private const val MAX_CACHE_BYTES = 256L * 1024L * 1024L
@@ -43,9 +45,14 @@ object CatalogoCache {
         limiteCanais: Int = 48,
         limiteMidias: Int = 200
     ): PlaylistCatalog? = withContext(Dispatchers.IO) {
-        val arquivo = validarArquivo(contexto) ?: return@withContext null
+        val arquivoPreview = File(contexto.filesDir, NOME_ARQUIVO_PREVIEW)
+        val previewDireto = lerPreviewDireto(arquivoPreview, fingerprint)
+        if (previewDireto != null) return@withContext previewDireto
+
+        // Compatibilidade com a versão anterior: migra o preview do cache grande uma única vez.
+        val arquivoCompleto = validarArquivo(contexto) ?: return@withContext null
         runCatching {
-            DataInputStream(BufferedInputStream(FileInputStream(arquivo))).use { entrada ->
+            DataInputStream(BufferedInputStream(FileInputStream(arquivoCompleto))).use { entrada ->
                 if (!validarCabecalho(entrada, fingerprint)) return@use null
                 val canais = readCanaisPreview(entrada, limiteCanais)
                 val filmes = readMidiasPreview(entrada, limiteMidias)
@@ -55,8 +62,58 @@ object CatalogoCache {
                 else PlaylistCatalog(canais, filmes, series, truncado)
             }
         }.getOrElse {
+            arquivoCompleto.delete()
+            null
+        }?.also { salvarPreviewInterno(arquivoPreview, fingerprint, it) }
+    }
+
+    suspend fun salvarPreview(
+        contexto: Context,
+        fingerprint: String,
+        preview: PlaylistCatalog
+    ) = withContext(Dispatchers.IO) {
+        salvarPreviewInterno(File(contexto.filesDir, NOME_ARQUIVO_PREVIEW), fingerprint, preview)
+    }
+
+    private fun lerPreviewDireto(arquivo: File, fingerprint: String): PlaylistCatalog? {
+        if (!arquivo.exists() || arquivo.length() > 8L * 1024L * 1024L) return null
+        return runCatching {
+            DataInputStream(BufferedInputStream(FileInputStream(arquivo))).use { entrada ->
+                if (entrada.readUTF() != MAGIC_PREVIEW) return@use null
+                if (entrada.readUTF() != fingerprint) return@use null
+                val canais = readCanais(entrada)
+                val filmes = readMidias(entrada)
+                val series = readMidias(entrada)
+                val truncado = entrada.readBoolean()
+                if (canais.isEmpty() || filmes.isEmpty() || series.isEmpty()) null
+                else PlaylistCatalog(canais, filmes, series, truncado)
+            }
+        }.getOrElse {
             arquivo.delete()
             null
+        }
+    }
+
+    private fun salvarPreviewInterno(arquivo: File, fingerprint: String, preview: PlaylistCatalog) {
+        val temporario = File(arquivo.parentFile, "${arquivo.name}.tmp")
+        runCatching {
+            DataOutputStream(BufferedOutputStream(FileOutputStream(temporario))).use { saida ->
+                saida.writeUTF(MAGIC_PREVIEW)
+                saida.writeUTF(fingerprint)
+                writeCanais(saida, preview.canais)
+                writeMidias(saida, preview.filmes)
+                writeMidias(saida, preview.series)
+                saida.writeBoolean(preview.truncado)
+            }
+            if (arquivo.exists() && !arquivo.delete()) {
+                temporario.delete()
+            } else {
+                val renomeado = temporario.renameTo(arquivo)
+                if (!renomeado) {
+                    temporario.delete()
+                }
+            }
+            Unit
         }
     }
 
