@@ -41,6 +41,7 @@ import com.evolux.tv.data.JogosDoDiaRepository
 import com.evolux.tv.data.OrdemCatalogo
 import com.evolux.tv.data.ResultadoConfiguracao
 import com.evolux.tv.data.XtreamRepository
+import com.evolux.tv.data.normalizarConsulta
 import com.evolux.tv.data.gerarDestaques
 import com.evolux.tv.data.gerarFileirasEspeciais
 import com.evolux.tv.ui.components.Tela
@@ -72,6 +73,13 @@ private data class HomePresentation(
 private fun lerOrdem(valor: String?): OrdemCatalogo = runCatching {
     OrdemCatalogo.valueOf(valor.orEmpty())
 }.getOrDefault(OrdemCatalogo.PADRAO)
+
+private fun chaveNomeSerie(midia: Midia): String {
+    val nome = midia.serieNome?.takeIf { it.isNotBlank() } ?: midia.titulo
+    return normalizarConsulta(nome)
+        .replace("(?i)\\b(s|t|season|temporada)\\s*\\d{1,2}.*$".toRegex(), "")
+        .replace("[^a-z0-9]+".toRegex(), "")
+}
 
 private fun criarPreviewHome(catalogo: PlaylistCatalog): PlaylistCatalog {
     return PlaylistCatalog(
@@ -208,16 +216,40 @@ fun EvoluxApp() {
         catalogoBase: PlaylistCatalog
     ) {
         if (!XtreamRepository.pareceXtream(urlPlaylist)) return
+        if (catalogoBase.series.isNotEmpty() && catalogoBase.series.all { it.id.startsWith("xtream_series_") }) return
         escopo.launch {
             val seriesXtream = withTimeoutOrNull(15_000L) {
                 xtreamRepository.carregarSeries(urlPlaylist)
             }.orEmpty()
             if (seriesXtream.isEmpty() || playlistUrlAtual != urlPlaylist) return@launch
-            val atualizado = (catalogo ?: catalogoBase).copy(series = seriesXtream)
-            if (catalogoPronto && playlistUrlAtual == urlPlaylist && telaAtual != Tela.INICIO) {
+
+            // A M3U continua sendo a fonte dos episódios e das categorias reais.
+            // Apenas a imagem/sinopse da série é enriquecida com o registro oficial Xtream.
+            val oficiaisPorNome = seriesXtream
+                .filter { it.imagemUrl.isNotBlank() }
+                .associateBy { chaveNomeSerie(it) }
+            val seriesEnriquecidas = catalogoBase.series.map { item ->
+                val oficial = oficiaisPorNome[chaveNomeSerie(item)]
+                if (oficial == null) item else item.copy(
+                    imagemUrl = oficial.imagemUrl,
+                    nota = item.nota ?: oficial.nota,
+                    popularidade = item.popularidade ?: oficial.popularidade,
+                    sinopse = item.sinopse.ifBlank { oficial.sinopse },
+                    serieId = item.serieId ?: oficial.serieId,
+                    serieNome = item.serieNome ?: oficial.serieNome
+                )
+            }
+            val atualizado = catalogoBase.copy(series = seriesEnriquecidas)
+            if (playlistUrlAtual == urlPlaylist) {
                 catalogo = atualizado
+                catalogoPreview = criarPreviewHome(atualizado)
+                catalogoPronto = true
+                homePronta = true
             }
             CatalogoCache.salvar(contexto, fingerprint, atualizado)
+            escopo.launch(Dispatchers.IO) {
+                CatalogoCache.salvarIndice(contexto, fingerprint, atualizado)
+            }
         }
     }
 
@@ -246,6 +278,7 @@ fun EvoluxApp() {
                     tentativaRestauracaoCompleta = true
                     homePronta = true
                     playlistAtiva = indice
+                    carregarSeriesXtreamEmSegundoPlano(urlPlaylist, fingerprint, cacheCompleto)
                     return null
                 }
                 val cachePreview = CatalogoCache.carregarPreview(contexto, fingerprint)
@@ -308,6 +341,7 @@ fun EvoluxApp() {
             playlistAtiva = indice
             preferencias.edit().putInt(CHAVE_PLAYLIST_ATIVA, indice).apply()
             CatalogoCache.salvar(contexto, fingerprint, catalogoM3u)
+            carregarSeriesXtreamEmSegundoPlano(urlPlaylist, fingerprint, catalogoM3u)
             escopo.launch(Dispatchers.IO) {
                 CatalogoCache.salvarIndice(contexto, fingerprint, catalogoM3u)
             }
