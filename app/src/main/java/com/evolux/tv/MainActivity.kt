@@ -134,6 +134,7 @@ fun EvoluxApp() {
     var estadoLogin by remember { mutableStateOf<EstadoLoginMac>(EstadoLoginMac.Ocioso) }
     var validacaoEmAndamento by remember { mutableStateOf(false) }
     var carregandoCatalogo by remember { mutableStateOf(false) }
+    var restaurandoCatalogoCompleto by remember { mutableStateOf(false) }
     var progressoCatalogo by remember { mutableStateOf(1) }
     var segundosCatalogo by remember { mutableStateOf(0) }
     var reproducao by remember { mutableStateOf<Reproducao?>(null) }
@@ -211,7 +212,9 @@ fun EvoluxApp() {
             }.orEmpty()
             if (seriesXtream.isEmpty() || playlistUrlAtual != urlPlaylist) return@launch
             val atualizado = (catalogo ?: catalogoBase).copy(series = seriesXtream)
-            catalogo = atualizado
+            if (catalogoPronto && playlistUrlAtual == urlPlaylist) {
+                catalogo = atualizado
+            }
             CatalogoCache.salvar(contexto, fingerprint, atualizado)
         }
     }
@@ -229,17 +232,15 @@ fun EvoluxApp() {
         segundosCatalogo = 0
         try {
             if (!forcar) {
-                val cache = CatalogoCache.carregar(contexto, fingerprint)
-                if (cache != null) {
+                val cachePreview = CatalogoCache.carregarPreview(contexto, fingerprint)
+                if (cachePreview != null) {
+                    // Cache válido libera a Home sem reconstruir dezenas de milhares de objetos.
                     progressoCatalogo = 98
-                    catalogo = cache
-                    catalogoPreview = criarPreviewHome(cache)
-                    catalogoPronto = true
-                    homePronta = true
+                    catalogo = null
+                    catalogoPreview = criarPreviewHome(cachePreview)
+                    catalogoPronto = false
+                    homePronta = cachePreview.canais.size >= 24 && cachePreview.filmes.size >= 24 && cachePreview.series.size >= 24
                     playlistAtiva = indice
-                    if (cache.series.none { it.id.startsWith("xtream_series_") }) {
-                        carregarSeriesXtreamEmSegundoPlano(urlPlaylist, fingerprint, cache)
-                    }
                     return null
                 }
             }
@@ -258,23 +259,56 @@ fun EvoluxApp() {
                 }
             }
             progressoCatalogo = 98
-            catalogo = catalogoM3u
-            // Nunca entregue o catálogo integral à Home. Ele fica reservado às telas paginadas.
-            // Preserva o primeiro preview para que a troca para catalogoPronto não recomponha a Home.
+            // Mantém o catálogo integral somente no arquivo; a Home continua leve.
             if (!homePronta || catalogoPreview == null) {
                 catalogoPreview = criarPreviewHome(catalogoM3u)
             }
-            catalogoPronto = true
+            if (telaAtual != Tela.INICIO) {
+                // Se o usuário entrou numa aba durante a primeira carga, aproveite o catálogo já montado.
+                catalogo = catalogoM3u
+                catalogoPronto = true
+            } else {
+                catalogo = null
+                catalogoPronto = false
+            }
             homePronta = true
             playlistAtiva = indice
             preferencias.edit().putInt(CHAVE_PLAYLIST_ATIVA, indice).apply()
             CatalogoCache.salvar(contexto, fingerprint, catalogoM3u)
-            carregarSeriesXtreamEmSegundoPlano(urlPlaylist, fingerprint, catalogoM3u)
             return null
         } catch (erro: Exception) {
             return erro.message?.takeIf { it.isNotBlank() } ?: "Não foi possível interpretar o catálogo."
         } finally {
             carregandoCatalogo = false
+        }
+    }
+
+    suspend fun restaurarCatalogoCompletoDoCache() {
+        if (catalogoPronto || restaurandoCatalogoCompleto) return
+        val configuracao = configuracaoAtual ?: return
+        val urlPlaylist = playlistUrlAtual ?: return
+        val fingerprint = CatalogoCache.fingerprint(configuracao, urlPlaylist)
+        restaurandoCatalogoCompleto = true
+        carregandoCatalogo = true
+        progressoCatalogo = 98
+        try {
+            val completo = CatalogoCache.carregar(contexto, fingerprint)
+            if (completo != null && playlistUrlAtual == urlPlaylist) {
+                catalogo = completo
+                catalogoPronto = true
+                if (completo.series.none { it.id.startsWith("xtream_series_") }) {
+                    carregarSeriesXtreamEmSegundoPlano(urlPlaylist, fingerprint, completo)
+                }
+            }
+        } finally {
+            restaurandoCatalogoCompleto = false
+            carregandoCatalogo = false
+        }
+    }
+
+    LaunchedEffect(telaAtual, catalogoPronto, catalogoPreview, playlistUrlAtual) {
+        if (telaAtual != Tela.INICIO && catalogoPreview != null && !catalogoPronto) {
+            restaurarCatalogoCompletoDoCache()
         }
     }
 
@@ -299,8 +333,8 @@ fun EvoluxApp() {
                         it.startsWith("http://") || it.startsWith("https://")
                     }
                     val catalogoAtual = catalogo
-                    val precisaCarregar = catalogoAtual == null ||
-                        (catalogoAtual.canais.isEmpty() && catalogoAtual.filmes.isEmpty() && catalogoAtual.series.isEmpty()) ||
+                    val precisaCarregar = (catalogoAtual == null && catalogoPreview == null) ||
+                        (catalogoAtual != null && catalogoAtual.canais.isEmpty() && catalogoAtual.filmes.isEmpty() && catalogoAtual.series.isEmpty()) ||
                         macAutorizado != resultado.configuracao.mac ||
                         playlistUrlAtual !in novasFontes
                     configuracaoAtual = resultado.configuracao
