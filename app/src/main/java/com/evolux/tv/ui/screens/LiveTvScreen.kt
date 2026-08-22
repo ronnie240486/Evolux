@@ -37,7 +37,6 @@ import androidx.compose.ui.unit.dp
 import androidx.tv.foundation.lazy.grid.TvGridCells
 import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
 import androidx.tv.foundation.lazy.grid.items
-import androidx.tv.foundation.lazy.grid.itemsIndexed
 import androidx.tv.foundation.lazy.list.TvLazyRow
 import androidx.tv.foundation.lazy.list.items as tvRowItems
 import androidx.tv.material3.MaterialTheme
@@ -99,18 +98,8 @@ fun LiveTvScreen(
     } else {
         canaisFiltrados
     }
-    val tamanhoLote = 30
-    var limiteVisivel by remember(chaveCanais, categorias, categoriaSelecionada, busca, ordem) {
-        mutableIntStateOf(tamanhoLote)
-    }
-    val canaisDaPagina = remember(canaisParaExibir, limiteVisivel) {
-        canaisParaExibir.take(limiteVisivel)
-    }
-    val carregamentoContinuo = { indice: Int ->
-        if (indice >= canaisDaPagina.size - 8 && canaisDaPagina.size < canaisParaExibir.size) {
-            limiteVisivel = (limiteVisivel + tamanhoLote).coerceAtMost(canaisParaExibir.size)
-        }
-    }
+    // A grade virtualizada recebe todos os canais; somente os cards visíveis são compostos.
+    val canaisDaPagina = canaisParaExibir
 
     Column(modifier = Modifier.padding(24.dp)) {
         Text("TV AO VIVO", color = Dourado, fontWeight = FontWeight.Black, style = MaterialTheme.typography.headlineSmall)
@@ -152,9 +141,9 @@ fun LiveTvScreen(
             }
         }
         Spacer(Modifier.height(14.dp))
-        if (canaisParaExibir.isNotEmpty() && canaisDaPagina.size < canaisParaExibir.size) {
+        if (canaisParaExibir.isNotEmpty()) {
             Text(
-                text = "Mostrando ${canaisDaPagina.size} de ${canaisParaExibir.size} • continue descendo para carregar mais",
+                text = "${canaisParaExibir.size} canais • use as setas para navegar",
                 color = TextoCinza,
                 modifier = Modifier.padding(vertical = 4.dp)
             )
@@ -175,13 +164,12 @@ fun LiveTvScreen(
                     horizontalArrangement = Arrangement.spacedBy(if (colunas == 2) 10.dp else 16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                        itemsIndexed(canaisDaPagina, key = { _, item -> item.id }) { indice, canal ->
+                        items(canaisDaPagina, key = { it.id }) { canal ->
                             CardCanal(
                                 canal = canal,
                                 favorito = canaisFavoritos.any { it.id == canal.id },
                                 aoClicar = { aoAbrirCanal(canal) },
-                                aoLongClick = { aoAlternarFavorito(canal) },
-                                aoFocar = { carregamentoContinuo(indice) }
+                                aoLongClick = { aoAlternarFavorito(canal) }
                             )
                         }
                 }
@@ -243,8 +231,7 @@ private fun CardCanal(
     canal: Canal,
     favorito: Boolean,
     aoClicar: () -> Unit,
-    aoLongClick: () -> Unit,
-    aoFocar: () -> Unit = {}
+    aoLongClick: () -> Unit
 ) {
     val contexto = LocalContext.current
     val pedidoImagem = remember(canal.logoUrl) {
@@ -258,9 +245,7 @@ private fun CardCanal(
         onClick = aoClicar,
         onLongClick = aoLongClick,
         containerColor = Color(0xFF12172A),
-        modifier = Modifier.onFocusChanged {
-            if (it.isFocused) aoFocar()
-        }
+        modifier = Modifier
     ) {
         Column(
             modifier = Modifier.padding(16.dp),

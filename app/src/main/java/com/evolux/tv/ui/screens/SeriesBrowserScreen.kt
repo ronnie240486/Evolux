@@ -18,7 +18,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items as lazyItems
-import androidx.compose.foundation.lazy.itemsIndexed as lazyItemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -162,18 +161,8 @@ fun SeriesBrowserScreen(
     }
 
     val gruposDaCategoria = grupos.filter { it.categoria == categoriaSelecionada }
-    val tamanhoLote = 24
-    var limiteVisivel by remember(chaveItens, categorias, categoriaSelecionada, busca, ordem) {
-        mutableIntStateOf(tamanhoLote)
-    }
-    val gruposDaPagina = remember(gruposDaCategoria, limiteVisivel) {
-        gruposDaCategoria.take(limiteVisivel)
-    }
-    val carregamentoContinuo = { indice: Int ->
-        if (indice >= gruposDaPagina.size - 6 && gruposDaPagina.size < gruposDaCategoria.size) {
-            limiteVisivel = (limiteVisivel + tamanhoLote).coerceAtMost(gruposDaCategoria.size)
-        }
-    }
+    // A LazyColumn é virtualizada e pode receber todos os grupos sem montar tudo de uma vez.
+    val gruposDaPagina = gruposDaCategoria
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -231,14 +220,12 @@ fun SeriesBrowserScreen(
                 )
             }
         } else {
-            if (gruposDaPagina.size < gruposDaCategoria.size) {
-                Text(
-                    text = "Mostrando ${gruposDaPagina.size} de ${gruposDaCategoria.size} • continue descendo para carregar mais",
-                    color = TextoCinza,
-                    modifier = Modifier.padding(vertical = 4.dp)
-                )
-                Spacer(Modifier.height(6.dp))
-            }
+            Text(
+                text = "${gruposDaCategoria.size} séries • use as setas para navegar",
+                color = TextoCinza,
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
+            Spacer(Modifier.height(6.dp))
             LazyColumn(
                 contentPadding = PaddingValues(bottom = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -250,11 +237,10 @@ fun SeriesBrowserScreen(
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
-                lazyItemsIndexed(gruposDaPagina, key = { _, item -> item.chave }) { indice, grupo ->
+                lazyItems(gruposDaPagina, key = { it.chave }) { grupo ->
                     SerieCard(
                         grupo,
-                        carregando = chaveCarregando == grupo.chave,
-                        aoFocar = { carregamentoContinuo(indice) }
+                        carregando = chaveCarregando == grupo.chave
                     ) { abrirGrupo(grupo) }
                 }
             }
@@ -349,7 +335,6 @@ private fun FiltroCategoria(nome: String, selecionada: Boolean, aoClicar: () -> 
 private fun SerieCard(
     grupo: GrupoSerie,
     carregando: Boolean = false,
-    aoFocar: () -> Unit = {},
     aoClicar: () -> Unit
 ) {
     val contexto = LocalContext.current
@@ -366,7 +351,6 @@ private fun SerieCard(
         modifier = Modifier
             .fillMaxWidth()
             .widthIn(max = 900.dp)
-            .onFocusChanged { if (it.isFocused) aoFocar() }
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -493,7 +477,7 @@ private fun SeriesDetailDialog(
                 Text("Temporadas", color = TextoClaro, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(8.dp))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    lazyItemsIndexed(temporadas.keys.toList(), key = { _, numero -> numero }) { _, numero ->
+                    lazyItems(temporadas.keys.toList(), key = { it }) { numero ->
                         FiltroCategoria(
                             nome = "Temporada $numero",
                             selecionada = numero == temporadaSelecionada,

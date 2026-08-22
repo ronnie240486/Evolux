@@ -16,7 +16,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.tv.foundation.lazy.grid.items
-import androidx.tv.foundation.lazy.grid.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -110,18 +109,9 @@ fun GradeMidiaScreen(
     } else {
         itensFiltrados
     }
-    val tamanhoLote = 30
-    var limiteVisivel by remember(chaveItens, categorias, categoriaSelecionada, busca, ordem) {
-        mutableIntStateOf(tamanhoLote)
-    }
-    val itensDaPagina = remember(itensParaExibir, limiteVisivel) {
-        itensParaExibir.take(limiteVisivel)
-    }
-    val carregamentoContinuo = { indice: Int ->
-        if (indice >= itensDaPagina.size - 8 && itensDaPagina.size < itensParaExibir.size) {
-            limiteVisivel = (limiteVisivel + tamanhoLote).coerceAtMost(itensParaExibir.size)
-        }
-    }
+    // A grade é virtualizada: recebe todos os itens, mas compõe somente os cards visíveis.
+    // Não há mais um limite de primeira página escondendo o restante do catálogo.
+    val itensDaPagina = itensParaExibir
 
     Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 18.dp)) {
         Text(
@@ -185,9 +175,9 @@ fun GradeMidiaScreen(
         }
         Spacer(Modifier.height(14.dp))
 
-        if (itensParaExibir.isNotEmpty() && itensDaPagina.size < itensParaExibir.size) {
+        if (itensParaExibir.isNotEmpty()) {
             Text(
-                text = "Mostrando ${itensDaPagina.size} de ${itensParaExibir.size} • continue descendo para carregar mais",
+                text = "${itensParaExibir.size} itens • use as setas para navegar",
                 color = TextoCinza,
                 modifier = Modifier.padding(vertical = 4.dp)
             )
@@ -214,13 +204,12 @@ fun GradeMidiaScreen(
                 horizontalArrangement = Arrangement.spacedBy(if (colunas == 2) 10.dp else 16.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                itemsIndexed(itensDaPagina, key = { _, item -> item.id }) { indice, midia ->
+                items(itensDaPagina, key = { it.id }) { midia ->
                     CardMidiaPoster(
                         midia = midia,
                         favorito = ehFavorito(midia),
                         aoClicar = { aoSelecionar(midia) },
-                        aoAlternarFavorito = { aoAlternarFavorito(midia) },
-                        aoFocar = { carregamentoContinuo(indice) }
+                        aoAlternarFavorito = { aoAlternarFavorito(midia) }
                     )
                 }
             }
@@ -284,8 +273,7 @@ private fun CardMidiaPoster(
     midia: Midia,
     favorito: Boolean,
     aoClicar: () -> Unit,
-    aoAlternarFavorito: () -> Unit,
-    aoFocar: () -> Unit = {}
+    aoAlternarFavorito: () -> Unit
 ) {
     var focado by remember { mutableStateOf(false) }
     val contexto = LocalContext.current
@@ -302,10 +290,7 @@ private fun CardMidiaPoster(
             containerColor = Color(0xFF12172A),
             modifier = Modifier
                 .fillMaxWidth()
-                .onFocusChanged {
-                    focado = it.isFocused
-                    if (it.isFocused) aoFocar()
-                }
+                .onFocusChanged { focado = it.isFocused }
                 .scale(if (focado) 1.06f else 1f)
                 .semantics(mergeDescendants = true) {
                     contentDescription = if (favorito) {
