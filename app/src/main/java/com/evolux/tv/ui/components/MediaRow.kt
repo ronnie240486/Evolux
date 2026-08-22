@@ -40,7 +40,8 @@ fun MediaRow(
     modifier: Modifier = Modifier,
     emblemaServico: String? = null
 ) {
-    val itensDaHome = remember(itens) { itens.take(24) }
+    // A Home monta poucos cards por vez; as grades internas continuam paginadas separadamente.
+    val itensDaHome = remember(itens) { itens.take(8) }
     Column(modifier = modifier.fillMaxWidth()) {
         if (emblemaServico != null) {
             EmblemaServico(
