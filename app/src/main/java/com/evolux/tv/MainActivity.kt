@@ -114,6 +114,8 @@ fun EvoluxApp() {
     val escopo = rememberCoroutineScope()
     var macAutorizado by remember { mutableStateOf("") }
     var catalogo by remember { mutableStateOf<PlaylistCatalog?>(null) }
+    // Mantém o catálogo completo da sessão fora da composição da Home.
+    var catalogoCompletoDisponivel by remember { mutableStateOf<PlaylistCatalog?>(null) }
     var catalogoPreview by remember { mutableStateOf<PlaylistCatalog?>(null) }
     var catalogoPronto by remember { mutableStateOf(false) }
     var homePronta by remember { mutableStateOf(false) }
@@ -213,7 +215,8 @@ fun EvoluxApp() {
             if (seriesXtream.isEmpty() || playlistUrlAtual != urlPlaylist) return@launch
             val atualizado = (catalogo ?: catalogoBase).copy(series = seriesXtream)
             if (catalogoPronto && playlistUrlAtual == urlPlaylist) {
-                catalogo = atualizado
+                catalogoCompletoDisponivel = atualizado
+                if (telaAtual != Tela.INICIO) catalogo = atualizado
             }
             CatalogoCache.salvar(contexto, fingerprint, atualizado)
         }
@@ -237,6 +240,7 @@ fun EvoluxApp() {
                     // Cache válido libera a Home sem reconstruir dezenas de milhares de objetos.
                     progressoCatalogo = 98
                     catalogo = null
+                    catalogoCompletoDisponivel = null
                     catalogoPreview = criarPreviewHome(cachePreview)
                     catalogoPronto = false
                     homePronta = cachePreview.canais.size >= 24 && cachePreview.filmes.size >= 24 && cachePreview.series.size >= 24
@@ -263,6 +267,7 @@ fun EvoluxApp() {
             if (!homePronta || catalogoPreview == null) {
                 catalogoPreview = criarPreviewHome(catalogoM3u)
             }
+            catalogoCompletoDisponivel = catalogoM3u
             if (telaAtual != Tela.INICIO) {
                 // Se o usuário entrou numa aba durante a primeira carga, aproveite o catálogo já montado.
                 catalogo = catalogoM3u
@@ -292,8 +297,9 @@ fun EvoluxApp() {
         carregandoCatalogo = true
         progressoCatalogo = 98
         try {
-            val completo = CatalogoCache.carregar(contexto, fingerprint)
+            val completo = catalogoCompletoDisponivel ?: CatalogoCache.carregar(contexto, fingerprint)
             if (completo != null && playlistUrlAtual == urlPlaylist) {
+                catalogoCompletoDisponivel = completo
                 catalogo = completo
                 catalogoPronto = true
                 if (completo.series.none { it.id.startsWith("xtream_series_") }) {
@@ -333,7 +339,7 @@ fun EvoluxApp() {
                         it.startsWith("http://") || it.startsWith("https://")
                     }
                     val catalogoAtual = catalogo
-                    val precisaCarregar = (catalogoAtual == null && catalogoPreview == null) ||
+                    val precisaCarregar = (catalogoAtual == null && catalogoPreview == null && catalogoCompletoDisponivel == null) ||
                         (catalogoAtual != null && catalogoAtual.canais.isEmpty() && catalogoAtual.filmes.isEmpty() && catalogoAtual.series.isEmpty()) ||
                         macAutorizado != resultado.configuracao.mac ||
                         playlistUrlAtual !in novasFontes
@@ -354,6 +360,7 @@ fun EvoluxApp() {
                     } else if (precisaCarregar) {
                         // Não mostrar a Home com contadores zerados enquanto a playlist é baixada.
                         catalogo = null
+                        catalogoCompletoDisponivel = null
                         catalogoPreview = null
                         catalogoPronto = false
                         homePronta = false
@@ -479,7 +486,8 @@ fun EvoluxApp() {
     }
 
     val previewDisponivel = homePronta && catalogoPreview != null
-    if ((catalogo == null && !previewDisponivel) || (!catalogoPronto && telaAtual != Tela.INICIO)) {
+    val catalogoProntoParaAbas = catalogoPronto || catalogoCompletoDisponivel != null
+    if ((catalogo == null && !previewDisponivel) || (!catalogoProntoParaAbas && telaAtual != Tela.INICIO)) {
         CatalogoLoadingScreen(
             estado = estadoLogin,
             carregandoCatalogo = carregandoCatalogo,
@@ -491,10 +499,10 @@ fun EvoluxApp() {
 
     // A Home e as telas internas usam fontes separadas para evitar que a Home observe o catálogo integral.
     val catalogoHome: PlaylistCatalog = catalogoPreview ?: return
-    val catalogoAtual: PlaylistCatalog = if (telaAtual == Tela.INICIO || !catalogoPronto) {
+    val catalogoAtual: PlaylistCatalog = if (telaAtual == Tela.INICIO || !catalogoProntoParaAbas) {
         catalogoHome
     } else {
-        catalogo ?: return
+        catalogo ?: catalogoCompletoDisponivel ?: return
     }
     reproducao?.let { atual ->
         PlayerScreen(
