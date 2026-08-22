@@ -138,7 +138,10 @@ class PlaylistRepository {
                             atributos["group"],
                             atributos["category"]
                         ).joinToString(" | ")
-                    val dadosSerie = extrairDadosSerie(titulo, grupo)
+                    val grupoNormalizado = normalizarTexto(grupo)
+                    val grupoPodeConterSerie = grupoNormalizado.startsWith("series") ||
+                        grupoNormalizado.containsAny("serie", "show", "novela", "anime", "season", "temporada")
+                    val dadosSerie = if (grupoPodeConterSerie) extrairDadosSerie(titulo, grupo) else null
                     pendente = Entrada(
                         titulo = titulo,
                         grupo = grupo,
@@ -189,11 +192,14 @@ class PlaylistRepository {
                     // Libera a Home em lotes, sem esperar o M3U inteiro terminar.
                     // O primeiro lote aparece cedo e os seguintes atualizam as telas gradualmente.
                     if (totalItens >= proximoLote) {
+                        // O catálogo completo permanece nas listas finais. O callback recebe
+                        // somente uma amostra fixa para a UI; copiar todas as listas acumuladas
+                        // a cada lote gerava custo O(n²) e prendia TV Boxes fracas em 97%.
                         aoAtualizarParcial(
                             PlaylistCatalog(
-                                canais = canais.toList(),
-                                filmes = filmes.toList(),
-                                series = series.toList(),
+                                canais = canais.take(48).toList(),
+                                filmes = filmes.take(200).toList(),
+                                series = series.take(200).toList(),
                                 truncado = false
                             ),
                             totalItens
