@@ -135,6 +135,7 @@ fun EvoluxApp() {
     var validacaoEmAndamento by remember { mutableStateOf(false) }
     var carregandoCatalogo by remember { mutableStateOf(false) }
     var restaurandoCatalogoCompleto by remember { mutableStateOf(false) }
+    var tentativaRestauracaoCompleta by remember { mutableStateOf(false) }
     var progressoCatalogo by remember { mutableStateOf(1) }
     var segundosCatalogo by remember { mutableStateOf(0) }
     var reproducao by remember { mutableStateOf<Reproducao?>(null) }
@@ -241,6 +242,7 @@ fun EvoluxApp() {
                     catalogo = null
                     catalogoPreview = criarPreviewHome(cachePreview)
                     catalogoPronto = false
+                    tentativaRestauracaoCompleta = false
                     homePronta = cachePreview.canais.size >= 24 && cachePreview.filmes.size >= 24 && cachePreview.series.size >= 24
                     playlistAtiva = indice
                     return null
@@ -284,10 +286,11 @@ fun EvoluxApp() {
                     CatalogoCache.salvarPreview(contexto, fingerprint, previewFinal)
                 }
             }
-            // O catálogo integral é salvo e liberado; a Home nunca o mantém em memória.
-            // As abas o restauram do cache somente quando forem abertas.
-            catalogo = null
-            catalogoPronto = false
+            // Mantém o catálogo integral na sessão para as abas abrirem sem uma segunda leitura.
+            // A Home continua usando somente catalogoPreview e não compõe estas listas completas.
+            catalogo = catalogoM3u
+            catalogoPronto = true
+            tentativaRestauracaoCompleta = true
             homePronta = true
             playlistAtiva = indice
             preferencias.edit().putInt(CHAVE_PLAYLIST_ATIVA, indice).apply()
@@ -301,30 +304,41 @@ fun EvoluxApp() {
     }
 
     suspend fun restaurarCatalogoCompletoDoCache() {
-        if (catalogoPronto || restaurandoCatalogoCompleto) return
+        if (catalogoPronto || restaurandoCatalogoCompleto || tentativaRestauracaoCompleta) return
         val configuracao = configuracaoAtual ?: return
         val urlPlaylist = playlistUrlAtual ?: return
         val fingerprint = CatalogoCache.fingerprint(configuracao, urlPlaylist)
         restaurandoCatalogoCompleto = true
         carregandoCatalogo = true
         progressoCatalogo = 98
+        var precisaRecarregar = false
         try {
             val completo = CatalogoCache.carregar(contexto, fingerprint)
             if (completo != null && playlistUrlAtual == urlPlaylist) {
                 catalogo = completo
                 catalogoPronto = true
+                tentativaRestauracaoCompleta = true
                 if (completo.series.none { it.id.startsWith("xtream_series_") }) {
                     carregarSeriesXtreamEmSegundoPlano(urlPlaylist, fingerprint, completo)
                 }
+            } else if (playlistUrlAtual == urlPlaylist) {
+                // Evita repetir infinitamente uma restauração que falhou.
+                tentativaRestauracaoCompleta = true
+                precisaRecarregar = true
             }
         } finally {
             restaurandoCatalogoCompleto = false
             carregandoCatalogo = false
         }
+        if (precisaRecarregar && playlistUrlAtual == urlPlaylist) {
+            Toast.makeText(contexto, "Não foi possível abrir o cache completo. Recarregando a lista uma vez.", Toast.LENGTH_LONG).show()
+            val erro = carregarCatalogo(configuracao, playlistAtiva, forcar = true)
+            if (erro != null) Toast.makeText(contexto, erro, Toast.LENGTH_LONG).show()
+        }
     }
 
     LaunchedEffect(telaAtual, catalogoPronto, catalogoPreview, playlistUrlAtual, carregandoCatalogo) {
-        if (telaAtual != Tela.INICIO && catalogoPreview != null && !catalogoPronto && !carregandoCatalogo) {
+        if (telaAtual != Tela.INICIO && catalogoPreview != null && !catalogoPronto && !carregandoCatalogo && !tentativaRestauracaoCompleta) {
             restaurarCatalogoCompletoDoCache()
         }
     }
@@ -373,6 +387,7 @@ fun EvoluxApp() {
                         catalogo = null
                         catalogoPreview = null
                         catalogoPronto = false
+                        tentativaRestauracaoCompleta = false
                         homePronta = false
                         escopo.launch {
                             val erroCatalogo = carregarCatalogo(resultado.configuracao, playlistAtiva)
