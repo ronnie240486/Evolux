@@ -487,7 +487,7 @@ fun EvoluxApp() {
 
     val previewDisponivel = homePronta && catalogoPreview != null
     val catalogoProntoParaAbas = catalogoPronto || catalogoCompletoDisponivel != null
-    if ((catalogo == null && !previewDisponivel) || (!catalogoProntoParaAbas && telaAtual != Tela.INICIO)) {
+    if (catalogo == null && !previewDisponivel) {
         CatalogoLoadingScreen(
             estado = estadoLogin,
             carregandoCatalogo = carregandoCatalogo,
