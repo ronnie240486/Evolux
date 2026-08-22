@@ -24,13 +24,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -138,7 +141,10 @@ fun SeriesBrowserScreen(
     var serieSelecionada by remember { mutableStateOf<GrupoSerie?>(null) }
     var episodiosCarregados by remember { mutableStateOf<Map<String, List<Midia>>>(emptyMap()) }
     var chaveCarregando by remember { mutableStateOf<String?>(null) }
-    val escopo = rememberCoroutineScope()
+    val escopo = remember { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
+    DisposableEffect(Unit) {
+        onDispose { escopo.cancel() }
+    }
 
     fun abrirGrupo(grupo: GrupoSerie) {
         val episodiosExistentes = episodiosCarregados[grupo.chave]
