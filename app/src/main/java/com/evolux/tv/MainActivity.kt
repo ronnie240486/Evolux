@@ -203,14 +203,27 @@ fun EvoluxApp() {
     }
 
     LaunchedEffect(macLogico) {
+        var tentativasFalhas = 0
         while (isActive) {
             if (macAutorizado.isBlank()) {
+                if (tentativasFalhas >= 2) {
+                    // Já tentou 3x (1 inicial + 2 automáticas) e falhou: para de tentar
+                    // sozinho e deixa a tela de erro com botão manual (aoTentarLogin).
+                    break
+                }
                 validarAcesso(macLogico, mostrarCarregando = true)
+                if (estadoLogin is EstadoLoginMac.Erro) {
+                    tentativasFalhas++
+                } else {
+                    tentativasFalhas = 0
+                }
+                delay(5_000)
             } else {
-                // Revalida a configuração e a playlist para reconhecer troca no painel.
+                // Já autorizado: revalida em background bem mais espaçado
+                // (só pra pegar troca de playlist/painel), sem travar a UI.
                 validarAcesso(macLogico, mostrarCarregando = false)
+                delay(300_000)
             }
-            delay(5_000)
         }
     }
 
