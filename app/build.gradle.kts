@@ -17,13 +17,17 @@ android {
 
     signingConfigs {
         create("release") {
-            val ksPath = System.getenv("KEYSTORE_PATH")
-            if (!ksPath.isNullOrBlank()) {
-                storeFile = file(ksPath)
-                storePassword = System.getenv("KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("KEY_ALIAS")
-                keyPassword = System.getenv("KEY_PASSWORD")
-            }
+            // Prioridade: variáveis de ambiente (secrets do CI, pra quando você
+            // trocar pela keystore definitiva de produção). Se não existirem,
+            // cai automaticamente na keystore de teste já incluída no repo,
+            // pra sempre sair um APK instalável sem configuração extra.
+            val envKeystore = System.getenv("KEYSTORE_PATH")
+            val useEnv = !envKeystore.isNullOrBlank()
+
+            storeFile = file(if (useEnv) envKeystore!! else "${rootProject.projectDir}/keystore/evolux-release.keystore")
+            storePassword = if (useEnv) System.getenv("KEYSTORE_PASSWORD") else "Evolux@2026Temp"
+            keyAlias = if (useEnv) System.getenv("KEY_ALIAS") else "evolux"
+            keyPassword = if (useEnv) System.getenv("KEY_PASSWORD") else "Evolux@2026Temp"
         }
     }
 
@@ -35,11 +39,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Só assina se as variáveis de ambiente (secrets do CI) existirem.
-            // Build local sem elas continua gerando APK de release sem assinatura.
-            if (!System.getenv("KEYSTORE_PATH").isNullOrBlank()) {
-                signingConfig = signingConfigs.getByName("release")
-            }
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
