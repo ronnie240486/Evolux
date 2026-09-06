@@ -126,6 +126,10 @@ fun EvoluxApp() {
         playlistUrlAtual = urlPlaylist
         val fingerprint = CatalogoCache.fingerprint(configuracao, urlPlaylist)
         carregandoCatalogo = true
+        if (estadoLogin is EstadoLoginMac.Carregando) {
+            val atual = estadoLogin as EstadoLoginMac.Carregando
+            estadoLogin = atual.copy(etapa = "Baixando lista de canais...")
+        }
         try {
             if (!forcar) {
                 val cache = CatalogoCache.carregar(contexto, fingerprint)
@@ -161,7 +165,9 @@ fun EvoluxApp() {
     suspend fun validarAcesso(macInformado: String, mostrarCarregando: Boolean = true) {
         if (validacaoEmAndamento) return
         validacaoEmAndamento = true
-        if (mostrarCarregando || macAutorizado.isBlank()) estadoLogin = EstadoLoginMac.Carregando()
+        if (mostrarCarregando || macAutorizado.isBlank()) {
+            estadoLogin = EstadoLoginMac.Carregando(etapa = "Validando MAC no servidor...")
+        }
         try {
             when (val resultado = repository.buscarConfiguracao(macInformado)) {
                 is ResultadoConfiguracao.Sucesso -> {
@@ -169,7 +175,11 @@ fun EvoluxApp() {
                     fontesConfiguradas = resultado.configuracao.playlistUrls.filter { it.startsWith("http://") || it.startsWith("https://") }
                     playlistAtiva = playlistAtiva.coerceIn(0, (fontesConfiguradas.size - 1).coerceAtLeast(0))
                     if (estadoLogin is EstadoLoginMac.Carregando) {
-                        estadoLogin = EstadoLoginMac.Carregando(porcentagem = 35, segundos = (estadoLogin as EstadoLoginMac.Carregando).segundos)
+                        estadoLogin = EstadoLoginMac.Carregando(
+                            porcentagem = 35,
+                            segundos = (estadoLogin as EstadoLoginMac.Carregando).segundos,
+                            etapa = "Verificando playlist..."
+                        )
                     }
                     val erroCatalogo = carregarCatalogo(resultado.configuracao, playlistAtiva)
                     if (erroCatalogo == null) {
@@ -236,7 +246,8 @@ fun EvoluxApp() {
                 if (estadoLogin is EstadoLoginMac.Carregando) {
                     estadoLogin = EstadoLoginMac.Carregando(
                         porcentagem = minOf(99, maxOf(1, segundos * 5)),
-                        segundos = segundos
+                        segundos = segundos,
+                        etapa = (estadoLogin as EstadoLoginMac.Carregando).etapa
                     )
                 }
             }

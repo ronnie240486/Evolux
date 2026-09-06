@@ -69,6 +69,12 @@ fun CatalogoLoadingScreen(estado: EstadoLoginMac) {
                 color = Dourado,
                 fontWeight = FontWeight.Bold
             )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = progresso.etapa,
+                color = TextoCinza,
+                fontWeight = FontWeight.SemiBold
+            )
             Spacer(Modifier.height(8.dp))
             Text(
                 text = "A lista autorizada será mantida em cache para a próxima abertura.",

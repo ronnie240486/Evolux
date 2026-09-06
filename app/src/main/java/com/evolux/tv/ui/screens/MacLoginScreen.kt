@@ -63,7 +63,7 @@ import com.evolux.tv.ui.theme.TextoClaro
 
 sealed interface EstadoLoginMac {
     data object Ocioso : EstadoLoginMac
-    data class Carregando(val porcentagem: Int = 1, val segundos: Int = 0) : EstadoLoginMac
+    data class Carregando(val porcentagem: Int = 1, val segundos: Int = 0, val etapa: String = "Conectando...") : EstadoLoginMac
     data class Erro(val mensagem: String, val detalhe: String? = null) : EstadoLoginMac
 }
 
@@ -244,6 +244,13 @@ fun MacLoginScreen(
                         Text(
                             "${estadoAtual.porcentagem}% concluído • ${estadoAtual.segundos}s",
                             color = Dourado,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            estadoAtual.etapa,
+                            color = TextoCinza,
+                            style = MaterialTheme.typography.bodySmall,
                             textAlign = TextAlign.Center
                         )
                     }
