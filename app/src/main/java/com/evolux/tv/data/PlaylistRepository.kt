@@ -33,7 +33,8 @@ class PlaylistRepository {
 
     suspend fun carregar(
         urlPlaylist: String,
-        aoProgresso: (bytesLidos: Long, totalBytes: Long?) -> Unit = { _, _ -> }
+        aoProgresso: (bytesLidos: Long, totalBytes: Long?) -> Unit = { _, _ -> },
+        aoParcial: (PlaylistCatalog) -> Unit = {}
     ): PlaylistCatalog = withContext(Dispatchers.IO) {
         val conexao = (URL(urlPlaylist).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
@@ -65,7 +66,7 @@ class PlaylistRepository {
                     parseJson(lerJsonLimitado(prefixo, fluxo))
                 } else {
                     val fluxoCompleto = SequenceInputStream(ByteArrayInputStream(prefixo), fluxo)
-                    fluxoCompleto.bufferedReader(StandardCharsets.UTF_8).use(::parseM3u)
+                    fluxoCompleto.bufferedReader(StandardCharsets.UTF_8).use { parseM3u(it, aoParcial) }
                 }
             }
         } finally {
@@ -136,7 +137,7 @@ class PlaylistRepository {
         return saida.toString(StandardCharsets.UTF_8.name()).trim()
     }
 
-    private fun parseM3u(leitor: Reader): PlaylistCatalog {
+    private fun parseM3u(leitor: Reader, aoParcial: (PlaylistCatalog) -> Unit = {}): PlaylistCatalog {
         data class Entrada(
             val titulo: String,
             val grupo: String,
@@ -153,6 +154,7 @@ class PlaylistRepository {
         var pendente: Entrada? = null
         var totalItens = 0
         var truncado = false
+        var ultimoAviso = System.currentTimeMillis()
         val leitorBuffer = leitor as? BufferedReader ?: leitor.buffered()
 
         while (true) {
@@ -213,6 +215,14 @@ class PlaylistRepository {
                         truncado = true
                     }
                     pendente = null
+
+                    // Publica um retrato parcial a cada ~800ms ou 300 itens, pra a UI
+                    // já mostrar conteúdo em vez de esperar o arquivo inteiro terminar.
+                    val agora = System.currentTimeMillis()
+                    if (totalItens % 300 == 0 || agora - ultimoAviso >= 800) {
+                        ultimoAviso = agora
+                        aoParcial(PlaylistCatalog(canais.toList(), filmes.toList(), series.toList(), truncado))
+                    }
                 }
             }
         }

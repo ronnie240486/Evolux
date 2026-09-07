@@ -140,19 +140,29 @@ fun EvoluxApp() {
                     return null
                 }
             }
-            val catalogoM3u = playlistRepository.carregar(urlPlaylist) { lidos, total ->
-                val lidosMb = lidos / 1024.0 / 1024.0
-                val etapaTexto = if (total != null) {
-                    val totalMb = total / 1024.0 / 1024.0
-                    "Baixando lista de canais... %.1f/%.1f MB".format(Locale.ROOT, lidosMb, totalMb)
-                } else {
-                    "Baixando lista de canais... %.1f MB".format(Locale.ROOT, lidosMb)
+            val catalogoM3u = playlistRepository.carregar(
+                urlPlaylist,
+                aoProgresso = { lidos, total ->
+                    val lidosMb = lidos / 1024.0 / 1024.0
+                    val etapaTexto = if (total != null) {
+                        val totalMb = total / 1024.0 / 1024.0
+                        "Baixando lista de canais... %.1f/%.1f MB".format(Locale.ROOT, lidosMb, totalMb)
+                    } else {
+                        "Baixando lista de canais... %.1f MB".format(Locale.ROOT, lidosMb)
+                    }
+                    if (estadoLogin is EstadoLoginMac.Carregando) {
+                        val atualEstado = estadoLogin as EstadoLoginMac.Carregando
+                        estadoLogin = atualEstado.copy(etapa = etapaTexto)
+                    }
+                },
+                aoParcial = { parcial ->
+                    // Mostra a interface assim que os primeiros itens chegarem, em vez
+                    // de esperar o arquivo inteiro terminar de baixar.
+                    if (catalogo == null || forcar) {
+                        catalogo = parcial
+                    }
                 }
-                if (estadoLogin is EstadoLoginMac.Carregando) {
-                    val atualEstado = estadoLogin as EstadoLoginMac.Carregando
-                    estadoLogin = atualEstado.copy(etapa = etapaTexto)
-                }
-            }
+            )
             val seriesXtream = if (XtreamRepository.pareceXtream(urlPlaylist)) {
                 xtreamRepository.carregarSeries(urlPlaylist)
             } else {
