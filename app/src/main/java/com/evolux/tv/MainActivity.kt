@@ -12,14 +12,21 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
+import androidx.tv.material3.Text
 import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -156,11 +163,9 @@ fun EvoluxApp() {
                     }
                 },
                 aoParcial = { parcial ->
-                    // Mostra a interface assim que os primeiros itens chegarem, em vez
-                    // de esperar o arquivo inteiro terminar de baixar.
-                    if (catalogo == null || forcar) {
-                        catalogo = parcial
-                    }
+                    // Mostra a interface assim que os primeiros itens chegarem e continua
+                    // atualizando a cada novo lote, em vez de travar no primeiro pedaço.
+                    catalogo = parcial
                 }
             )
             val seriesXtream = if (XtreamRepository.pareceXtream(urlPlaylist)) {
@@ -499,6 +504,23 @@ fun EvoluxApp() {
                     telaAtual = Tela.INICIO
                 }
             )
+        }
+
+        if (carregandoCatalogo) {
+            val etapaTexto = (estadoLogin as? EstadoLoginMac.Carregando)?.etapa
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 20.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Color(0xE6111726))
+                    .padding(horizontal = 18.dp, vertical = 10.dp)
+            ) {
+                Text(
+                    text = "⏳ Ainda carregando mais conteúdo" + (etapaTexto?.let { " — $it" } ?: "..."),
+                    color = Color(0xFFF4D35E)
+                )
+            }
         }
     }
 }
