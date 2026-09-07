@@ -41,10 +41,17 @@ class PlaylistRepository {
             connectTimeout = 15_000
             readTimeout = 20_000
             useCaches = false
+            instanceFollowRedirects = true
             setRequestProperty(
                 "Accept",
-                "audio/x-mpegurl, application/vnd.apple.mpegurl, application/json, text/plain"
+                "audio/x-mpegurl, application/vnd.apple.mpegurl, application/json, text/plain, */*"
             )
+            // Muitos paineis de IPTV limitam a velocidade pra clientes com
+            // User-Agent generico/desconhecido (o padrao do java.net.HttpURLConnection
+            // e um dos que costuma levar throttling), liberando full-speed so pra
+            // players "reconhecidos". Identificar como VLC evita essa limitacao.
+            setRequestProperty("User-Agent", "VLC/3.0.20 LibVLC/3.0.20")
+            setRequestProperty("Connection", "keep-alive")
         }
 
         try {
