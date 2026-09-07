@@ -31,7 +31,10 @@ class PlaylistRepository {
         val episodioNumero: Int?
     )
 
-    suspend fun carregar(urlPlaylist: String): PlaylistCatalog = withContext(Dispatchers.IO) {
+    suspend fun carregar(
+        urlPlaylist: String,
+        aoProgresso: (bytesLidos: Long, totalBytes: Long?) -> Unit = { _, _ -> }
+    ): PlaylistCatalog = withContext(Dispatchers.IO) {
         val conexao = (URL(urlPlaylist).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             connectTimeout = 15_000
@@ -49,7 +52,9 @@ class PlaylistRepository {
             if (codigo !in 200..299) throw IOException("Playlist respondeu HTTP $codigo")
             if ("text/html" in contentType) throw IOException("Playlist respondeu HTML")
 
-            val entrada = conexao.inputStream ?: throw IOException("Playlist sem conteúdo")
+            val tamanhoTotal = conexao.contentLengthLong.takeIf { it > 0 }
+            val entradaBruta = conexao.inputStream ?: throw IOException("Playlist sem conteúdo")
+            val entrada = ContadorInputStream(entradaBruta, tamanhoTotal, aoProgresso)
             entrada.use { fluxo ->
                 val prefixo = lerPrefixo(fluxo)
                 val prefixoTrimmed = prefixo.toString(StandardCharsets.UTF_8).trimStart()
@@ -65,6 +70,38 @@ class PlaylistRepository {
             }
         } finally {
             conexao.disconnect()
+        }
+    }
+
+    /** Envolve o stream de download só pra reportar progresso em bytes (throttlado), sem mudar o conteúdo lido. */
+    private class ContadorInputStream(
+        origem: InputStream,
+        private val total: Long?,
+        private val aoProgresso: (Long, Long?) -> Unit
+    ) : java.io.FilterInputStream(origem) {
+        private var lidos = 0L
+        private var ultimoAviso = 0L
+
+        private fun registrar(quantidade: Int) {
+            if (quantidade <= 0) return
+            lidos += quantidade
+            val agora = System.currentTimeMillis()
+            if (agora - ultimoAviso >= 400) {
+                ultimoAviso = agora
+                aoProgresso(lidos, total)
+            }
+        }
+
+        override fun read(): Int {
+            val b = super.read()
+            if (b >= 0) registrar(1)
+            return b
+        }
+
+        override fun read(b: ByteArray, off: Int, len: Int): Int {
+            val quantidade = super.read(b, off, len)
+            if (quantidade > 0) registrar(quantidade)
+            return quantidade
         }
     }
 

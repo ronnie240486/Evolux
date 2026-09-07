@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -139,7 +140,19 @@ fun EvoluxApp() {
                     return null
                 }
             }
-            val catalogoM3u = playlistRepository.carregar(urlPlaylist)
+            val catalogoM3u = playlistRepository.carregar(urlPlaylist) { lidos, total ->
+                val lidosMb = lidos / 1024.0 / 1024.0
+                val etapaTexto = if (total != null) {
+                    val totalMb = total / 1024.0 / 1024.0
+                    "Baixando lista de canais... %.1f/%.1f MB".format(Locale.ROOT, lidosMb, totalMb)
+                } else {
+                    "Baixando lista de canais... %.1f MB".format(Locale.ROOT, lidosMb)
+                }
+                if (estadoLogin is EstadoLoginMac.Carregando) {
+                    val atualEstado = estadoLogin as EstadoLoginMac.Carregando
+                    estadoLogin = atualEstado.copy(etapa = etapaTexto)
+                }
+            }
             val seriesXtream = if (XtreamRepository.pareceXtream(urlPlaylist)) {
                 xtreamRepository.carregarSeries(urlPlaylist)
             } else {
