@@ -505,6 +505,7 @@ fun EvoluxApp() {
                 }
             )
         }
+        }
 
         if (carregandoCatalogo) {
             val etapaTexto = (estadoLogin as? EstadoLoginMac.Carregando)?.etapa
@@ -523,7 +524,6 @@ fun EvoluxApp() {
             }
         }
     }
-}
 }
 
 private fun pertenceAFamiliaFilmes(categoria: String): Boolean {
