@@ -44,6 +44,7 @@ import com.evolux.tv.R
 import com.evolux.tv.data.EvoluxRepository
 import com.evolux.tv.data.EvoluxConfig
 import com.evolux.tv.data.CatalogoCache
+import com.evolux.tv.data.Destaque
 import com.evolux.tv.data.MacAddressUtils
 import com.evolux.tv.data.PlaylistCatalog
 import com.evolux.tv.data.PlaylistRepository
@@ -51,6 +52,7 @@ import com.evolux.tv.data.Midia
 import com.evolux.tv.data.OrdemCatalogo
 import com.evolux.tv.data.RenciaApiClient
 import com.evolux.tv.data.ResultadoConfiguracao
+import com.evolux.tv.data.TipoMidia
 import com.evolux.tv.data.XtreamRepository
 import com.evolux.tv.data.gerarDestaques
 import com.evolux.tv.data.gerarFileirasEspeciais
