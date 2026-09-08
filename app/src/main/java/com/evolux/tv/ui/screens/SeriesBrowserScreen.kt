@@ -1,5 +1,6 @@
 package com.evolux.tv.ui.screens
 
+import java.util.Locale
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -86,8 +87,8 @@ fun agruparGrupoSerie(todosItens: List<Midia>, referencia: Midia): GrupoSerie {
     }.ifEmpty { listOf(referencia) }
         .sortedWith(
             compareBy<Midia> { it.temporadaNumero ?: 1 }
-                .thenBy { it.episodioNumero ?: Int.MAX_VALUE }
-                .thenBy { it.titulo }
+                .thenBy { numeroEpisodioEfetivo(it) }
+                .thenBy { ordemNaPlaylist(it) }
         )
 
     return GrupoSerie(
@@ -136,8 +137,8 @@ fun SeriesBrowserScreen(
             .map { (chave, episodios) ->
                 val ordenados = episodios.sortedWith(
                     compareBy<Midia> { it.temporadaNumero ?: 1 }
-                        .thenBy { it.episodioNumero ?: Int.MAX_VALUE }
-                        .thenBy { it.titulo }
+                        .thenBy { numeroEpisodioEfetivo(it) }
+                        .thenBy { ordemNaPlaylist(it) }
                 )
                 GrupoSerie(
                     chave = chave,
@@ -516,14 +517,39 @@ private fun normalizarChave(valor: String): String = valor.trim().lowercase().re
 
 private fun removerMarcadorDeEpisodio(valor: String): String {
     var resultado = valor.replace("(?i)\\s*[-_.| ]*(s|t|season|temporada)\\s*\\d{1,2}.*$".toRegex(), "").trim()
-    // Novelas costumam nomear episódios por capítulo ("Cap 120", "Capítulo 120")
-    // ou por data ("15/09", "15-09-2026") em vez de S01E01 — sem isso, cada dia
-    // virava uma "série" própria com 1 episódio só.
+    // Novelas costumam nomear episódios por capítulo — em número ("Cap 120") ou
+    // por extenso ("Capítulo Um", "Capítulo Dois") — ou por data ("15/09").
+    // Sem isso, cada capítulo/dia virava uma "série" própria com 1 episódio só.
     resultado = resultado.replace(
-        "(?i)\\s*[-_.| ]+(cap[ií]tulo|cap\\.?)\\s*0*\\d{1,4}\\s*$".toRegex(), ""
+        "(?i)\\s*[-_.| ]+(cap[ií]tulo|cap\\.?)\\b.*$".toRegex(), ""
     ).trim()
     resultado = resultado.replace(
         "\\s*[-_.| ]*\\s*\\d{1,2}[/-]\\d{1,2}([/-]\\d{2,4})?\\s*$".toRegex(), ""
     ).trim()
     return resultado.trim('-', '.', '|', '_', ' ')
 }
+
+private val NUMEROS_POR_EXTENSO = mapOf(
+    "um" to 1, "uma" to 1, "dois" to 2, "duas" to 2, "tres" to 3, "quatro" to 4, "cinco" to 5,
+    "seis" to 6, "sete" to 7, "oito" to 8, "nove" to 9, "dez" to 10,
+    "onze" to 11, "doze" to 12, "treze" to 13, "catorze" to 14, "quatorze" to 14, "quinze" to 15,
+    "dezesseis" to 16, "dezessete" to 17, "dezoito" to 18, "dezenove" to 19, "vinte" to 20
+)
+
+/** Extrai o número de um capítulo escrito por extenso ("Capítulo Vinte"), se houver. */
+private fun numeroCapituloPorExtenso(titulo: String): Int? {
+    val encontro = Regex("(?i)cap[ií]tulo\\s+([a-zà-ú]+)").find(titulo) ?: return null
+    val palavra = encontro.groupValues[1].lowercase(Locale.ROOT)
+        .replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
+    return NUMEROS_POR_EXTENSO[palavra]
+}
+
+/** Posição original do item na playlist (embutida no id), usada como critério de
+ *  ordenação de fallback — muito mais confiável que ordenar por texto do título
+ *  quando não há número de episódio/capítulo explícito. */
+private fun ordemNaPlaylist(midia: Midia): Int {
+    return midia.id.removePrefix("playlist_").substringBefore('_').toIntOrNull() ?: Int.MAX_VALUE
+}
+
+private fun numeroEpisodioEfetivo(midia: Midia): Int =
+    midia.episodioNumero ?: numeroCapituloPorExtenso(midia.titulo) ?: Int.MAX_VALUE
