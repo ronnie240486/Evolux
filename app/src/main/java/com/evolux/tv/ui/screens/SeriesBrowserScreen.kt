@@ -515,5 +515,15 @@ private fun selecionarCapaSerie(episodios: List<Midia>): String {
 private fun normalizarChave(valor: String): String = valor.trim().lowercase().replace("\\s+".toRegex(), " ")
 
 private fun removerMarcadorDeEpisodio(valor: String): String {
-    return valor.replace("(?i)\\s*[-_.| ]*(s|t|season|temporada)\\s*\\d{1,2}.*$".toRegex(), "").trim()
+    var resultado = valor.replace("(?i)\\s*[-_.| ]*(s|t|season|temporada)\\s*\\d{1,2}.*$".toRegex(), "").trim()
+    // Novelas costumam nomear episódios por capítulo ("Cap 120", "Capítulo 120")
+    // ou por data ("15/09", "15-09-2026") em vez de S01E01 — sem isso, cada dia
+    // virava uma "série" própria com 1 episódio só.
+    resultado = resultado.replace(
+        "(?i)\\s*[-_.| ]+(cap[ií]tulo|cap\\.?)\\s*0*\\d{1,4}\\s*$".toRegex(), ""
+    ).trim()
+    resultado = resultado.replace(
+        "\\s*[-_.| ]*\\s*\\d{1,2}[/-]\\d{1,2}([/-]\\d{2,4})?\\s*$".toRegex(), ""
+    ).trim()
+    return resultado.trim('-', '.', '|', '_', ' ')
 }
