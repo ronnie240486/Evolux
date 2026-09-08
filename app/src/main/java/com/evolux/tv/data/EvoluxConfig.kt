@@ -14,7 +14,19 @@ data class EvoluxConfig(
     val logoUrl: String? = null,
     val bannerUrl: String? = null,
     val backgroundUrl: String? = null,
-    val iconUrl: String? = null
+    val iconUrl: String? = null,
+    val status: String? = null,
+    val messageTitle: String? = null,
+    val messageText: String? = null,
+    val messageImageUrl: String? = null,
+    val blockTitle: String? = null,
+    val blockMessage: String? = null,
+    val renewButtonText: String? = null,
+    val renewButtonUrl: String? = null,
+    val iconLiveTvUrl: String? = null,
+    val iconMoviesUrl: String? = null,
+    val iconSeriesUrl: String? = null,
+    val playlistSyncRequired: Boolean = false
 ) {
     val primeiraPlaylistValida: String?
         get() = playlistUrls.firstOrNull { it.startsWith("https://") || it.startsWith("http://") }
@@ -24,6 +36,7 @@ object EvoluxConfigParser {
     fun parse(json: String): EvoluxConfig? {
         return runCatching {
             val objeto = JSONObject(json)
+            val icones = objeto.optJSONObject("icons")
             EvoluxConfig(
                 registered = objeto.optBoolean("registered", false),
                 allowed = objeto.optBoolean("allowed", false),
@@ -38,7 +51,19 @@ object EvoluxConfigParser {
                 backgroundUrl = objeto.optNullableString("background_url")
                     ?: objeto.optNullableString("background"),
                 iconUrl = objeto.optNullableString("icon_url")
-                    ?: objeto.optNullableString("icon")
+                    ?: objeto.optNullableString("icon"),
+                status = objeto.optNullableString("status"),
+                messageTitle = objeto.optNullableString("message_title"),
+                messageText = objeto.optNullableString("message_text"),
+                messageImageUrl = objeto.optNullableString("message_image_url"),
+                blockTitle = objeto.optNullableString("block_title"),
+                blockMessage = objeto.optNullableString("block_message"),
+                renewButtonText = objeto.optNullableString("renew_button_text"),
+                renewButtonUrl = objeto.optNullableString("renew_button_url"),
+                iconLiveTvUrl = icones?.optNullableString("live_tv"),
+                iconMoviesUrl = icones?.optNullableString("movies"),
+                iconSeriesUrl = icones?.optNullableString("series"),
+                playlistSyncRequired = objeto.optBoolean("playlist_sync_required", false)
             )
         }.getOrNull()
     }

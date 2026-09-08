@@ -35,7 +35,8 @@ import androidx.tv.material3.Text
 fun PlayerScreen(
     titulo: String,
     streamUrl: String,
-    aoFechar: () -> Unit
+    aoFechar: () -> Unit,
+    aoFalhaDeRede: () -> Unit = {}
 ) {
     val contexto = LocalContext.current
     val player = remember(contexto) { ExoPlayer.Builder(contexto).build() }
@@ -55,6 +56,14 @@ fun PlayerScreen(
                     PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> "Tempo limite ao conectar ao stream."
                     PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED -> "Formato de mídia inválido ou incompatível."
                     else -> "O player não conseguiu reproduzir esta fonte."
+                }
+                // Reporta pro painel só erro real de rede/timeout/indisponibilidade,
+                // conforme a especificação (não erro de formato nem ação do usuário).
+                when (error.errorCode) {
+                    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+                    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT,
+                    PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
+                    PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> aoFalhaDeRede()
                 }
             }
         }

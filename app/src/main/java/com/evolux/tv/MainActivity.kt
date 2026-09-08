@@ -10,11 +10,17 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,7 +31,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.tv.material3.Button
 import androidx.tv.material3.Text
 import java.util.Locale
 import kotlinx.coroutines.delay
@@ -40,6 +49,7 @@ import com.evolux.tv.data.PlaylistCatalog
 import com.evolux.tv.data.PlaylistRepository
 import com.evolux.tv.data.Midia
 import com.evolux.tv.data.OrdemCatalogo
+import com.evolux.tv.data.RenciaApiClient
 import com.evolux.tv.data.ResultadoConfiguracao
 import com.evolux.tv.data.XtreamRepository
 import com.evolux.tv.data.gerarDestaques
@@ -95,6 +105,7 @@ fun EvoluxApp() {
     val macJaAutorizado = preferencias.getBoolean(CHAVE_MAC_AUTORIZADO, false)
     val repository = remember { EvoluxRepository() }
     val playlistRepository = remember { PlaylistRepository() }
+    val renciaApi = remember { RenciaApiClient(appId = "evolux") }
     val xtreamRepository = remember { XtreamRepository() }
     val escopo = rememberCoroutineScope()
     var macAutorizado by remember { mutableStateOf("") }
@@ -240,6 +251,75 @@ fun EvoluxApp() {
         }
     }
 
+    var avisoAtual by remember { mutableStateOf<RenciaApiClient.Aviso?>(null) }
+    var vencimentoAtual by remember { mutableStateOf<RenciaApiClient.Vencimento?>(null) }
+    var atualizacaoDisponivel by remember { mutableStateOf<RenciaApiClient.InfoAtualizacao?>(null) }
+    val ultimoModalVencimentoKey = remember(contexto) {
+        contexto.getSharedPreferences("evolux_prefs", android.content.Context.MODE_PRIVATE)
+    }
+
+    // Checa atualização uma vez, assim que o MAC for validado.
+    LaunchedEffect(macAutorizado) {
+        if (macAutorizado.isNotBlank()) {
+            val info = renciaApi.checarAtualizacao(macAutorizado)
+            if (info != null && info.updateAvailable) {
+                atualizacaoDisponivel = info
+            }
+        }
+    }
+
+    // Ciclo de 60s: heartbeat + avisos/sincronização + comandos remotos (seção 4.2 do contrato).
+    LaunchedEffect(macAutorizado) {
+        if (macAutorizado.isBlank()) return@LaunchedEffect
+        while (isActive) {
+            val conteudoAtual = reproducao?.titulo
+            renciaApi.heartbeat(macAutorizado, conteudoAtual)
+
+            val notificacoes = renciaApi.listNotifications(macAutorizado)
+            if (notificacoes != null) {
+                if (notificacoes.playlistSyncRequired && !carregandoCatalogo) {
+                    configuracaoAtual?.let { configuracao ->
+                        carregarCatalogo(configuracao, playlistAtiva, forcar = true)
+                    }
+                }
+                notificacoes.expiration?.let { venc ->
+                    if (venc.showModal && venc.modalKey != null) {
+                        val jaExibido = ultimoModalVencimentoKey.getString("ultimo_modal_vencimento", null)
+                        if (jaExibido != venc.modalKey) {
+                            vencimentoAtual = venc
+                        }
+                    }
+                }
+                if (avisoAtual == null) {
+                    avisoAtual = notificacoes.notifications.firstOrNull { !it.acknowledged }
+                }
+            }
+
+            renciaApi.buscarComandosRemotos(macAutorizado).forEach { comando ->
+                when (comando.command) {
+                    "reload_playlist", "sync_playlist" -> {
+                        configuracaoAtual?.let { configuracao ->
+                            carregarCatalogo(configuracao, playlistAtiva, forcar = true)
+                        }
+                        renciaApi.confirmarComandoRemoto(macAutorizado, comando.id, "executed")
+                    }
+                    "logout" -> {
+                        val macParaAck = macAutorizado
+                        preferencias.edit().putBoolean(CHAVE_MAC_AUTORIZADO, false).apply()
+                        macAutorizado = ""
+                        estadoLogin = EstadoLoginMac.Ocioso
+                        telaAtual = Tela.INICIO
+                        renciaApi.confirmarComandoRemoto(macParaAck, comando.id, "executed")
+                    }
+                    // Comando não reconhecido pelo APK: não confirma (nem executed, nem failed),
+                    // conforme a seção 5.2 do contrato.
+                }
+            }
+
+            delay(60_000)
+        }
+    }
+
     LaunchedEffect(macLogico) {
         var tentativasFalhas = 0
         while (isActive) {
@@ -319,7 +399,19 @@ fun EvoluxApp() {
         PlayerScreen(
             titulo = atual.titulo,
             streamUrl = atual.streamUrl,
-            aoFechar = { reproducao = null }
+            aoFechar = { reproducao = null },
+            aoFalhaDeRede = {
+                if (macAutorizado.isNotBlank()) {
+                    escopo.launch {
+                        val resultado = renciaApi.reportarFalhaReproducao(macAutorizado, playlistAtiva + 1)
+                        if (resultado?.switchApplied == true || resultado?.playlistSyncRequired == true) {
+                            configuracaoAtual?.let { configuracao ->
+                                carregarCatalogo(configuracao, playlistAtiva, forcar = true)
+                            }
+                        }
+                    }
+                }
+            }
         )
         return
     }
@@ -523,6 +615,46 @@ fun EvoluxApp() {
                 )
             }
         }
+
+        vencimentoAtual?.let { venc ->
+            InfoDialogSimples(
+                titulo = venc.modalTitle ?: "Aviso de vencimento",
+                mensagem = venc.modalMessage ?: "Sua assinatura está próxima do vencimento.",
+                aoFechar = {
+                    venc.modalKey?.let {
+                        ultimoModalVencimentoKey.edit().putString("ultimo_modal_vencimento", it).apply()
+                    }
+                    vencimentoAtual = null
+                }
+            )
+        } ?: avisoAtual?.let { aviso ->
+            InfoDialogSimples(
+                titulo = aviso.title ?: "Aviso",
+                mensagem = aviso.message ?: "",
+                aoFechar = {
+                    escopo.launch { renciaApi.ackNotification(macAutorizado, aviso.id) }
+                    avisoAtual = null
+                }
+            )
+        } ?: atualizacaoDisponivel?.let { info ->
+            InfoDialogSimples(
+                titulo = "Atualização disponível" + (info.version?.let { " ($it)" } ?: ""),
+                mensagem = info.releaseNotes ?: "Uma nova versão do Evolux está disponível.",
+                textoBotao = "Baixar agora",
+                aoFechar = { atualizacaoDisponivel = null },
+                aoConfirmar = {
+                    val link = info.apkLink ?: info.url
+                    if (!link.isNullOrBlank()) {
+                        runCatching {
+                            contexto.startActivity(
+                                android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(link))
+                            )
+                        }
+                    }
+                    if (!info.forceUpdate) atualizacaoDisponivel = null
+                }
+            )
+        }
     }
 }
 
@@ -534,4 +666,41 @@ private fun pertenceAFamiliaFilmes(categoria: String): Boolean {
 private fun pertenceAFamiliaSeries(categoria: String): Boolean {
     val normalizada = categoria.lowercase()
     return normalizada == "series" || normalizada.startsWith("series |") || normalizada.startsWith("series -")
+}
+
+@Composable
+private fun InfoDialogSimples(
+    titulo: String,
+    mensagem: String,
+    aoFechar: () -> Unit,
+    textoBotao: String = "OK",
+    aoConfirmar: (() -> Unit)? = null
+) {
+    Dialog(onDismissRequest = aoFechar) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(0.85f)
+                .wrapContentHeight()
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color(0xFF0B1020))
+                .padding(24.dp)
+        ) {
+            Text(text = titulo, color = Color(0xFFF4D35E), fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(text = mensagem, color = Color.White)
+            Spacer(modifier = Modifier.height(20.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                if (aoConfirmar != null) {
+                    Button(onClick = { aoFechar() }) { Text("Depois") }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Button(onClick = aoConfirmar) { Text(textoBotao) }
+                } else {
+                    Button(onClick = aoFechar) { Text(textoBotao) }
+                }
+            }
+        }
+    }
 }
