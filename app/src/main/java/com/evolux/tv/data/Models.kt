@@ -12,7 +12,9 @@ data class Destaque(
     val sinopse: String,
     val imagemUrl: String,
     val streamUrl: String,
-    val trailerUrl: String? = null
+    val trailerUrl: String? = null,
+    val tipo: TipoMidia = TipoMidia.FILME,
+    val midiaId: String? = null
 )
 
 enum class TipoMidia { FILME, SERIE }

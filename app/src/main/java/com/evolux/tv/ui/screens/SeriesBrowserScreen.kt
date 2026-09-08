@@ -58,7 +58,7 @@ import com.evolux.tv.ui.theme.FundoCard
 import com.evolux.tv.ui.theme.TextoCinza
 import com.evolux.tv.ui.theme.TextoClaro
 
-private data class GrupoSerie(
+data class GrupoSerie(
     val chave: String,
     val nome: String,
     val categoria: String,
@@ -66,6 +66,39 @@ private data class GrupoSerie(
     val sinopse: String,
     val episodios: List<Midia>
 )
+
+/**
+ * Agrupa todos os episódios da mesma série que uma mídia de referência,
+ * independente de filtro de categoria/busca. Usado para abrir o seletor
+ * de temporadas/episódios a partir de qualquer tela (ex.: destaque da Home).
+ */
+fun agruparGrupoSerie(todosItens: List<Midia>, referencia: Midia): GrupoSerie {
+    val categoriaRef = referencia.categoria.ifBlank { "Séries" }
+    val nomeBaseRef = referencia.serieNome?.takeIf { it.isNotBlank() }
+        ?: removerMarcadorDeEpisodio(referencia.titulo)
+    val chaveRef = "${normalizarChave(categoriaRef)}::${normalizarChave(nomeBaseRef)}"
+
+    val episodios = todosItens.filter { item ->
+        val categoria = item.categoria.ifBlank { "Séries" }
+        val nomeBase = item.serieNome?.takeIf { it.isNotBlank() }
+            ?: removerMarcadorDeEpisodio(item.titulo)
+        "${normalizarChave(categoria)}::${normalizarChave(nomeBase)}" == chaveRef
+    }.ifEmpty { listOf(referencia) }
+        .sortedWith(
+            compareBy<Midia> { it.temporadaNumero ?: 1 }
+                .thenBy { it.episodioNumero ?: Int.MAX_VALUE }
+                .thenBy { it.titulo }
+        )
+
+    return GrupoSerie(
+        chave = chaveRef,
+        nome = episodios.firstNotNullOfOrNull { it.serieNome } ?: nomeBaseRef,
+        categoria = categoriaRef,
+        capa = selecionarCapaSerie(episodios),
+        sinopse = episodios.firstOrNull { it.sinopse.isNotBlank() }?.sinopse.orEmpty(),
+        episodios = episodios
+    )
+}
 
 @Composable
 fun SeriesBrowserScreen(
@@ -316,7 +349,7 @@ private fun SerieCard(grupo: GrupoSerie, carregando: Boolean = false, aoClicar: 
 }
 
 @Composable
-private fun SeriesDetailDialog(
+fun SeriesDetailDialog(
     grupo: GrupoSerie,
     aoFechar: () -> Unit,
     aoAssistir: (Midia) -> Unit
@@ -328,11 +361,14 @@ private fun SeriesDetailDialog(
     val episodios = temporadas[temporadaSelecionada].orEmpty()
         .sortedWith(compareBy<Midia> { it.episodioNumero ?: Int.MAX_VALUE }.thenBy { it.titulo })
 
-    Dialog(onDismissRequest = aoFechar) {
+    Dialog(
+        onDismissRequest = aoFechar,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth(0.94f)
-                .height(620.dp)
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = 24.dp)
                 .clip(RoundedCornerShape(18.dp))
                 .background(Color(0xFF0B1020))
                 .padding(24.dp)

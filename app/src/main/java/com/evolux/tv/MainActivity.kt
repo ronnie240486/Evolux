@@ -421,6 +421,28 @@ fun EvoluxApp() {
             series = catalogoAtual.series.filter { pertenceAFamiliaSeries(it.categoria) }
         )
     }
+
+    var serieSelecionadaFora by remember { mutableStateOf<GrupoSerie?>(null) }
+
+    val abrirMidiaOuSerie: (Midia) -> Unit = { midia ->
+        if (midia.tipo == TipoMidia.SERIE) {
+            serieSelecionadaFora = agruparGrupoSerie(catalogoAtual.series, midia)
+        } else {
+            abrirConteudo(midia.titulo, midia.streamUrl)
+        }
+    }
+
+    val abrirDestaque: (Destaque) -> Unit = { destaque ->
+        val midiaRef = if (destaque.tipo == TipoMidia.SERIE) {
+            catalogoAtual.series.firstOrNull { it.id == destaque.midiaId }
+        } else null
+        if (midiaRef != null) {
+            serieSelecionadaFora = agruparGrupoSerie(catalogoAtual.series, midiaRef)
+        } else {
+            abrirConteudo(destaque.titulo, destaque.streamUrl)
+        }
+    }
+
     val todasAsMidias = remember(catalogoApresentacao) {
         catalogoApresentacao.filmes + catalogoApresentacao.series
     }
@@ -519,8 +541,8 @@ fun EvoluxApp() {
                 filmes = catalogoApresentacao.filmes,
                 series = catalogoApresentacao.series,
                 fileirasEspeciais = fileirasEspeciais,
-                aoAbrirMidia = { abrirConteudo(it.titulo, it.streamUrl) },
-                aoAssistirDestaque = { abrirConteudo(it.titulo, it.streamUrl) },
+                aoAbrirMidia = abrirMidiaOuSerie,
+                aoAssistirDestaque = abrirDestaque,
                 aoAbrirCanais = { telaAtual = Tela.TV_AO_VIVO },
                 aoAbrirFilmes = { telaAtual = Tela.FILMES },
                 aoAbrirSeries = { telaAtual = Tela.SERIES },
@@ -571,7 +593,7 @@ fun EvoluxApp() {
             Tela.FAVORITOS -> GradeMidiaScreen(
                 titulo = "Favoritos",
                 itens = favoritos,
-                aoSelecionar = { abrirConteudo(it.titulo, it.streamUrl) },
+                aoSelecionar = abrirMidiaOuSerie,
                 ehFavorito = ehFavorito,
                 aoAlternarFavorito = aoAlternarFavorito,
                 mensagemVazio = "Você ainda não adicionou nada aos favoritos."
@@ -614,6 +636,17 @@ fun EvoluxApp() {
                     color = Color(0xFFF4D35E)
                 )
             }
+        }
+
+        serieSelecionadaFora?.let { grupo ->
+            SeriesDetailDialog(
+                grupo = grupo,
+                aoFechar = { serieSelecionadaFora = null },
+                aoAssistir = { episodio ->
+                    serieSelecionadaFora = null
+                    abrirConteudo(episodio.episodioNome ?: episodio.titulo, episodio.streamUrl)
+                }
+            )
         }
 
         vencimentoAtual?.let { venc ->

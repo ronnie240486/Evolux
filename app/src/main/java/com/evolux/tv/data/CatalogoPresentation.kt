@@ -39,7 +39,9 @@ fun gerarDestaques(catalogo: PlaylistCatalog, limite: Int = 8): List<Destaque> {
                 ano = midia.categoria.ifBlank { "Evolux" },
                 sinopse = "Disponível na sua lista autorizada.",
                 imagemUrl = midia.imagemUrl,
-                streamUrl = midia.streamUrl
+                streamUrl = midia.streamUrl,
+                tipo = midia.tipo,
+                midiaId = midia.id
             )
         }
         .toList()
