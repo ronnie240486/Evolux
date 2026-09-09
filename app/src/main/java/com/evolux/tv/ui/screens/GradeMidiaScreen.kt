@@ -79,13 +79,15 @@ fun GradeMidiaScreen(
     var categoriaSelecionada by remember(categorias) { mutableStateOf("Todos") }
     var busca by remember(categorias) { mutableStateOf("") }
     var ordem by remember(categorias, ordemInicial) { mutableStateOf(ordemInicial) }
-    val itensFiltrados = filtrarEOrdenarMidias(
-        itens = itens,
-        busca = busca,
-        categoria = categoriaSelecionada,
-        ordem = ordem,
-        categoriasOcultas = categoriasOcultas
-    )
+    val itensFiltrados = remember(itens, busca, categoriaSelecionada, ordem, categoriasOcultas) {
+        filtrarEOrdenarMidias(
+            itens = itens,
+            busca = busca,
+            categoria = categoriaSelecionada,
+            ordem = ordem,
+            categoriasOcultas = categoriasOcultas
+        )
+    }
     var categoriasDesbloqueadas by remember { mutableStateOf(setOf<String>()) }
     var categoriaAguardandoPin by remember { mutableStateOf<String?>(null) }
     var erroPin by remember { mutableStateOf<String?>(null) }

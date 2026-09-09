@@ -78,9 +78,11 @@ fun ordenarCategorias(categoriasBrutas: List<String>, ordemCustom: List<String>)
     return normaisOrdenadas + adultasOrdenadas
 }
 
+private val REGEX_MARCAS_DIACRITICAS = "\\p{M}+".toRegex()
+
 fun normalizarConsulta(valor: String): String = Normalizer
     .normalize(valor, Normalizer.Form.NFD)
-    .replace("\\p{M}+".toRegex(), "")
+    .replace(REGEX_MARCAS_DIACRITICAS, "")
     .lowercase(Locale.ROOT)
     .trim()
 

@@ -66,7 +66,9 @@ fun LiveTvScreen(
     var categoriaSelecionada by remember(canais) { mutableStateOf("Todos") }
     var busca by remember(canais) { mutableStateOf("") }
     var ordem by remember(canais, ordemInicial) { mutableStateOf(ordemInicial) }
-    val canaisFiltrados = filtrarEOrdenarCanais(canais, busca, categoriaSelecionada, ordem, categoriasOcultas)
+    val canaisFiltrados = remember(canais, busca, categoriaSelecionada, ordem, categoriasOcultas) {
+        filtrarEOrdenarCanais(canais, busca, categoriaSelecionada, ordem, categoriasOcultas)
+    }
     var categoriasDesbloqueadas by remember { mutableStateOf(setOf<String>()) }
     var categoriaAguardandoPin by remember { mutableStateOf<String?>(null) }
     var erroPin by remember { mutableStateOf<String?>(null) }
