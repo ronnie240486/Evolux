@@ -77,6 +77,8 @@ fun ordenarCategorias(categoriasBrutas: List<String>, ordemCustom: List<String>)
     val adultasOrdenadas = adultas.sortedWith(String.CASE_INSENSITIVE_ORDER)
     return normaisOrdenadas + adultasOrdenadas
 }
+
+fun normalizarConsulta(valor: String): String = Normalizer
     .normalize(valor, Normalizer.Form.NFD)
     .replace("\\p{M}+".toRegex(), "")
     .lowercase(Locale.ROOT)
