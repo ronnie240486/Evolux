@@ -21,6 +21,11 @@ fun gerarDestaques(catalogo: PlaylistCatalog, limite: Int = 8): List<Destaque> {
                 .thenByDescending { it.nota ?: -1.0 }
                 .thenBy { it.titulo.lowercase() }
         )
+        // Pega um grupo maior de conteúdo bem avaliado e sorteia dentro dele,
+        // pra não mostrar sempre o mesmo destaque toda vez que o app abre.
+        .take((limite * 6).coerceAtMost(80))
+        .toList()
+        .shuffled()
         .take(limite)
         .map { midia ->
             val metrica = when {
