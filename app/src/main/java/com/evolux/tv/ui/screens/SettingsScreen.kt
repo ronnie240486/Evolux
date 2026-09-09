@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.evolux.tv.data.OrdemCatalogo
+import com.evolux.tv.data.ordenarCategorias
 import com.evolux.tv.ui.components.EvoluxClickableSurface
 import com.evolux.tv.ui.theme.Dourado
 import com.evolux.tv.ui.theme.TextoCinza
@@ -41,11 +42,49 @@ fun SettingsScreen(
     categoriasOcultas: Set<String> = emptySet(),
     aoAlternarCategoriaOculta: (String, String) -> Unit = { _, _ -> },
     ordens: Map<String, OrdemCatalogo> = emptyMap(),
-    aoMudarOrdem: (String, OrdemCatalogo) -> Unit = { _, _ -> }
+    aoMudarOrdem: (String, OrdemCatalogo) -> Unit = { _, _ -> },
+    ordemCategoriasCanais: List<String> = emptyList(),
+    ordemCategoriasFilmes: List<String> = emptyList(),
+    ordemCategoriasSeries: List<String> = emptyList(),
+    aoSalvarOrdemCategorias: (String, List<String>) -> Unit = { _, _ -> },
+    pinAdulto: String? = null,
+    aoSalvarPin: (String?) -> Unit = {}
 ) {
     var mostrarPlaylists by remember { mutableStateOf(false) }
     var mostrarCategorias by remember { mutableStateOf(false) }
     var mostrarOrdenacao by remember { mutableStateOf(false) }
+    var mostrarReordenarCategorias by remember { mutableStateOf(false) }
+    var mostrarConfigPin by remember { mutableStateOf(false) }
+    var dialogoPin by remember { mutableStateOf<String?>(null) } // "criar" | "remover"
+    var erroPin by remember { mutableStateOf<String?>(null) }
+
+    dialogoPin?.let { modo ->
+        PinEntryDialog(
+            titulo = if (modo == "remover") "Remover PIN" else if (pinAdulto == null) "Criar PIN adulto" else "Trocar PIN adulto",
+            subtitulo = if (modo == "remover") "Digite o PIN atual para remover a proteção." else "Digite um PIN de 4 a 6 dígitos.",
+            erro = erroPin,
+            aoCancelar = { dialogoPin = null; erroPin = null },
+            aoConfirmar = { digitado ->
+                if (modo == "remover") {
+                    if (digitado == pinAdulto) {
+                        aoSalvarPin(null)
+                        dialogoPin = null
+                        erroPin = null
+                    } else {
+                        erroPin = "PIN incorreto."
+                    }
+                } else {
+                    if (digitado.length < 4) {
+                        erroPin = "Use pelo menos 4 dígitos."
+                    } else {
+                        aoSalvarPin(digitado)
+                        dialogoPin = null
+                        erroPin = null
+                    }
+                }
+            }
+        )
+    }
 
     LazyColumn(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
@@ -110,6 +149,71 @@ fun SettingsScreen(
         }
         item {
             LinhaConfig(
+                titulo = "Posição das categorias",
+                descricao = "Escolher a ordem em que Filmes, Séries e Canais aparecem (ex: HBO no topo)",
+                aoClicar = { mostrarReordenarCategorias = !mostrarReordenarCategorias }
+            )
+        }
+        if (mostrarReordenarCategorias) {
+            item {
+                SeletorOrdemCategorias(
+                    "TV ao vivo", categoriasCanais, ordemCategoriasCanais,
+                    aoSalvar = { aoSalvarOrdemCategorias("canais", it) }
+                )
+            }
+            item {
+                SeletorOrdemCategorias(
+                    "Filmes", categoriasFilmes, ordemCategoriasFilmes,
+                    aoSalvar = { aoSalvarOrdemCategorias("filmes", it) }
+                )
+            }
+            item {
+                SeletorOrdemCategorias(
+                    "Séries", categoriasSeries, ordemCategoriasSeries,
+                    aoSalvar = { aoSalvarOrdemCategorias("series", it) }
+                )
+            }
+        }
+        item {
+            LinhaConfig(
+                titulo = if (pinAdulto == null) "Criar PIN de conteúdo adulto" else "PIN de conteúdo adulto ativo",
+                descricao = if (pinAdulto == null) {
+                    "Categorias adultas ficam sempre no fim da lista; crie um PIN pra exigir senha ao abrir"
+                } else {
+                    "Categorias adultas protegidas e no fim da lista"
+                },
+                aoClicar = { mostrarConfigPin = !mostrarConfigPin }
+            )
+        }
+        if (mostrarConfigPin) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(start = 18.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    EvoluxClickableSurface(
+                        onClick = { dialogoPin = "criar" },
+                        containerColor = Color(0xFF12172A)
+                    ) {
+                        Text(
+                            if (pinAdulto == null) "Criar PIN" else "Trocar PIN",
+                            color = TextoClaro,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                        )
+                    }
+                    if (pinAdulto != null) {
+                        EvoluxClickableSurface(
+                            onClick = { dialogoPin = "remover" },
+                            containerColor = Color(0xFF2A2030)
+                        ) {
+                            Text("Remover PIN", color = Dourado, modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp))
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            LinhaConfig(
                 titulo = "Sobre o aplicativo",
                 descricao = "Evolux • catálogo autorizado e player interno",
                 aoClicar = {}
@@ -142,6 +246,74 @@ private fun SeletorOcultas(
                     Row(modifier = Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(categoria, color = TextoClaro)
                         Text(if (escondida) "OCULTA" else "VISÍVEL", color = if (escondida) Dourado else TextoCinza)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SeletorOrdemCategorias(
+    secao: String,
+    categoriasBrutas: List<String>,
+    ordemSalva: List<String>,
+    aoSalvar: (List<String>) -> Unit
+) {
+    var ordemAtual by remember(categoriasBrutas, ordemSalva) {
+        mutableStateOf(ordenarCategorias(categoriasBrutas, ordemSalva))
+    }
+    var selecionada by remember(secao) { mutableStateOf<String?>(null) }
+
+    fun mover(indice: Int, delta: Int) {
+        val novoIndice = indice + delta
+        if (novoIndice !in ordemAtual.indices) return
+        val nova = ordemAtual.toMutableList()
+        val temp = nova[indice]
+        nova[indice] = nova[novoIndice]
+        nova[novoIndice] = temp
+        ordemAtual = nova
+        aoSalvar(nova)
+    }
+
+    Column(modifier = Modifier.fillMaxWidth().padding(start = 18.dp, top = 6.dp)) {
+        Text(secao, color = Dourado, fontWeight = FontWeight.Bold)
+        if (categoriasBrutas.isEmpty()) {
+            Text("Nenhuma categoria disponível", color = TextoCinza, style = MaterialTheme.typography.bodySmall)
+        } else {
+            Text(
+                "Toque numa categoria pra selecionar, depois use ▲ ▼ pra mover",
+                color = TextoCinza,
+                style = MaterialTheme.typography.bodySmall
+            )
+            ordemAtual.forEachIndexed { indice, categoria ->
+                val estaSelecionada = categoria == selecionada
+                EvoluxClickableSurface(
+                    onClick = { selecionada = if (estaSelecionada) null else categoria },
+                    containerColor = if (estaSelecionada) Color(0xFF283454) else Color(0xFF12172A),
+                    modifier = Modifier.fillMaxWidth().padding(top = 5.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(categoria, color = TextoClaro)
+                        if (estaSelecionada) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                EvoluxClickableSurface(
+                                    onClick = { mover(indice, -1) },
+                                    containerColor = Color(0xFF1B2238)
+                                ) {
+                                    Text("▲", color = Dourado, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+                                }
+                                EvoluxClickableSurface(
+                                    onClick = { mover(indice, 1) },
+                                    containerColor = Color(0xFF1B2238)
+                                ) {
+                                    Text("▼", color = Dourado, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+                                }
+                            }
+                        }
                     }
                 }
             }

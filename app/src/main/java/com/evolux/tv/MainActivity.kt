@@ -70,6 +70,10 @@ private const val CHAVE_CATEGORIAS_OCULTAS = "categorias_ocultas"
 private const val CHAVE_ORDEM_CANAIS = "ordem_canais"
 private const val CHAVE_ORDEM_FILMES = "ordem_filmes"
 private const val CHAVE_ORDEM_SERIES = "ordem_series"
+private const val CHAVE_PIN_ADULTO = "pin_adulto"
+private const val CHAVE_ORDEM_CAT_CANAIS = "ordem_cat_canais"
+private const val CHAVE_ORDEM_CAT_FILMES = "ordem_cat_filmes"
+private const val CHAVE_ORDEM_CAT_SERIES = "ordem_cat_series"
 
 private data class Reproducao(
     val titulo: String,
@@ -79,6 +83,9 @@ private data class Reproducao(
 private fun lerOrdem(valor: String?): OrdemCatalogo = runCatching {
     OrdemCatalogo.valueOf(valor.orEmpty())
 }.getOrDefault(OrdemCatalogo.PADRAO)
+
+private fun lerListaOrdenada(valor: String?): List<String> =
+    valor.orEmpty().split('|').map { it.trim() }.filter { it.isNotBlank() }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -117,6 +124,10 @@ fun EvoluxApp() {
     var playlistAtiva by remember { mutableStateOf(preferencias.getInt(CHAVE_PLAYLIST_ATIVA, 0)) }
     var playlistUrlAtual by remember { mutableStateOf<String?>(null) }
     var categoriasOcultas by remember { mutableStateOf(preferencias.getStringSet(CHAVE_CATEGORIAS_OCULTAS, emptySet()).orEmpty()) }
+    var pinAdulto by remember { mutableStateOf(preferencias.getString(CHAVE_PIN_ADULTO, null)) }
+    var ordemCategoriasCanais by remember { mutableStateOf(lerListaOrdenada(preferencias.getString(CHAVE_ORDEM_CAT_CANAIS, null))) }
+    var ordemCategoriasFilmes by remember { mutableStateOf(lerListaOrdenada(preferencias.getString(CHAVE_ORDEM_CAT_FILMES, null))) }
+    var ordemCategoriasSeries by remember { mutableStateOf(lerListaOrdenada(preferencias.getString(CHAVE_ORDEM_CAT_SERIES, null))) }
     var ordens by remember {
         mutableStateOf(
             mapOf(
@@ -505,6 +516,23 @@ fun EvoluxApp() {
         }
         preferencias.edit().putString(chave, ordem.name).apply()
     }
+    val aoSalvarOrdemCategorias: (String, List<String>) -> Unit = { secao, nova ->
+        val chave = when (secao) {
+            "canais" -> CHAVE_ORDEM_CAT_CANAIS
+            "filmes" -> CHAVE_ORDEM_CAT_FILMES
+            else -> CHAVE_ORDEM_CAT_SERIES
+        }
+        when (secao) {
+            "canais" -> ordemCategoriasCanais = nova
+            "filmes" -> ordemCategoriasFilmes = nova
+            else -> ordemCategoriasSeries = nova
+        }
+        preferencias.edit().putString(chave, nova.joinToString("|")).apply()
+    }
+    val aoSalvarPin: (String?) -> Unit = { novoPin ->
+        pinAdulto = novoPin
+        preferencias.edit().putString(CHAVE_PIN_ADULTO, novoPin).apply()
+    }
     val aoSelecionarPlaylist: (Int) -> Unit = { indice ->
         configuracaoAtual?.let { configuracao ->
             escopo.launch {
@@ -569,7 +597,9 @@ fun EvoluxApp() {
                 aoAbrirCanal = { abrirConteudo(it.nome, it.streamUrl) },
                 categoriasOcultas = ocultasLive,
                 ordemInicial = ordens["canais"] ?: OrdemCatalogo.PADRAO,
-                aoMudarOrdem = { aoMudarOrdem("canais", it) }
+                aoMudarOrdem = { aoMudarOrdem("canais", it) },
+                ordemCategoriasCustom = ordemCategoriasCanais,
+                pinAdulto = pinAdulto
             )
 
             Tela.FILMES -> GradeMidiaScreen(
@@ -580,7 +610,9 @@ fun EvoluxApp() {
                 aoAlternarFavorito = aoAlternarFavorito,
                 categoriasOcultas = ocultasFilmes,
                 ordemInicial = ordens["filmes"] ?: OrdemCatalogo.PADRAO,
-                aoMudarOrdem = { aoMudarOrdem("filmes", it) }
+                aoMudarOrdem = { aoMudarOrdem("filmes", it) },
+                ordemCategoriasCustom = ordemCategoriasFilmes,
+                pinAdulto = pinAdulto
             )
 
             Tela.SERIES -> SeriesBrowserScreen(
@@ -589,6 +621,8 @@ fun EvoluxApp() {
                 categoriasOcultas = ocultasSeries,
                 ordemInicial = ordens["series"] ?: OrdemCatalogo.PADRAO,
                 aoMudarOrdem = { aoMudarOrdem("series", it) },
+                ordemCategoriasCustom = ordemCategoriasSeries,
+                pinAdulto = pinAdulto,
                 carregarEpisodios = { serie ->
                     val url = playlistUrlAtual
                     if (url != null && XtreamRepository.pareceXtream(url)) {
@@ -610,7 +644,8 @@ fun EvoluxApp() {
                 aoSelecionar = abrirMidiaOuSerie,
                 ehFavorito = ehFavorito,
                 aoAlternarFavorito = aoAlternarFavorito,
-                mensagemVazio = "Você ainda não adicionou nada aos favoritos."
+                mensagemVazio = "Você ainda não adicionou nada aos favoritos.",
+                pinAdulto = pinAdulto
             )
 
             Tela.CONFIGURACOES -> SettingsScreen(
@@ -625,6 +660,12 @@ fun EvoluxApp() {
                 aoAlternarCategoriaOculta = aoAlternarCategoriaOculta,
                 ordens = ordens,
                 aoMudarOrdem = aoMudarOrdem,
+                ordemCategoriasCanais = ordemCategoriasCanais,
+                ordemCategoriasFilmes = ordemCategoriasFilmes,
+                ordemCategoriasSeries = ordemCategoriasSeries,
+                aoSalvarOrdemCategorias = aoSalvarOrdemCategorias,
+                pinAdulto = pinAdulto,
+                aoSalvarPin = aoSalvarPin,
                 aoTrocarMac = {
                     preferencias.edit().putBoolean(CHAVE_MAC_AUTORIZADO, false).apply()
                     macAutorizado = ""

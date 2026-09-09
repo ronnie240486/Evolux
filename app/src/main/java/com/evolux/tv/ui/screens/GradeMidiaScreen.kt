@@ -46,7 +46,9 @@ import coil.compose.AsyncImage
 import com.evolux.tv.R
 import com.evolux.tv.data.Midia
 import com.evolux.tv.data.OrdemCatalogo
+import com.evolux.tv.data.ehCategoriaAdulto
 import com.evolux.tv.data.filtrarEOrdenarMidias
+import com.evolux.tv.data.ordenarCategorias
 import com.evolux.tv.ui.components.EvoluxClickableSurface
 import com.evolux.tv.ui.theme.Dourado
 import com.evolux.tv.ui.theme.FundoCard
@@ -63,14 +65,16 @@ fun GradeMidiaScreen(
     mensagemVazio: String = "Nada por aqui ainda.",
     categoriasOcultas: Set<String> = emptySet(),
     ordemInicial: OrdemCatalogo = OrdemCatalogo.PADRAO,
-    aoMudarOrdem: (OrdemCatalogo) -> Unit = {}
+    aoMudarOrdem: (OrdemCatalogo) -> Unit = {},
+    ordemCategoriasCustom: List<String> = emptyList(),
+    pinAdulto: String? = null
 ) {
-    val categorias = remember(itens, categoriasOcultas) {
-        listOf("Todos") + itens
+    val categorias = remember(itens, categoriasOcultas, ordemCategoriasCustom) {
+        val brutas = itens
             .map { it.categoria.ifBlank { "Sem categoria" } }
             .distinct()
             .filter { categoria -> categoria !in categoriasOcultas }
-            .sortedWith(String.CASE_INSENSITIVE_ORDER)
+        listOf("Todos") + ordenarCategorias(brutas, ordemCategoriasCustom)
     }
     var categoriaSelecionada by remember(categorias) { mutableStateOf("Todos") }
     var busca by remember(categorias) { mutableStateOf("") }
@@ -82,6 +86,37 @@ fun GradeMidiaScreen(
         ordem = ordem,
         categoriasOcultas = categoriasOcultas
     )
+    var categoriasDesbloqueadas by remember { mutableStateOf(setOf<String>()) }
+    var categoriaAguardandoPin by remember { mutableStateOf<String?>(null) }
+    var erroPin by remember { mutableStateOf<String?>(null) }
+
+    fun selecionarCategoria(categoria: String) {
+        val precisaPin = ehCategoriaAdulto(categoria) && !pinAdulto.isNullOrBlank() && categoria !in categoriasDesbloqueadas
+        if (precisaPin) {
+            categoriaAguardandoPin = categoria
+        } else {
+            categoriaSelecionada = categoria
+        }
+    }
+
+    categoriaAguardandoPin?.let { categoria ->
+        PinEntryDialog(
+            titulo = "Conteúdo adulto",
+            subtitulo = "Digite o PIN para acessar \"$categoria\".",
+            erro = erroPin,
+            aoCancelar = { categoriaAguardandoPin = null; erroPin = null },
+            aoConfirmar = { digitado ->
+                if (digitado == pinAdulto) {
+                    categoriasDesbloqueadas = categoriasDesbloqueadas + categoria
+                    categoriaSelecionada = categoria
+                    categoriaAguardandoPin = null
+                    erroPin = null
+                } else {
+                    erroPin = "PIN incorreto."
+                }
+            }
+        )
+    }
 
     Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 18.dp)) {
         Text(
@@ -103,7 +138,7 @@ fun GradeMidiaScreen(
         ) {
             tvRowItems(categorias) { categoria ->
                 EvoluxClickableSurface(
-                    onClick = { categoriaSelecionada = categoria },
+                    onClick = { selecionarCategoria(categoria) },
                     containerColor = if (categoria == categoriaSelecionada) Color(0xFF283454) else Color(0xFF12172A),
                     borderColor = Dourado,
                     modifier = Modifier

@@ -38,7 +38,9 @@ import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 import com.evolux.tv.data.Canal
 import com.evolux.tv.data.OrdemCatalogo
+import com.evolux.tv.data.ehCategoriaAdulto
 import com.evolux.tv.data.filtrarEOrdenarCanais
+import com.evolux.tv.data.ordenarCategorias
 import com.evolux.tv.ui.components.EvoluxClickableSurface
 import com.evolux.tv.ui.theme.Dourado
 import com.evolux.tv.ui.theme.TextoCinza
@@ -50,19 +52,52 @@ fun LiveTvScreen(
     aoAbrirCanal: (Canal) -> Unit,
     categoriasOcultas: Set<String> = emptySet(),
     ordemInicial: OrdemCatalogo = OrdemCatalogo.PADRAO,
-    aoMudarOrdem: (OrdemCatalogo) -> Unit = {}
+    aoMudarOrdem: (OrdemCatalogo) -> Unit = {},
+    ordemCategoriasCustom: List<String> = emptyList(),
+    pinAdulto: String? = null
 ) {
-    val categorias = remember(canais, categoriasOcultas) {
-        listOf("Todos") + canais
+    val categorias = remember(canais, categoriasOcultas, ordemCategoriasCustom) {
+        val brutas = canais
             .map { it.categoria.ifBlank { "TV ao vivo" } }
             .distinct()
             .filter { it !in categoriasOcultas }
-            .sortedWith(String.CASE_INSENSITIVE_ORDER)
+        listOf("Todos") + ordenarCategorias(brutas, ordemCategoriasCustom)
     }
     var categoriaSelecionada by remember(canais) { mutableStateOf("Todos") }
     var busca by remember(canais) { mutableStateOf("") }
     var ordem by remember(canais, ordemInicial) { mutableStateOf(ordemInicial) }
     val canaisFiltrados = filtrarEOrdenarCanais(canais, busca, categoriaSelecionada, ordem, categoriasOcultas)
+    var categoriasDesbloqueadas by remember { mutableStateOf(setOf<String>()) }
+    var categoriaAguardandoPin by remember { mutableStateOf<String?>(null) }
+    var erroPin by remember { mutableStateOf<String?>(null) }
+
+    fun selecionarCategoria(categoria: String) {
+        val precisaPin = ehCategoriaAdulto(categoria) && !pinAdulto.isNullOrBlank() && categoria !in categoriasDesbloqueadas
+        if (precisaPin) {
+            categoriaAguardandoPin = categoria
+        } else {
+            categoriaSelecionada = categoria
+        }
+    }
+
+    categoriaAguardandoPin?.let { categoria ->
+        PinEntryDialog(
+            titulo = "Conteúdo adulto",
+            subtitulo = "Digite o PIN para acessar \"$categoria\".",
+            erro = erroPin,
+            aoCancelar = { categoriaAguardandoPin = null; erroPin = null },
+            aoConfirmar = { digitado ->
+                if (digitado == pinAdulto) {
+                    categoriasDesbloqueadas = categoriasDesbloqueadas + categoria
+                    categoriaSelecionada = categoria
+                    categoriaAguardandoPin = null
+                    erroPin = null
+                } else {
+                    erroPin = "PIN incorreto."
+                }
+            }
+        )
+    }
 
     Column(modifier = Modifier.padding(24.dp)) {
         Text("TV AO VIVO", color = Dourado, fontWeight = FontWeight.Black, style = MaterialTheme.typography.headlineSmall)
@@ -72,7 +107,7 @@ fun LiveTvScreen(
         TvLazyRow(contentPadding = PaddingValues(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             tvRowItems(categorias) { categoria ->
                 EvoluxClickableSurface(
-                    onClick = { categoriaSelecionada = categoria },
+                    onClick = { selecionarCategoria(categoria) },
                     containerColor = if (categoria == categoriaSelecionada) Color(0xFF283454) else Color(0xFF12172A),
                     borderColor = Dourado
                 ) {

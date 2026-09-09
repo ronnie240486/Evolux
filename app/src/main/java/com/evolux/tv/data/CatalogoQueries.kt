@@ -54,7 +54,29 @@ fun filtrarEOrdenarCanais(
     }
 }
 
-fun normalizarConsulta(valor: String): String = Normalizer
+private val PALAVRAS_ADULTO = listOf("adult", "adulto", "xxx", "+18", "18+", " porn", "pornô", "porno")
+
+fun ehCategoriaAdulto(categoria: String): Boolean {
+    val normalizada = " ${normalizarConsulta(categoria)} "
+    return PALAVRAS_ADULTO.any { normalizada.contains(it) }
+}
+
+/**
+ * Ordena categorias respeitando uma ordem customizada salva pelo usuário
+ * (arrastar/mover em Configurações). Categorias novas que ainda não estão na
+ * ordem customizada aparecem depois, em ordem alfabética. Categorias adultas
+ * sempre vão para o final da lista, independente da ordem customizada.
+ */
+fun ordenarCategorias(categoriasBrutas: List<String>, ordemCustom: List<String>): List<String> {
+    val (adultas, normais) = categoriasBrutas.partition(::ehCategoriaAdulto)
+    val posicao = ordemCustom.withIndex().associate { (indice, nome) -> normalizarConsulta(nome) to indice }
+    val normaisOrdenadas = normais.sortedWith(
+        compareBy<String> { posicao[normalizarConsulta(it)] ?: Int.MAX_VALUE }
+            .thenBy(String.CASE_INSENSITIVE_ORDER) { it }
+    )
+    val adultasOrdenadas = adultas.sortedWith(String.CASE_INSENSITIVE_ORDER)
+    return normaisOrdenadas + adultasOrdenadas
+}
     .normalize(valor, Normalizer.Form.NFD)
     .replace("\\p{M}+".toRegex(), "")
     .lowercase(Locale.ROOT)

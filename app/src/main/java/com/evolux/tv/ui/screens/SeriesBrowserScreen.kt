@@ -52,7 +52,9 @@ import kotlinx.coroutines.launch
 import com.evolux.tv.R
 import com.evolux.tv.data.Midia
 import com.evolux.tv.data.OrdemCatalogo
+import com.evolux.tv.data.ehCategoriaAdulto
 import com.evolux.tv.data.normalizarConsulta
+import com.evolux.tv.data.ordenarCategorias
 import com.evolux.tv.ui.components.EvoluxClickableSurface
 import com.evolux.tv.ui.theme.Dourado
 import com.evolux.tv.ui.theme.FundoCard
@@ -108,18 +110,51 @@ fun SeriesBrowserScreen(
     categoriasOcultas: Set<String> = emptySet(),
     ordemInicial: OrdemCatalogo = OrdemCatalogo.PADRAO,
     aoMudarOrdem: (OrdemCatalogo) -> Unit = {},
-    carregarEpisodios: suspend (Midia) -> List<Midia> = { emptyList() }
+    carregarEpisodios: suspend (Midia) -> List<Midia> = { emptyList() },
+    ordemCategoriasCustom: List<String> = emptyList(),
+    pinAdulto: String? = null
 ) {
-    val categorias = remember(itens, categoriasOcultas) {
-        itens.asSequence()
+    val categorias = remember(itens, categoriasOcultas, ordemCategoriasCustom) {
+        val brutas = itens.asSequence()
             .map { it.categoria.ifBlank { "Séries" } }
             .distinct()
             .filter { it !in categoriasOcultas }
-            .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it })
             .toList()
+        ordenarCategorias(brutas, ordemCategoriasCustom)
     }
     var categoriaSelecionada by remember(categorias) {
         mutableStateOf(categorias.firstOrNull().orEmpty())
+    }
+    var categoriasDesbloqueadas by remember { mutableStateOf(setOf<String>()) }
+    var categoriaAguardandoPin by remember { mutableStateOf<String?>(null) }
+    var erroPin by remember { mutableStateOf<String?>(null) }
+
+    fun selecionarCategoria(categoria: String) {
+        val precisaPin = ehCategoriaAdulto(categoria) && !pinAdulto.isNullOrBlank() && categoria !in categoriasDesbloqueadas
+        if (precisaPin) {
+            categoriaAguardandoPin = categoria
+        } else {
+            categoriaSelecionada = categoria
+        }
+    }
+
+    categoriaAguardandoPin?.let { categoria ->
+        PinEntryDialog(
+            titulo = "Conteúdo adulto",
+            subtitulo = "Digite o PIN para acessar \"$categoria\".",
+            erro = erroPin,
+            aoCancelar = { categoriaAguardandoPin = null; erroPin = null },
+            aoConfirmar = { digitado ->
+                if (digitado == pinAdulto) {
+                    categoriasDesbloqueadas = categoriasDesbloqueadas + categoria
+                    categoriaSelecionada = categoria
+                    categoriaAguardandoPin = null
+                    erroPin = null
+                } else {
+                    erroPin = "PIN incorreto."
+                }
+            }
+        )
     }
     var busca by remember(itens) { mutableStateOf("") }
     var ordem by remember(itens, ordemInicial) { mutableStateOf(ordemInicial) }
@@ -226,7 +261,7 @@ fun SeriesBrowserScreen(
                     FiltroCategoria(
                         nome = categoria,
                         selecionada = categoria == categoriaSelecionada,
-                        aoClicar = { categoriaSelecionada = categoria }
+                        aoClicar = { selecionarCategoria(categoria) }
                     )
                 }
             }
