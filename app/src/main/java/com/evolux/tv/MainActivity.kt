@@ -428,7 +428,19 @@ fun EvoluxApp() {
 
     val abrirMidiaOuSerie: (Midia) -> Unit = { midia ->
         if (midia.tipo == TipoMidia.SERIE) {
-            serieSelecionadaFora = agruparGrupoSerie(catalogoAtual.series, midia)
+            val url = playlistUrlAtual
+            if (url != null && XtreamRepository.pareceXtream(url)) {
+                escopo.launch {
+                    val episodios = xtreamRepository.carregarEpisodios(url, midia)
+                    serieSelecionadaFora = if (episodios.isNotEmpty()) {
+                        agruparGrupoSerie(episodios, episodios.first())
+                    } else {
+                        agruparGrupoSerie(catalogoAtual.series, midia)
+                    }
+                }
+            } else {
+                serieSelecionadaFora = agruparGrupoSerie(catalogoAtual.series, midia)
+            }
         } else {
             abrirConteudo(midia.titulo, midia.streamUrl)
         }
@@ -439,7 +451,7 @@ fun EvoluxApp() {
             catalogoAtual.series.firstOrNull { it.id == destaque.midiaId }
         } else null
         if (midiaRef != null) {
-            serieSelecionadaFora = agruparGrupoSerie(catalogoAtual.series, midiaRef)
+            abrirMidiaOuSerie(midiaRef)
         } else {
             abrirConteudo(destaque.titulo, destaque.streamUrl)
         }
