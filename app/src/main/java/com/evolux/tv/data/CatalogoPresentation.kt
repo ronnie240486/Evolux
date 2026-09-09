@@ -11,22 +11,58 @@ data class FileiraCatalogo(
  * Quando a fonte fornece popularidade ou nota, esses campos definem a ordem
  * de “mais em alta”; sem esses campos, o app não inventa ranking.
  */
+private fun grupoDestaque(midia: Midia): String {
+    if (midia.tipo == TipoMidia.FILME) return "filme"
+    val cat = midia.categoria.lowercase()
+    return when {
+        "anime" in cat -> "anime"
+        "dorama" in cat || "kdrama" in cat || "k-drama" in cat || "k drama" in cat -> "dorama"
+        "novela" in cat -> "novela"
+        else -> "serie"
+    }
+}
+
 fun gerarDestaques(catalogo: PlaylistCatalog, limite: Int = 8): List<Destaque> {
-    return (catalogo.filmes + catalogo.series)
+    val candidatos = (catalogo.filmes + catalogo.series)
         .asSequence()
         .filter { it.titulo.isNotBlank() && it.streamUrl.isNotBlank() && it.imagemUrl.isNotBlank() }
-        .distinctBy { it.id }
+        // Uma novela/série tem muitos capítulos/episódios com o mesmo nome base;
+        // sem isso, ela sozinha lotava o pool de destaques com "ela mesma".
+        .distinctBy { midia ->
+            if (midia.tipo == TipoMidia.FILME) {
+                midia.id
+            } else {
+                midia.serieNome?.takeIf { it.isNotBlank() }?.lowercase() ?: midia.titulo.lowercase()
+            }
+        }
         .sortedWith(
             compareByDescending<Midia> { it.popularidade ?: Long.MIN_VALUE }
                 .thenByDescending { it.nota ?: -1.0 }
                 .thenBy { it.titulo.lowercase() }
         )
-        // Pega um grupo maior de conteúdo bem avaliado e sorteia dentro dele,
-        // pra não mostrar sempre o mesmo destaque toda vez que o app abre.
-        .take((limite * 6).coerceAtMost(80))
         .toList()
+
+    val porGrupo = candidatos.groupBy(::grupoDestaque)
+    val poolPorGrupo = porGrupo.mapValues { (_, itens) -> itens.take(20).shuffled() }.toMutableMap()
+
+    // Round-robin entre os grupos (filme, serie, anime, dorama, novela) pra
+    // garantir mistura, em vez de deixar o grupo com mais itens dominar tudo.
+    val ordemGrupos = listOf("filme", "serie", "anime", "dorama", "novela").filter { it in poolPorGrupo }
+    val selecionados = mutableListOf<Midia>()
+    var indiceGrupo = 0
+    while (selecionados.size < limite && ordemGrupos.isNotEmpty()) {
+        val grupo = ordemGrupos[indiceGrupo % ordemGrupos.size]
+        val fila = poolPorGrupo[grupo]
+        if (!fila.isNullOrEmpty()) {
+            selecionados.add(fila.first())
+            poolPorGrupo[grupo] = fila.drop(1)
+        }
+        indiceGrupo++
+        if (indiceGrupo > ordemGrupos.size * 30) break // segurança contra loop infinito
+    }
+
+    return selecionados
         .shuffled()
-        .take(limite)
         .map { midia ->
             val metrica = when {
                 midia.nota != null -> "Nota ${"%.1f".format(midia.nota)}"
