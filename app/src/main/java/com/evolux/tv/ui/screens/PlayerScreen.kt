@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,7 +25,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -45,6 +51,7 @@ import com.evolux.tv.data.extrairStreamId
 import com.evolux.tv.ui.components.EvoluxClickableSurface
 import com.evolux.tv.ui.theme.Dourado
 import androidx.tv.material3.Text
+import kotlinx.coroutines.delay
 
 private data class ModoTela(val resizeMode: Int, val rotulo: String)
 
@@ -141,6 +148,8 @@ fun PlayerScreen(
                 PlayerView(contextoView).apply {
                     this.player = player
                     useController = true
+                    isFocusable = true
+                    isFocusableInTouchMode = true
                     resizeMode = MODOS_TELA[indiceModoTela].resizeMode
                     layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
@@ -153,6 +162,7 @@ fun PlayerScreen(
                             mostrarControles = visibilidade == android.view.View.VISIBLE
                         }
                     )
+                    requestFocus()
                 }
             },
             update = { view -> view.resizeMode = MODOS_TELA[indiceModoTela].resizeMode },
