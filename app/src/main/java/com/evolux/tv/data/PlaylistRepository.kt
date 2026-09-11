@@ -226,7 +226,10 @@ class PlaylistRepository {
                     // Publica um retrato parcial a cada ~800ms ou 300 itens, pra a UI
                     // já mostrar conteúdo em vez de esperar o arquivo inteiro terminar.
                     val agora = System.currentTimeMillis()
-                    if (totalItens % 300 == 0 || agora - ultimoAviso >= 800) {
+                    // TV boxes fracas travam se a tela recompuser (com imagens
+                    // carregando) toda hora enquanto o download ainda roda atrás.
+                    // Atualiza bem menos vezes: a cada 3000 itens ou 3 segundos.
+                    if (totalItens % 3000 == 0 || agora - ultimoAviso >= 3_000) {
                         ultimoAviso = agora
                         aoParcial(PlaylistCatalog(canais.toList(), filmes.toList(), series.toList(), truncado))
                     }
