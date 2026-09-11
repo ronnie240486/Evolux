@@ -73,6 +73,7 @@ fun PlayerScreen(
     var erroReproducao by remember(streamUrl) { mutableStateOf<String?>(null) }
     var indiceModoTela by remember { mutableStateOf(0) }
     var mostrarGuia by remember { mutableStateOf(false) }
+    var mostrarControles by remember { mutableStateOf(true) }
     var epg by remember(canal?.id) { mutableStateOf<List<XtreamRepository.ProgramaEpg>>(emptyList()) }
     var carregandoEpg by remember { mutableStateOf(false) }
 
@@ -145,48 +146,57 @@ fun PlayerScreen(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT
                     )
+                    // Os botões de VOLTAR/Zoom/Guia seguem a mesma visibilidade
+                    // dos controles nativos: some tudo junto, aparece junto.
+                    setControllerVisibilityListener(
+                        PlayerView.ControllerVisibilityListener { visibilidade ->
+                            mostrarControles = visibilidade == android.view.View.VISIBLE
+                        }
+                    )
                 }
             },
             update = { view -> view.resizeMode = MODOS_TELA[indiceModoTela].resizeMode },
             modifier = Modifier.fillMaxSize()
         )
-        EvoluxClickableSurface(
-            onClick = aoFechar,
-            containerColor = Color(0xCC10182A),
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(16.dp)
-        ) {
-            Text(
-                text = "VOLTAR  •  $titulo",
-                color = Color.White,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
-            )
-        }
-        Row(
-            modifier = Modifier.align(Alignment.TopEnd).padding(16.dp),
-            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp)
-        ) {
+        if (mostrarControles) {
             EvoluxClickableSurface(
-                onClick = { indiceModoTela = (indiceModoTela + 1) % MODOS_TELA.size },
-                containerColor = Color(0xCC10182A)
+                onClick = aoFechar,
+                containerColor = Color(0xCC10182A),
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(16.dp)
             ) {
                 Text(
-                    text = "⛶ ${MODOS_TELA[indiceModoTela].rotulo}",
+                    text = "VOLTAR  •  $titulo",
                     color = Color.White,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
                 )
             }
-            if (epgDisponivel) {
+            Row(
+                modifier = Modifier.align(Alignment.TopEnd).padding(16.dp),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp)
+            ) {
                 EvoluxClickableSurface(
-                    onClick = { mostrarGuia = true },
+                    onClick = { indiceModoTela = (indiceModoTela + 1) % MODOS_TELA.size },
                     containerColor = Color(0xCC10182A)
                 ) {
                     Text(
-                        text = "📺 Guia",
+                        text = "⛶ ${MODOS_TELA[indiceModoTela].rotulo}",
                         color = Color.White,
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
                     )
+                }
+                if (epgDisponivel) {
+                    EvoluxClickableSurface(
+                        onClick = { mostrarGuia = true },
+                        containerColor = Color(0xCC10182A)
+                    ) {
+                        Text(
+                            text = "📺 Guia",
+                            color = Color.White,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                        )
+                    }
                 }
             }
         }
