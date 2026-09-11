@@ -147,6 +147,58 @@ class XtreamRepository {
         }
     }
 
+    data class ProgramaEpg(
+        val id: String,
+        val titulo: String,
+        val descricao: String,
+        val inicioMillis: Long,
+        val fimMillis: Long
+    )
+
+    /** Guia de programação (agora + próximos) de um canal, via get_short_epg do Xtream. */
+    suspend fun carregarEpg(urlPlaylist: String, streamId: String, limite: Int = 6): List<ProgramaEpg> =
+        withContext(Dispatchers.IO) {
+            val conexao = extrairConexao(urlPlaylist) ?: return@withContext emptyList()
+            runCatching {
+                val corpo = requisitar(conexao, "get_short_epg", "stream_id" to streamId, "limit" to limite.toString())
+                val raiz = JSONObject(corpo)
+                val listagem = raiz.optJSONArray("epg_listings") ?: return@runCatching emptyList()
+                buildList {
+                    for (indice in 0 until listagem.length()) {
+                        val item = listagem.optJSONObject(indice) ?: continue
+                        val inicio = item.optString("start_timestamp").toLongOrNull()?.times(1000)
+                            ?: parseDataEpg(item.optString("start"))
+                        val fim = item.optString("stop_timestamp").toLongOrNull()?.times(1000)
+                            ?: parseDataEpg(item.optString("end"))
+                        if (inicio <= 0L) continue
+                        add(
+                            ProgramaEpg(
+                                id = item.optString("id").ifBlank { "epg_${streamId}_$indice" },
+                                titulo = decodificarBase64Epg(item.optString("title")),
+                                descricao = decodificarBase64Epg(item.optString("description")),
+                                inicioMillis = inicio,
+                                fimMillis = fim
+                            )
+                        )
+                    }
+                }
+            }.getOrDefault(emptyList())
+        }
+
+    private fun decodificarBase64Epg(valor: String): String {
+        if (valor.isBlank()) return ""
+        return runCatching {
+            String(android.util.Base64.decode(valor, android.util.Base64.DEFAULT), StandardCharsets.UTF_8)
+        }.getOrDefault(valor)
+    }
+
+    private fun parseDataEpg(valor: String): Long {
+        if (valor.isBlank()) return 0L
+        return runCatching {
+            java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT).parse(valor)?.time ?: 0L
+        }.getOrDefault(0L)
+    }
+
     private fun getJsonArray(conexao: Conexao, action: String): List<JSONObject> {
         val corpo = requisitar(conexao, action)
         val array = JSONArray(corpo)

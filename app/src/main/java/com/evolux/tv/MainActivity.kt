@@ -44,6 +44,7 @@ import com.evolux.tv.R
 import com.evolux.tv.data.EvoluxRepository
 import com.evolux.tv.data.EvoluxConfig
 import com.evolux.tv.data.CatalogoCache
+import com.evolux.tv.data.Canal
 import com.evolux.tv.data.Destaque
 import com.evolux.tv.data.MacAddressUtils
 import com.evolux.tv.data.PlaylistCatalog
@@ -61,6 +62,7 @@ import com.evolux.tv.ui.components.TopNavBar
 import com.evolux.tv.ui.screens.*
 import com.evolux.tv.ui.theme.FundoEscuro
 import com.evolux.tv.ui.theme.EvoluxTheme
+import com.evolux.tv.ui.theme.Dourado
 
 private const val CHAVE_FAVORITOS = "favoritos_ids"
 private const val CHAVE_MAC_LOGICO = "mac_logico_evolux"
@@ -77,7 +79,8 @@ private const val CHAVE_ORDEM_CAT_SERIES = "ordem_cat_series"
 
 private data class Reproducao(
     val titulo: String,
-    val streamUrl: String
+    val streamUrl: String,
+    val canal: Canal? = null
 )
 
 private fun lerOrdem(valor: String?): OrdemCatalogo = runCatching {
@@ -381,11 +384,11 @@ fun EvoluxApp() {
         }
     }
 
-    val abrirConteudo: (String, String) -> Unit = { titulo, url ->
+    val abrirConteudo: (String, String, Canal?) -> Unit = { titulo, url, canal ->
         if (url.isBlank()) {
             Toast.makeText(contexto, "$titulo ainda não possui stream configurado", Toast.LENGTH_SHORT).show()
         } else {
-            reproducao = Reproducao(titulo = titulo, streamUrl = url)
+            reproducao = Reproducao(titulo = titulo, streamUrl = url, canal = canal)
         }
     }
     if (macAutorizado.isBlank() && estadoLogin !is EstadoLoginMac.Carregando) {
@@ -407,11 +410,66 @@ fun EvoluxApp() {
         return
     }
 
+    var lembretesEpg by remember { mutableStateOf(listOf<Pair<Canal, XtreamRepository.ProgramaEpg>>()) }
+    var contagemLembrete by remember { mutableStateOf<Pair<Canal, XtreamRepository.ProgramaEpg>?>(null) }
+    var segundosContagem by remember { mutableStateOf(7) }
+
+    LaunchedEffect(lembretesEpg.size) {
+        while (isActive && lembretesEpg.isNotEmpty()) {
+            val agora = System.currentTimeMillis()
+            val vencido = lembretesEpg.firstOrNull { (_, programa) -> agora >= programa.inicioMillis }
+            if (vencido != null) {
+                lembretesEpg = lembretesEpg - vencido
+                contagemLembrete = vencido
+                segundosContagem = 7
+                for (s in 7 downTo 1) {
+                    segundosContagem = s
+                    delay(1_000)
+                }
+                reproducao = Reproducao(titulo = vencido.first.nome, streamUrl = vencido.first.streamUrl, canal = vencido.first)
+                contagemLembrete = null
+            }
+            delay(5_000)
+        }
+    }
+
+    val mostrarContagemLembrete: @Composable () -> Unit = {
+        contagemLembrete?.let { (canal, programa) ->
+            Box(modifier = Modifier.fillMaxSize().background(Color(0xF0060912)), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Vai começar agora", color = Dourado, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(8.dp))
+                    Text(programa.titulo, color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("em ${canal.nome}", color = Color(0xFFB8C0D4))
+                    Spacer(Modifier.height(24.dp))
+                    Text("$segundosContagem", color = Dourado, fontWeight = FontWeight.Black)
+                    Spacer(Modifier.height(24.dp))
+                    Row {
+                        Button(onClick = {
+                            contagemLembrete = null
+                        }) { Text("Cancelar") }
+                    }
+                }
+            }
+        }
+    }
+
     val catalogoAtual = catalogo ?: return
     reproducao?.let { atual ->
         PlayerScreen(
             titulo = atual.titulo,
             streamUrl = atual.streamUrl,
+            canal = atual.canal,
+            urlXtream = playlistUrlAtual,
+            xtreamRepository = xtreamRepository,
+            lembretesAtivos = lembretesEpg.map { it.second.id }.toSet(),
+            aoAgendarLembrete = { canalAlvo, programa ->
+                if (lembretesEpg.none { it.second.id == programa.id }) {
+                    lembretesEpg = lembretesEpg + (canalAlvo to programa)
+                } else {
+                    lembretesEpg = lembretesEpg.filterNot { it.second.id == programa.id }
+                }
+            },
             aoFechar = { reproducao = null },
             aoFalhaDeRede = {
                 if (macAutorizado.isNotBlank()) {
@@ -426,6 +484,7 @@ fun EvoluxApp() {
                 }
             }
         )
+        mostrarContagemLembrete()
         return
     }
     val catalogoApresentacao = remember(catalogoAtual) {
@@ -453,7 +512,7 @@ fun EvoluxApp() {
                 serieSelecionadaFora = agruparGrupoSerie(catalogoAtual.series, midia)
             }
         } else {
-            abrirConteudo(midia.titulo, midia.streamUrl)
+            abrirConteudo(midia.titulo, midia.streamUrl, null)
         }
     }
 
@@ -464,7 +523,7 @@ fun EvoluxApp() {
         if (midiaRef != null) {
             abrirMidiaOuSerie(midiaRef)
         } else {
-            abrirConteudo(destaque.titulo, destaque.streamUrl)
+            abrirConteudo(destaque.titulo, destaque.streamUrl, null)
         }
     }
 
@@ -594,7 +653,7 @@ fun EvoluxApp() {
 
             Tela.TV_AO_VIVO -> LiveTvScreen(
                 canais = catalogoAtual.canais,
-                aoAbrirCanal = { abrirConteudo(it.nome, it.streamUrl) },
+                aoAbrirCanal = { abrirConteudo(it.nome, it.streamUrl, it) },
                 categoriasOcultas = ocultasLive,
                 ordemInicial = ordens["canais"] ?: OrdemCatalogo.PADRAO,
                 aoMudarOrdem = { aoMudarOrdem("canais", it) },
@@ -605,7 +664,7 @@ fun EvoluxApp() {
             Tela.FILMES -> GradeMidiaScreen(
                 titulo = "Filmes",
                 itens = catalogoApresentacao.filmes,
-                aoSelecionar = { abrirConteudo(it.titulo, it.streamUrl) },
+                aoSelecionar = { abrirConteudo(it.titulo, it.streamUrl, null) },
                 ehFavorito = ehFavorito,
                 aoAlternarFavorito = aoAlternarFavorito,
                 categoriasOcultas = ocultasFilmes,
@@ -617,7 +676,7 @@ fun EvoluxApp() {
 
             Tela.SERIES -> SeriesBrowserScreen(
                 itens = catalogoApresentacao.series,
-                aoAssistir = { abrirConteudo(it.episodioNome ?: it.titulo, it.streamUrl) },
+                aoAssistir = { abrirConteudo(it.episodioNome ?: it.titulo, it.streamUrl, null) },
                 categoriasOcultas = ocultasSeries,
                 ordemInicial = ordens["series"] ?: OrdemCatalogo.PADRAO,
                 aoMudarOrdem = { aoMudarOrdem("series", it) },
@@ -635,7 +694,7 @@ fun EvoluxApp() {
 
             Tela.JOGOS -> GamesScreen(
                 jogos = emptyList(),
-                aoAbrirJogo = { abrirConteudo("${it.timeCasaSigla} x ${it.timeVisitanteSigla}", it.streamUrl) }
+                aoAbrirJogo = { abrirConteudo("${it.timeCasaSigla} x ${it.timeVisitanteSigla}", it.streamUrl, null) }
             )
 
             Tela.FAVORITOS -> GradeMidiaScreen(
@@ -693,13 +752,15 @@ fun EvoluxApp() {
             }
         }
 
+        mostrarContagemLembrete()
+
         serieSelecionadaFora?.let { grupo ->
             SeriesDetailDialog(
                 grupo = grupo,
                 aoFechar = { serieSelecionadaFora = null },
                 aoAssistir = { episodio ->
                     serieSelecionadaFora = null
-                    abrirConteudo(episodio.episodioNome ?: episodio.titulo, episodio.streamUrl)
+                    abrirConteudo(episodio.episodioNome ?: episodio.titulo, episodio.streamUrl, null)
                 }
             )
         }

@@ -80,6 +80,12 @@ fun ordenarCategorias(categoriasBrutas: List<String>, ordemCustom: List<String>)
 
 private val REGEX_MARCAS_DIACRITICAS = "\\p{M}+".toRegex()
 
+/** Extrai o stream_id numérico do fim da URL de um canal Xtream (ex: .../live/user/pass/12345.ts). */
+fun extrairStreamId(streamUrl: String): String? {
+    val semExtensao = streamUrl.substringBeforeLast('.', streamUrl).substringAfterLast('/')
+    return semExtensao.takeIf { it.isNotBlank() && it.all(Char::isDigit) }
+}
+
 fun normalizarConsulta(valor: String): String = Normalizer
     .normalize(valor, Normalizer.Form.NFD)
     .replace(REGEX_MARCAS_DIACRITICAS, "")
