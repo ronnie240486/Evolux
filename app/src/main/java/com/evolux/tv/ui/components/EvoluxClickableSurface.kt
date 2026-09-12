@@ -1,5 +1,6 @@
 package com.evolux.tv.ui.components
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
@@ -29,13 +31,15 @@ fun EvoluxClickableSurface(
     modifier: Modifier = Modifier,
     containerColor: Color = Color(0xFF12172A),
     focusedColor: Color = Color(0xFF2A3558),
-    borderColor: Color = Color(0xFFE5BD61),
+    borderColor: Color = Color(0xFFFFD84D),
     shape: RoundedCornerShape = RoundedCornerShape(12.dp),
     content: @Composable () -> Unit
 ) {
     var focused by remember { mutableStateOf(false) }
+    val escala by animateFloatAsState(if (focused) 1.06f else 1f, label = "escalaFoco")
     Box(
         modifier = modifier
+            .scale(escala)
             .clip(shape)
             .background(if (focused) focusedColor else containerColor)
             .focusable()
@@ -55,7 +59,7 @@ fun EvoluxClickableSurface(
                 }
             }
             .border(
-                width = if (focused) 2.dp else 0.dp,
+                width = if (focused) 3.dp else 0.dp,
                 color = if (focused) borderColor else Color.Transparent,
                 shape = shape
             )

@@ -155,6 +155,21 @@ fun PlayerScreen(
                             mostrarControles = visibilidade == android.view.View.VISIBLE
                         }
                     )
+                    // Como o player agora pode ficar com o foco (pro D-pad funcionar),
+                    // alguns controles remotos/TV box entregam o botao Voltar direto
+                    // pra essa view. Sem tratar aqui, ele podia nao chegar no
+                    // BackHandler do Compose e travar/fechar o app. Tratando aqui,
+                    // sempre fecha o player do jeito certo.
+                    setOnKeyListener { _, keyCode, evento ->
+                        val ehVoltar = keyCode == android.view.KeyEvent.KEYCODE_BACK ||
+                            keyCode == android.view.KeyEvent.KEYCODE_ESCAPE
+                        if (ehVoltar && evento.action == android.view.KeyEvent.ACTION_UP) {
+                            aoFechar()
+                            true
+                        } else {
+                            false
+                        }
+                    }
                     requestFocus()
                 }
             },
