@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
@@ -33,6 +34,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -128,6 +131,12 @@ fun SeriesBrowserScreen(
     var categoriasDesbloqueadas by remember { mutableStateOf(setOf<String>()) }
     var categoriaAguardandoPin by remember { mutableStateOf<String?>(null) }
     var erroPin by remember { mutableStateOf<String?>(null) }
+    val focusRequesterPrimeiraCategoria = remember { FocusRequester() }
+    LaunchedEffect(categorias) {
+        if (categorias.isNotEmpty()) {
+            runCatching { focusRequesterPrimeiraCategoria.requestFocus() }
+        }
+    }
 
     fun selecionarCategoria(categoria: String) {
         val precisaPin = ehCategoriaAdulto(categoria) && !pinAdulto.isNullOrBlank() && categoria !in categoriasDesbloqueadas
@@ -261,7 +270,12 @@ fun SeriesBrowserScreen(
                     FiltroCategoria(
                         nome = categoria,
                         selecionada = categoria == categoriaSelecionada,
-                        aoClicar = { selecionarCategoria(categoria) }
+                        aoClicar = { selecionarCategoria(categoria) },
+                        modifier = if (categorias.indexOf(categoria) == 0) {
+                            Modifier.focusRequester(focusRequesterPrimeiraCategoria)
+                        } else {
+                            Modifier
+                        }
                     )
                 }
             }
@@ -305,12 +319,12 @@ fun SeriesBrowserScreen(
 }
 
 @Composable
-private fun FiltroCategoria(nome: String, selecionada: Boolean, aoClicar: () -> Unit) {
+private fun FiltroCategoria(nome: String, selecionada: Boolean, aoClicar: () -> Unit, modifier: Modifier = Modifier) {
     EvoluxClickableSurface(
         onClick = aoClicar,
         containerColor = if (selecionada) Dourado else FundoCard,
         focusedColor = if (selecionada) Dourado else Color(0xFF2A3558),
-        modifier = Modifier.height(48.dp)
+        modifier = modifier.height(48.dp)
     ) {
         Box(
             modifier = Modifier.padding(horizontal = 18.dp),

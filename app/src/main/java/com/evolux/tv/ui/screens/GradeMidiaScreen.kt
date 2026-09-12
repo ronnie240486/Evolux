@@ -17,6 +17,9 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.tv.foundation.lazy.grid.items
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -77,6 +80,12 @@ fun GradeMidiaScreen(
         listOf("Todos") + ordenarCategorias(brutas, ordemCategoriasCustom)
     }
     var categoriaSelecionada by remember(categorias) { mutableStateOf("Todos") }
+    val focusRequesterPrimeiraCategoria = remember { FocusRequester() }
+    LaunchedEffect(categorias) {
+        if (categorias.isNotEmpty()) {
+            runCatching { focusRequesterPrimeiraCategoria.requestFocus() }
+        }
+    }
     var busca by remember(categorias) { mutableStateOf("") }
     var ordem by remember(categorias, ordemInicial) { mutableStateOf(ordemInicial) }
     val itensFiltrados = remember(itens, busca, categoriaSelecionada, ordem, categoriasOcultas) {
@@ -143,7 +152,11 @@ fun GradeMidiaScreen(
                     onClick = { selecionarCategoria(categoria) },
                     containerColor = if (categoria == categoriaSelecionada) Color(0xFF283454) else Color(0xFF12172A),
                     borderColor = Dourado,
-                    modifier = Modifier
+                    modifier = if (categorias.indexOf(categoria) == 0) {
+                        Modifier.focusRequester(focusRequesterPrimeiraCategoria)
+                    } else {
+                        Modifier
+                    }
                 ) {
                     Text(
                         text = categoria,

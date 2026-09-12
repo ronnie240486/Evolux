@@ -13,11 +13,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
@@ -101,6 +104,13 @@ fun LiveTvScreen(
         )
     }
 
+    val focusRequesterPrimeiraCategoria = remember { FocusRequester() }
+    LaunchedEffect(categorias) {
+        if (categorias.isNotEmpty()) {
+            runCatching { focusRequesterPrimeiraCategoria.requestFocus() }
+        }
+    }
+
     Column(modifier = Modifier.padding(24.dp)) {
         Text("TV AO VIVO", color = Dourado, fontWeight = FontWeight.Black, style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(12.dp))
@@ -111,7 +121,12 @@ fun LiveTvScreen(
                 EvoluxClickableSurface(
                     onClick = { selecionarCategoria(categoria) },
                     containerColor = if (categoria == categoriaSelecionada) Color(0xFF283454) else Color(0xFF12172A),
-                    borderColor = Dourado
+                    borderColor = Dourado,
+                    modifier = if (categorias.indexOf(categoria) == 0) {
+                        Modifier.focusRequester(focusRequesterPrimeiraCategoria)
+                    } else {
+                        Modifier
+                    }
                 ) {
                     Text(
                         categoria,

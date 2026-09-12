@@ -109,7 +109,13 @@ fun PlayerScreen(
         onDispose {
             player.removeListener(listener)
             player.stop()
-            player.release()
+            // player.release() pode demorar (desliga decodificador/superfície) e,
+            // sendo chamado direto aqui, trava a troca de tela até terminar —
+            // sobretudo em TV box fraca. Adiando pro próximo ciclo, a tela anterior
+            // já aparece na hora e o desligamento termina por baixo, sem travar nada.
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                player.release()
+            }
         }
     }
 
