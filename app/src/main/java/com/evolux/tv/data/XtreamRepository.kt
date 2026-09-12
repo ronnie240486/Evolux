@@ -59,7 +59,7 @@ class XtreamRepository {
                     categoria = categoria,
                     nota = nota,
                     popularidade = item.optLong("last_modified", 0L).takeIf { it > 0L },
-                    sinopse = item.optString("plot"),
+                    sinopse = item.optString("plot").semTextoNulo(),
                     serieId = id,
                     serieNome = titulo
                 )
@@ -124,7 +124,8 @@ class XtreamRepository {
                     info?.optString("cover_big").orEmpty(),
                     serie.imagemUrl
                 )
-                val sinopse = item.optString("plot").ifBlank { info?.optString("plot").orEmpty() }
+                val sinopse = item.optString("plot").semTextoNulo()
+                    .ifBlank { info?.optString("plot").orEmpty().semTextoNulo() }
                 add(
                     Midia(
                         id = "xtream_episode_${serie.serieId}_$id",
@@ -279,3 +280,6 @@ class XtreamRepository {
         }
     }
 }
+
+/** Alguns paineis Xtream devolvem a string literal "null" em vez do campo vazio. */
+private fun String.semTextoNulo(): String = if (this.equals("null", ignoreCase = true)) "" else this

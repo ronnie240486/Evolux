@@ -410,7 +410,13 @@ fun SeriesDetailDialog(
         mutableStateOf(temporadas.keys.firstOrNull() ?: 1)
     }
     val episodios = temporadas[temporadaSelecionada].orEmpty()
-        .sortedWith(compareBy<Midia> { it.episodioNumero ?: Int.MAX_VALUE }.thenBy { it.titulo })
+        .sortedWith(compareBy<Midia> { numeroEpisodioEfetivo(it) }.thenBy { ordemNaPlaylist(it) })
+    val focusRequesterPrimeiroEpisodio = remember { FocusRequester() }
+    LaunchedEffect(temporadaSelecionada, episodios.size) {
+        if (episodios.isNotEmpty()) {
+            runCatching { focusRequesterPrimeiroEpisodio.requestFocus() }
+        }
+    }
 
     Dialog(
         onDismissRequest = aoFechar,
@@ -484,8 +490,12 @@ fun SeriesDetailDialog(
                     contentPadding = PaddingValues(bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(episodios, key = { it.id }) { episodio ->
-                        EpisodioRow(episodio) { aoAssistir(episodio) }
+                    itemsIndexed(episodios, key = { _, ep -> ep.id }) { indice, episodio ->
+                        EpisodioRow(
+                            episodio = episodio,
+                            modifier = if (indice == 0) Modifier.focusRequester(focusRequesterPrimeiroEpisodio) else Modifier,
+                            aoClicar = { aoAssistir(episodio) }
+                        )
                     }
                 }
             }
@@ -494,11 +504,11 @@ fun SeriesDetailDialog(
 }
 
 @Composable
-private fun EpisodioRow(episodio: Midia, aoClicar: () -> Unit) {
+private fun EpisodioRow(episodio: Midia, modifier: Modifier = Modifier, aoClicar: () -> Unit) {
     EvoluxClickableSurface(
         onClick = aoClicar,
         containerColor = FundoCard,
-        modifier = Modifier.fillMaxWidth().height(70.dp)
+        modifier = modifier.fillMaxWidth().height(70.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
