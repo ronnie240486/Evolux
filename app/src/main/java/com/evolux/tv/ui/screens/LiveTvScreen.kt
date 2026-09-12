@@ -111,11 +111,11 @@ fun LiveTvScreen(
         }
     }
 
-    Column(modifier = Modifier.padding(24.dp)) {
+    Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
         Text("TV AO VIVO", color = Dourado, fontWeight = FontWeight.Black, style = MaterialTheme.typography.headlineSmall)
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(6.dp))
         CampoBuscaCanais(busca, { busca = it })
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(6.dp))
         TvLazyRow(contentPadding = PaddingValues(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             tvRowItems(categorias) { categoria ->
                 EvoluxClickableSurface(
@@ -167,7 +167,7 @@ fun LiveTvScreen(
                     columns = TvGridCells.Fixed(colunas),
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(if (colunas == 2) 10.dp else 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     items(canaisFiltrados) { canal ->
                         CardCanal(canal, aoClicar = { aoAbrirCanal(canal) })

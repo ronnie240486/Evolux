@@ -501,15 +501,21 @@ fun EvoluxApp() {
             val url = playlistUrlAtual
             if (url != null && XtreamRepository.pareceXtream(url)) {
                 escopo.launch {
-                    val episodios = xtreamRepository.carregarEpisodios(url, midia)
-                    serieSelecionadaFora = if (episodios.isNotEmpty()) {
-                        agruparGrupoSerie(episodios, episodios.first())
-                    } else {
-                        agruparGrupoSerie(catalogoAtual.series, midia)
+                    try {
+                        val episodios = xtreamRepository.carregarEpisodios(url, midia)
+                        serieSelecionadaFora = if (episodios.isNotEmpty()) {
+                            agruparGrupoSerie(episodios, episodios.first())
+                        } else {
+                            agruparGrupoSerie(catalogoAtual.series, midia)
+                        }
+                    } catch (erro: Exception) {
+                        runCatching { serieSelecionadaFora = agruparGrupoSerie(catalogoAtual.series, midia) }
+                        Toast.makeText(contexto, "Não consegui carregar os episódios agora.", Toast.LENGTH_SHORT).show()
                     }
                 }
             } else {
-                serieSelecionadaFora = agruparGrupoSerie(catalogoAtual.series, midia)
+                runCatching { serieSelecionadaFora = agruparGrupoSerie(catalogoAtual.series, midia) }
+                    .onFailure { Toast.makeText(contexto, "Não consegui abrir essa série.", Toast.LENGTH_SHORT).show() }
             }
         } else {
             abrirConteudo(midia.titulo, midia.streamUrl, null)

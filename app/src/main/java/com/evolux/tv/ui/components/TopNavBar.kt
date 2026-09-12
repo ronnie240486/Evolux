@@ -76,7 +76,7 @@ fun TopNavBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(scrollState)
-                .padding(horizontal = if (compacto) 12.dp else 24.dp, vertical = if (compacto) 10.dp else 16.dp),
+                .padding(horizontal = if (compacto) 12.dp else 24.dp, vertical = if (compacto) 8.dp else 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(if (compacto) 8.dp else 14.dp)
         ) {
@@ -102,7 +102,7 @@ private fun LogoEvolux(compacto: Boolean) {
         contentDescription = "Logo Evolux",
         contentScale = ContentScale.Fit,
         modifier = Modifier
-            .width(if (compacto) 108.dp else 176.dp)
+            .width(if (compacto) 84.dp else 120.dp)
             .padding(vertical = if (compacto) 2.dp else 0.dp)
     )
 }

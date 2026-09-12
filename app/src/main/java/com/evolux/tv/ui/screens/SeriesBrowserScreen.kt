@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -417,8 +418,8 @@ fun SeriesDetailDialog(
     ) {
         Box(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 24.dp)
+                .fillMaxWidth(0.96f)
+                .fillMaxHeight(0.92f)
                 .clip(RoundedCornerShape(18.dp))
                 .background(Color(0xFF0B1020))
                 .padding(24.dp)
