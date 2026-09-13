@@ -213,7 +213,7 @@ fun GradeMidiaScreen(
                 horizontalArrangement = Arrangement.spacedBy(if (colunas == 2) 10.dp else 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(itensFiltrados) { midia ->
+                items(itensFiltrados, key = { it.id }) { midia ->
                     CardPoster(
                         midia = midia,
                         favorito = ehFavorito(midia),

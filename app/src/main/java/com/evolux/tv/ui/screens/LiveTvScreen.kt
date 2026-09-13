@@ -169,7 +169,7 @@ fun LiveTvScreen(
                     horizontalArrangement = Arrangement.spacedBy(if (colunas == 2) 10.dp else 16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    items(canaisFiltrados) { canal ->
+                    items(canaisFiltrados, key = { it.id }) { canal ->
                         CardCanal(canal, aoClicar = { aoAbrirCanal(canal) })
                     }
                 }
