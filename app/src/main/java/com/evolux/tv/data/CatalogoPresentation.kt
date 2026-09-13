@@ -26,6 +26,7 @@ fun gerarDestaques(catalogo: PlaylistCatalog, limite: Int = 8): List<Destaque> {
     val candidatos = (catalogo.filmes + catalogo.series)
         .asSequence()
         .filter { it.titulo.isNotBlank() && it.streamUrl.isNotBlank() && it.imagemUrl.isNotBlank() }
+        .filter { !ehMidiaAdulta(it) }
         // Uma novela/série tem muitos capítulos/episódios com o mesmo nome base;
         // sem isso, ela sozinha lotava o pool de destaques com "ela mesma".
         .distinctBy { midia ->

@@ -22,9 +22,11 @@ fun filtrarEOrdenarMidias(
     val categoriaNormalizada = categoria?.takeUnless { it == "Todos" }
         ?.let(::normalizarConsulta)
     val ocultas = categoriasOcultas.map(::normalizarConsulta).toSet()
+    val categoriaAtualEhAdulta = categoria != null && categoria != "Todos" && ehCategoriaAdulto(categoria)
     val filtradas = itens.asSequence()
         .filter { midia -> normalizarConsulta(midia.categoria.ifBlank { "Sem categoria" }) !in ocultas }
         .filter { midia -> categoriaNormalizada == null || normalizarConsulta(midia.categoria.ifBlank { "Sem categoria" }) == categoriaNormalizada }
+        .filter { midia -> categoriaAtualEhAdulta || !ehMidiaAdulta(midia) }
         .filter { midia ->
             buscaNormalizada.isBlank() || listOf(midia.titulo, midia.categoria, midia.sinopse)
                 .any { normalizarConsulta(it).contains(buscaNormalizada) }
@@ -43,9 +45,11 @@ fun filtrarEOrdenarCanais(
     val categoriaNormalizada = categoria?.takeUnless { it == "Todos" }
         ?.let(::normalizarConsulta)
     val ocultas = categoriasOcultas.map(::normalizarConsulta).toSet()
+    val categoriaAtualEhAdulta = categoria != null && categoria != "Todos" && ehCategoriaAdulto(categoria)
     val filtradas = itens.asSequence()
         .filter { canal -> normalizarConsulta(canal.categoria.ifBlank { "TV ao vivo" }) !in ocultas }
         .filter { canal -> categoriaNormalizada == null || normalizarConsulta(canal.categoria.ifBlank { "TV ao vivo" }) == categoriaNormalizada }
+        .filter { canal -> categoriaAtualEhAdulta || !ehCanalAdulto(canal) }
         .filter { canal -> buscaNormalizada.isBlank() || listOf(canal.nome, canal.categoria).any { normalizarConsulta(it).contains(buscaNormalizada) } }
         .toList()
     return when (ordem) {
@@ -60,6 +64,10 @@ fun ehCategoriaAdulto(categoria: String): Boolean {
     val normalizada = " ${normalizarConsulta(categoria)} "
     return PALAVRAS_ADULTO.any { normalizada.contains(it) }
 }
+
+fun ehCanalAdulto(canal: Canal): Boolean = ehCategoriaAdulto(canal.categoria) || ehCategoriaAdulto(canal.nome)
+
+fun ehMidiaAdulta(midia: Midia): Boolean = ehCategoriaAdulto(midia.categoria) || ehCategoriaAdulto(midia.titulo)
 
 /**
  * Ordena categorias respeitando uma ordem customizada salva pelo usuário

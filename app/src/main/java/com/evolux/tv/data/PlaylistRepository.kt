@@ -161,7 +161,7 @@ class PlaylistRepository {
         var pendente: Entrada? = null
         var totalItens = 0
         var truncado = false
-        var ultimoAviso = System.currentTimeMillis()
+        var jaRevelouParcial = false
         val leitorBuffer = leitor as? BufferedReader ?: leitor.buffered()
 
         while (true) {
@@ -223,14 +223,13 @@ class PlaylistRepository {
                     }
                     pendente = null
 
-                    // Publica um retrato parcial a cada ~800ms ou 300 itens, pra a UI
-                    // já mostrar conteúdo em vez de esperar o arquivo inteiro terminar.
-                    val agora = System.currentTimeMillis()
-                    // TV boxes fracas travam se a tela recompuser (com imagens
-                    // carregando) toda hora enquanto o download ainda roda atrás.
-                    // Atualiza bem menos vezes: a cada 3000 itens ou 3 segundos.
-                    if (totalItens % 3000 == 0 || agora - ultimoAviso >= 3_000) {
-                        ultimoAviso = agora
+                    // Revela a tela só UMA VEZ, assim que tiver conteúdo suficiente
+                    // pra navegar (em vez de esperar 100%). Repetir isso a cada poucos
+                    // segundos durante o download inteiro fazia qualquer aba aberta
+                    // refazer o filtro/ordenação da lista (que só cresce) sem parar,
+                    // travando o app até o fim do carregamento.
+                    if (!jaRevelouParcial && totalItens >= 2_000) {
+                        jaRevelouParcial = true
                         aoParcial(PlaylistCatalog(canais.toList(), filmes.toList(), series.toList(), truncado))
                     }
                 }
