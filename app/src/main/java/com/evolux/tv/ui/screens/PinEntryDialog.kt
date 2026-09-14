@@ -87,3 +87,41 @@ fun PinEntryDialog(
         }
     }
 }
+
+/** Diálogo simples de informação/confirmação, reutilizado em várias telas. */
+@Composable
+fun InfoDialogSimples(
+    titulo: String,
+    mensagem: String,
+    aoFechar: () -> Unit,
+    textoBotao: String = "OK",
+    aoConfirmar: (() -> Unit)? = null
+) {
+    Dialog(onDismissRequest = aoFechar) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(0.85f)
+                .wrapContentHeight()
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color(0xFF0B1020))
+                .padding(24.dp)
+        ) {
+            Text(text = titulo, color = Color(0xFFF4D35E), fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(text = mensagem, color = Color.White)
+            Spacer(modifier = Modifier.height(20.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                if (aoConfirmar != null) {
+                    Button(onClick = { aoFechar() }) { Text("Depois") }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Button(onClick = aoConfirmar) { Text(textoBotao) }
+                } else {
+                    Button(onClick = aoFechar) { Text(textoBotao) }
+                }
+            }
+        }
+    }
+}
