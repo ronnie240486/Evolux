@@ -48,11 +48,10 @@ fun GamesScreen(
                     containerColor = FundoCard,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(18.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            .padding(18.dp)
                     ) {
                         Text(
                             text = "${jogo.timeCasaSigla} x ${jogo.timeVisitanteSigla}",
@@ -60,7 +59,8 @@ fun GamesScreen(
                         )
                         Text(
                             text = "${jogo.horario} • ${jogo.campeonato}",
-                            color = TextoCinza
+                            color = TextoCinza,
+                            style = MaterialTheme.typography.bodySmall
                         )
                     }
                 }
