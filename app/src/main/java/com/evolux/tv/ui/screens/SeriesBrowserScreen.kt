@@ -57,6 +57,7 @@ import com.evolux.tv.R
 import com.evolux.tv.data.Midia
 import com.evolux.tv.data.OrdemCatalogo
 import com.evolux.tv.data.ehCategoriaAdulto
+import com.evolux.tv.data.ehCategoriaKids
 import com.evolux.tv.data.normalizarConsulta
 import com.evolux.tv.data.ordenarCategorias
 import com.evolux.tv.ui.components.EvoluxClickableSurface
@@ -124,7 +125,9 @@ fun SeriesBrowserScreen(
             .distinct()
             .filter { it !in categoriasOcultas }
             .toList()
-        ordenarCategorias(brutas, ordemCategoriasCustom)
+        val (kids, outras) = brutas.partition(::ehCategoriaKids)
+        val comKidsUnificado = outras + if (kids.isNotEmpty()) listOf("Kids") else emptyList()
+        ordenarCategorias(comKidsUnificado, ordemCategoriasCustom)
     }
     var categoriaSelecionada by remember(categorias) {
         mutableStateOf(categorias.firstOrNull().orEmpty())
@@ -177,8 +180,12 @@ fun SeriesBrowserScreen(
     var ordem by remember(itens, ordemInicial) { mutableStateOf(ordemInicial) }
     val grupos = remember(itens, categoriaSelecionada, busca, ordem, categoriasOcultas) {
         val consulta = normalizarConsulta(busca)
+        val categoriaEhKids = categoriaSelecionada == "Kids"
         val resultado = itens.asSequence()
-            .filter { it.categoria.ifBlank { "Séries" } == categoriaSelecionada }
+            .filter { item ->
+                val categoria = item.categoria.ifBlank { "Séries" }
+                if (categoriaEhKids) ehCategoriaKids(categoria) else categoria == categoriaSelecionada
+            }
             .filter { it.categoria.ifBlank { "Séries" } !in categoriasOcultas }
             .groupBy { item ->
                 val categoria = item.categoria.ifBlank { "Séries" }

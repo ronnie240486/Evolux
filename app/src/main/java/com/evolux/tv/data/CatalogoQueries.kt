@@ -11,6 +11,16 @@ enum class OrdemCatalogo(val rotulo: String) {
     POPULARIDADE("Popularidade")
 }
 
+private val PALAVRAS_KIDS = listOf(
+    "desenho", "anime", "crunchyroll", "animac", "kids", "infantil", "natal", "cartoon", "toon"
+)
+
+/** Categorias de desenho/anime/animação/natal que devem virar a aba única "Kids". */
+fun ehCategoriaKids(categoria: String): Boolean {
+    val normalizada = normalizarConsulta(categoria)
+    return PALAVRAS_KIDS.any { normalizada.contains(it) }
+}
+
 fun filtrarEOrdenarMidias(
     itens: List<Midia>,
     busca: String,
@@ -23,9 +33,16 @@ fun filtrarEOrdenarMidias(
         ?.let(::normalizarConsulta)
     val ocultas = categoriasOcultas.map(::normalizarConsulta).toSet()
     val categoriaAtualEhAdulta = categoria != null && categoria != "Todos" && ehCategoriaAdulto(categoria)
+    val categoriaAtualEhKids = categoria == "Kids"
     val filtradas = itens.asSequence()
         .filter { midia -> normalizarConsulta(midia.categoria.ifBlank { "Sem categoria" }) !in ocultas }
-        .filter { midia -> categoriaNormalizada == null || normalizarConsulta(midia.categoria.ifBlank { "Sem categoria" }) == categoriaNormalizada }
+        .filter { midia ->
+            when {
+                categoriaAtualEhKids -> ehCategoriaKids(midia.categoria)
+                categoriaNormalizada == null -> true
+                else -> normalizarConsulta(midia.categoria.ifBlank { "Sem categoria" }) == categoriaNormalizada
+            }
+        }
         .filter { midia -> categoriaAtualEhAdulta || !ehMidiaAdulta(midia) }
         .filter { midia ->
             buscaNormalizada.isBlank() || listOf(midia.titulo, midia.categoria, midia.sinopse)

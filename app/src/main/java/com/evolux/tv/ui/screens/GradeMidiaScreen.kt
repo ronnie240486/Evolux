@@ -50,6 +50,7 @@ import com.evolux.tv.R
 import com.evolux.tv.data.Midia
 import com.evolux.tv.data.OrdemCatalogo
 import com.evolux.tv.data.ehCategoriaAdulto
+import com.evolux.tv.data.ehCategoriaKids
 import com.evolux.tv.data.filtrarEOrdenarMidias
 import com.evolux.tv.data.ordenarCategorias
 import com.evolux.tv.ui.components.EvoluxClickableSurface
@@ -77,7 +78,9 @@ fun GradeMidiaScreen(
             .map { it.categoria.ifBlank { "Sem categoria" } }
             .distinct()
             .filter { categoria -> categoria !in categoriasOcultas }
-        listOf("Todos") + ordenarCategorias(brutas, ordemCategoriasCustom)
+        val (kids, outras) = brutas.partition(::ehCategoriaKids)
+        val comKidsUnificado = outras + if (kids.isNotEmpty()) listOf("Kids") else emptyList()
+        listOf("Todos") + ordenarCategorias(comKidsUnificado, ordemCategoriasCustom)
     }
     var categoriaSelecionada by remember(categorias) { mutableStateOf("Todos") }
     val focusRequesterPrimeiraCategoria = remember { FocusRequester() }
