@@ -140,8 +140,7 @@ fun SeriesBrowserScreen(
     }
 
     fun selecionarCategoria(categoria: String) {
-        val precisaPin = ehCategoriaAdulto(categoria) && !pinAdulto.isNullOrBlank() && categoria !in categoriasDesbloqueadas
-        if (precisaPin) {
+        if (ehCategoriaAdulto(categoria) && categoria !in categoriasDesbloqueadas) {
             categoriaAguardandoPin = categoria
         } else {
             categoriaSelecionada = categoria
@@ -149,22 +148,30 @@ fun SeriesBrowserScreen(
     }
 
     categoriaAguardandoPin?.let { categoria ->
-        PinEntryDialog(
-            titulo = "Conteúdo adulto",
-            subtitulo = "Digite o PIN para acessar \"$categoria\".",
-            erro = erroPin,
-            aoCancelar = { categoriaAguardandoPin = null; erroPin = null },
-            aoConfirmar = { digitado ->
-                if (digitado == pinAdulto) {
-                    categoriasDesbloqueadas = categoriasDesbloqueadas + categoria
-                    categoriaSelecionada = categoria
-                    categoriaAguardandoPin = null
-                    erroPin = null
-                } else {
-                    erroPin = "PIN incorreto."
+        if (pinAdulto.isNullOrBlank()) {
+            InfoDialogSimples(
+                titulo = "Conteúdo bloqueado",
+                mensagem = "Nenhum PIN foi configurado ainda. Vá em Configurações > Criar PIN de conteúdo adulto para liberar o acesso.",
+                aoFechar = { categoriaAguardandoPin = null }
+            )
+        } else {
+            PinEntryDialog(
+                titulo = "Conteúdo adulto",
+                subtitulo = "Digite o PIN para acessar \"$categoria\".",
+                erro = erroPin,
+                aoCancelar = { categoriaAguardandoPin = null; erroPin = null },
+                aoConfirmar = { digitado ->
+                    if (digitado == pinAdulto) {
+                        categoriasDesbloqueadas = categoriasDesbloqueadas + categoria
+                        categoriaSelecionada = categoria
+                        categoriaAguardandoPin = null
+                        erroPin = null
+                    } else {
+                        erroPin = "PIN incorreto."
+                    }
                 }
-            }
-        )
+            )
+        }
     }
     var busca by remember(itens) { mutableStateOf("") }
     var ordem by remember(itens, ordemInicial) { mutableStateOf(ordemInicial) }
