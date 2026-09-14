@@ -125,9 +125,7 @@ fun SeriesBrowserScreen(
             .distinct()
             .filter { it !in categoriasOcultas }
             .toList()
-        val (kids, outras) = brutas.partition(::ehCategoriaKids)
-        val comKidsUnificado = outras + if (kids.isNotEmpty()) listOf("Kids") else emptyList()
-        ordenarCategorias(comKidsUnificado, ordemCategoriasCustom)
+        ordenarCategorias(brutas, ordemCategoriasCustom)
     }
     var categoriaSelecionada by remember(categorias) {
         mutableStateOf(categorias.firstOrNull().orEmpty())
@@ -180,12 +178,8 @@ fun SeriesBrowserScreen(
     var ordem by remember(itens, ordemInicial) { mutableStateOf(ordemInicial) }
     val grupos = remember(itens, categoriaSelecionada, busca, ordem, categoriasOcultas) {
         val consulta = normalizarConsulta(busca)
-        val categoriaEhKids = categoriaSelecionada == "Kids"
         val resultado = itens.asSequence()
-            .filter { item ->
-                val categoria = item.categoria.ifBlank { "Séries" }
-                if (categoriaEhKids) ehCategoriaKids(categoria) else categoria == categoriaSelecionada
-            }
+            .filter { it.categoria.ifBlank { "Séries" } == categoriaSelecionada }
             .filter { it.categoria.ifBlank { "Séries" } !in categoriasOcultas }
             .groupBy { item ->
                 val categoria = item.categoria.ifBlank { "Séries" }

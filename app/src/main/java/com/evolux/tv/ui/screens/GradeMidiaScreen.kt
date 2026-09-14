@@ -78,9 +78,7 @@ fun GradeMidiaScreen(
             .map { it.categoria.ifBlank { "Sem categoria" } }
             .distinct()
             .filter { categoria -> categoria !in categoriasOcultas }
-        val (kids, outras) = brutas.partition(::ehCategoriaKids)
-        val comKidsUnificado = outras + if (kids.isNotEmpty()) listOf("Kids") else emptyList()
-        listOf("Todos") + ordenarCategorias(comKidsUnificado, ordemCategoriasCustom)
+        listOf("Todos") + ordenarCategorias(brutas, ordemCategoriasCustom)
     }
     var categoriaSelecionada by remember(categorias) { mutableStateOf("Todos") }
     val focusRequesterPrimeiraCategoria = remember { FocusRequester() }

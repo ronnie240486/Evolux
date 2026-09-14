@@ -42,6 +42,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import com.evolux.tv.R
 import com.evolux.tv.data.EvoluxRepository
+import com.evolux.tv.data.ehCategoriaKids
 import com.evolux.tv.data.EvoluxConfig
 import com.evolux.tv.data.CatalogoCache
 import com.evolux.tv.data.Canal
@@ -493,6 +494,9 @@ fun EvoluxApp() {
             series = catalogoAtual.series.filter { pertenceAFamiliaSeries(it.categoria) }
         )
     }
+    val itensKids = remember(catalogoAtual) {
+        (catalogoAtual.filmes + catalogoAtual.series).filter { ehCategoriaKids(it.categoria) }
+    }
 
     var serieSelecionadaFora by remember { mutableStateOf<GrupoSerie?>(null) }
 
@@ -696,6 +700,16 @@ fun EvoluxApp() {
                         emptyList()
                     }
                 }
+            )
+
+            Tela.KIDS -> GradeMidiaScreen(
+                titulo = "Kids",
+                itens = itensKids,
+                aoSelecionar = abrirMidiaOuSerie,
+                ehFavorito = ehFavorito,
+                aoAlternarFavorito = aoAlternarFavorito,
+                mensagemVazio = "Nenhum conteúdo infantil encontrado na sua lista.",
+                pinAdulto = pinAdulto
             )
 
             Tela.JOGOS -> GamesScreen(

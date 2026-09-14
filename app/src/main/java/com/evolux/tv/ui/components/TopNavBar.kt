@@ -14,6 +14,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.PlayArrow
@@ -53,6 +54,7 @@ enum class Tela(val rotulo: String, val icone: ImageVector) {
     TV_AO_VIVO("TV ao Vivo", Icons.Filled.PlayArrow),
     FILMES("Filmes", Icons.Filled.List),
     SERIES("Séries", Icons.Filled.List),
+    KIDS("Kids", Icons.Filled.Face),
     JOGOS("Jogos", Icons.Filled.Star),
     FAVORITOS("Favoritos", Icons.Filled.Favorite),
     CONFIGURACOES("Configurações", Icons.Filled.Settings)
