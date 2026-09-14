@@ -37,8 +37,10 @@ class EsporteRepository {
             buildList<Jogo> {
                 for (indice in 0 until eventos.length()) {
                     val evento = eventos.optJSONObject(indice) ?: continue
-                    val casa = evento.optString("strHomeTeam").ifBlank { continue }
-                    val visitante = evento.optString("strAwayTeam").ifBlank { continue }
+                    val casa = evento.optString("strHomeTeam")
+                    if (casa.isBlank()) continue
+                    val visitante = evento.optString("strAwayTeam")
+                    if (visitante.isBlank()) continue
                     val horarioBruto = evento.optString("strTime")
                     add(
                         Jogo(
