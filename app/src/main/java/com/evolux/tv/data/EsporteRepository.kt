@@ -30,11 +30,11 @@ class EsporteRepository {
         }
         try {
             val codigo = conexao.responseCode
-            if (codigo !in 200..299) return@withContext emptyList()
+            if (codigo !in 200..299) return@withContext emptyList<Jogo>()
             val corpo = conexao.inputStream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
-            val raiz = runCatching { JSONObject(corpo) }.getOrNull() ?: return@withContext emptyList()
-            val eventos = raiz.optJSONArray("events") ?: return@withContext emptyList()
-            buildList {
+            val raiz = runCatching { JSONObject(corpo) }.getOrNull() ?: return@withContext emptyList<Jogo>()
+            val eventos = raiz.optJSONArray("events") ?: return@withContext emptyList<Jogo>()
+            buildList<Jogo> {
                 for (indice in 0 until eventos.length()) {
                     val evento = eventos.optJSONObject(indice) ?: continue
                     val casa = evento.optString("strHomeTeam").ifBlank { continue }
@@ -55,11 +55,11 @@ class EsporteRepository {
                 }
             }
         } catch (_: SocketTimeoutException) {
-            emptyList()
+            emptyList<Jogo>()
         } catch (_: IOException) {
-            emptyList()
+            emptyList<Jogo>()
         } catch (_: Exception) {
-            emptyList()
+            emptyList<Jogo>()
         } finally {
             conexao.disconnect()
         }
