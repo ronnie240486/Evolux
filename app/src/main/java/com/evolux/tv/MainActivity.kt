@@ -42,6 +42,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import com.evolux.tv.R
 import com.evolux.tv.data.EvoluxRepository
+import com.evolux.tv.data.EsporteRepository
+import com.evolux.tv.data.Jogo
 import com.evolux.tv.data.ehCategoriaKids
 import com.evolux.tv.data.EvoluxConfig
 import com.evolux.tv.data.CatalogoCache
@@ -119,6 +121,11 @@ fun EvoluxApp() {
     val repository = remember { EvoluxRepository() }
     val playlistRepository = remember { PlaylistRepository() }
     val renciaApi = remember { RenciaApiClient(appId = "evolux") }
+    val esporteRepository = remember { EsporteRepository() }
+    var jogosDoDia by remember { mutableStateOf<List<Jogo>>(emptyList()) }
+    LaunchedEffect(Unit) {
+        jogosDoDia = esporteRepository.buscarJogosDoDia()
+    }
     val xtreamRepository = remember { XtreamRepository() }
     val escopo = rememberCoroutineScope()
     var macAutorizado by remember { mutableStateOf("") }
@@ -713,7 +720,7 @@ fun EvoluxApp() {
             )
 
             Tela.JOGOS -> GamesScreen(
-                jogos = emptyList(),
+                jogos = jogosDoDia,
                 aoAbrirJogo = { abrirConteudo("${it.timeCasaSigla} x ${it.timeVisitanteSigla}", it.streamUrl, null) }
             )
 
