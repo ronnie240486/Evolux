@@ -45,6 +45,7 @@ import com.evolux.tv.data.EvoluxRepository
 import com.evolux.tv.data.EsporteRepository
 import com.evolux.tv.data.Jogo
 import com.evolux.tv.data.ehCategoriaKids
+import com.evolux.tv.data.normalizarConsulta
 import com.evolux.tv.data.EvoluxConfig
 import com.evolux.tv.data.CatalogoCache
 import com.evolux.tv.data.Canal
@@ -721,7 +722,14 @@ fun EvoluxApp() {
 
             Tela.JOGOS -> GamesScreen(
                 jogos = jogosDoDia,
-                aoAbrirJogo = { abrirConteudo("${it.timeCasaSigla} x ${it.timeVisitanteSigla}", it.streamUrl, null) }
+                aoAbrirJogo = { jogo ->
+                    val canalEncontrado = if (jogo.aoVivo) encontrarCanalDoJogo(jogo, catalogoAtual.canais) else null
+                    if (canalEncontrado != null) {
+                        abrirConteudo(canalEncontrado.nome, canalEncontrado.streamUrl, canalEncontrado)
+                    } else {
+                        abrirConteudo("${jogo.timeCasaSigla} x ${jogo.timeVisitanteSigla}", jogo.streamUrl, null)
+                    }
+                }
             )
 
             Tela.FAVORITOS -> GradeMidiaScreen(
@@ -831,6 +839,22 @@ fun EvoluxApp() {
                 }
             )
         }
+    }
+}
+
+/**
+ * Tenta achar, entre os canais ao vivo, um que tenha o nome de algum dos dois
+ * times no nome do canal — jeito bem simples e sem garantia de acerto de
+ * cruzar um jogo com a transmissão certa. Só usa quando o jogo está ao vivo.
+ */
+private fun encontrarCanalDoJogo(jogo: Jogo, canais: List<Canal>): Canal? {
+    val nomeCasa = normalizarConsulta(jogo.timeCasaNomeCompleto.ifBlank { jogo.timeCasaSigla })
+    val nomeFora = normalizarConsulta(jogo.timeVisitanteNomeCompleto.ifBlank { jogo.timeVisitanteSigla })
+    if (nomeCasa.isBlank() && nomeFora.isBlank()) return null
+    return canais.firstOrNull { canal ->
+        val nomeCanal = normalizarConsulta(canal.nome)
+        (nomeCasa.isNotBlank() && nomeCanal.contains(nomeCasa)) ||
+            (nomeFora.isNotBlank() && nomeCanal.contains(nomeFora))
     }
 }
 

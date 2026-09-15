@@ -53,5 +53,11 @@ data class Jogo(
     val timeVisitanteLogoUrl: String,
     val horario: String,
     val campeonato: String,
-    val streamUrl: String
+    val streamUrl: String,
+    val placarCasa: Int? = null,
+    val placarVisitante: Int? = null,
+    val aoVivo: Boolean = false,
+    val encerrado: Boolean = false,
+    val timeCasaNomeCompleto: String = "",
+    val timeVisitanteNomeCompleto: String = ""
 )

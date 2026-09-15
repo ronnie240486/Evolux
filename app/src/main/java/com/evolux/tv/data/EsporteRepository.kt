@@ -16,7 +16,7 @@ import org.json.JSONObject
  * Busca os jogos do dia na API pública gratuita e sem chave do ESPN
  * (site.api.espn.com), cobrindo competições brasileiras e as principais
  * internacionais. Não inclui link de transmissão — isso depende da lista
- * de canais de cada usuário, a API só dá times/horário/campeonato.
+ * de canais de cada usuário, a API só dá times/horário/campeonato/placar.
  */
 class EsporteRepository {
 
@@ -68,27 +68,51 @@ class EsporteRepository {
 
                 var siglaCasa = ""
                 var siglaFora = ""
+                var nomeCasa = ""
+                var nomeFora = ""
+                var logoCasa = ""
+                var logoFora = ""
+                var placarCasa: Int? = null
+                var placarFora: Int? = null
                 for (indiceCompetidor in 0 until competidores.length()) {
                     val competidor = competidores.optJSONObject(indiceCompetidor) ?: continue
                     val time = competidor.optJSONObject("team")
-                    val nome = time?.optString("shortDisplayName").orEmpty()
-                        .ifBlank { time?.optString("displayName").orEmpty() }
+                    val nomeCompleto = time?.optString("displayName").orEmpty()
+                    val nomeCurto = time?.optString("shortDisplayName").orEmpty()
+                        .ifBlank { nomeCompleto }
                         .ifBlank { time?.optString("abbreviation").orEmpty() }
-                    if (nome.isBlank()) continue
-                    if (competidor.optString("homeAway") == "home") siglaCasa = nome else siglaFora = nome
+                    if (nomeCurto.isBlank()) continue
+                    val logo = time?.optString("logo").orEmpty()
+                    val placar = competidor.optString("score").toIntOrNull()
+                    if (competidor.optString("homeAway") == "home") {
+                        siglaCasa = nomeCurto; nomeCasa = nomeCompleto; logoCasa = logo; placarCasa = placar
+                    } else {
+                        siglaFora = nomeCurto; nomeFora = nomeCompleto; logoFora = logo; placarFora = placar
+                    }
                 }
                 if (siglaCasa.isBlank() || siglaFora.isBlank()) continue
+
+                val statusObjeto = competicao.optJSONObject("status")?.optJSONObject("type")
+                val estado = statusObjeto?.optString("state").orEmpty()
+                val encerrado = statusObjeto?.optBoolean("completed", false) ?: false
+                val aoVivo = estado == "in"
 
                 resultado.add(
                     Jogo(
                         id = evento.optString("id").ifBlank { "${liga.slug}_$indice" },
                         timeCasaSigla = siglaCasa,
-                        timeCasaLogoUrl = "",
+                        timeCasaLogoUrl = logoCasa,
                         timeVisitanteSigla = siglaFora,
-                        timeVisitanteLogoUrl = "",
+                        timeVisitanteLogoUrl = logoFora,
                         horario = formatarHorario(evento.optString("date")),
                         campeonato = liga.nome,
-                        streamUrl = ""
+                        streamUrl = "",
+                        placarCasa = if (aoVivo || encerrado) placarCasa else null,
+                        placarVisitante = if (aoVivo || encerrado) placarFora else null,
+                        aoVivo = aoVivo,
+                        encerrado = encerrado,
+                        timeCasaNomeCompleto = nomeCasa,
+                        timeVisitanteNomeCompleto = nomeFora
                     )
                 )
             }
