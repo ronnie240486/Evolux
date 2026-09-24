@@ -79,7 +79,11 @@ fun gerarDestaques(catalogo: PlaylistCatalog, limite: Int = 8): List<Destaque> {
                     "SÉRIE EM ALTA • $metrica"
                 },
                 ano = midia.categoria.ifBlank { "Evolux" },
-                sinopse = "Disponível na sua lista autorizada.",
+                // Sinopse real da lista quando ela existir; em branco quando
+                // não -- a UI (FeaturedBanner) busca no TMDB pelo nome nesse
+                // caso, em vez de mostrar um texto genérico fixo que não diz
+                // nada sobre o título de verdade.
+                sinopse = midia.sinopse,
                 imagemUrl = midia.imagemUrl,
                 streamUrl = midia.streamUrl,
                 tipo = midia.tipo,
