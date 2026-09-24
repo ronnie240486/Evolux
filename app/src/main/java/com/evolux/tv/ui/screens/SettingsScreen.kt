@@ -33,6 +33,10 @@ import com.evolux.tv.ui.theme.TextoClaro
 fun SettingsScreen(
     aoTrocarMac: () -> Unit,
     playlistUrls: List<String> = emptyList(),
+    // Nomes/temas de verdade cadastrados no painel pra cada lista (mesmo
+    // índice de playlistUrls) -- quando vazio ou em branco pra um índice,
+    // cai no rótulo genérico "Lista N" (ver rotuloPlaylist).
+    playlistNomes: List<String> = emptyList(),
     playlistAtiva: Int = 0,
     aoSelecionarPlaylist: (Int) -> Unit = {},
     aoRecarregarCatalogo: () -> Unit = {},
@@ -108,8 +112,9 @@ fun SettingsScreen(
         if (mostrarPlaylists) {
             items(playlistUrls.indices.toList()) { indice ->
                 val url = playlistUrls[indice]
+                val rotulo = playlistNomes.getOrNull(indice)?.takeIf { it.isNotBlank() } ?: "Lista ${indice + 1}"
                 LinhaConfig(
-                    titulo = if (indice == playlistAtiva) "✓ Lista ${indice + 1} ativa" else "Lista ${indice + 1}",
+                    titulo = if (indice == playlistAtiva) "✓ $rotulo (ativa)" else rotulo,
                     descricao = hostSeguro(url),
                     aoClicar = { aoSelecionarPlaylist(indice) },
                     recuada = true
