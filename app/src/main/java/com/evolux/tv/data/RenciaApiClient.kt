@@ -19,7 +19,15 @@ import org.json.JSONObject
  */
 class RenciaApiClient(
     private val appId: String = "evolux",
-    private val base: String = "https://renciaapp.manus.space"
+    // BUG CRÍTICO corrigido: o painel migrou do Manus pro Railway -- o
+    // domínio antigo (renciaapp.manus.space) não fala mais a API de
+    // verdade pra apps novos (mesma migração já feita no Rencia/Supreme e
+    // no Fusion). Sem isso, heartbeat, avisos/sincronização de lista,
+    // comandos remotos, checagem de atualização e falha de reprodução
+    // ficavam TODOS batendo num domínio que não responde mais direito.
+    // Railway é o domínio PRIMÁRIO agora; Manus fica só como reserva.
+    private val base: String = "https://renciaapp-production.up.railway.app",
+    private val baseFallback: String = "https://renciaapp.manus.space"
 ) {
     // ---------- 2.2 Atualização do aplicativo ----------
 
@@ -245,8 +253,13 @@ class RenciaApiClient(
 
     private fun enc(valor: String) = URLEncoder.encode(valor, StandardCharsets.UTF_8.name())
 
-    private fun getJson(caminho: String): JSONObject? {
-        val conexao = (URL("$base$caminho").openConnection() as HttpURLConnection).apply {
+    /** Tenta o Railway (painel atual) primeiro; só cai pro Manus (painel
+     * antigo) se o Railway não responder nada aproveitável. */
+    private fun getJson(caminho: String): JSONObject? =
+        getJsonDe(base, caminho) ?: getJsonDe(baseFallback, caminho)
+
+    private fun getJsonDe(baseUrl: String, caminho: String): JSONObject? {
+        val conexao = (URL("$baseUrl$caminho").openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             connectTimeout = 10_000
             readTimeout = 10_000
@@ -273,8 +286,15 @@ class RenciaApiClient(
         }
     }
 
-    private fun postJson(caminho: String, corpo: JSONObject): JSONObject? {
-        val conexao = (URL("$base$caminho").openConnection() as HttpURLConnection).apply {
+    /** Mesma ordem Railway-primeiro/Manus-reserva do getJson. POST não é
+     * idempotente em geral, mas todas as rotas usadas aqui (heartbeat,
+     * ack de aviso/comando, falha de reprodução) são seguras de repetir
+     * -- o painel só registra o estado mais recente, não acumula. */
+    private fun postJson(caminho: String, corpo: JSONObject): JSONObject? =
+        postJsonDe(base, caminho, corpo) ?: postJsonDe(baseFallback, caminho, corpo)
+
+    private fun postJsonDe(baseUrl: String, caminho: String, corpo: JSONObject): JSONObject? {
+        val conexao = (URL("$baseUrl$caminho").openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = 10_000
             readTimeout = 10_000

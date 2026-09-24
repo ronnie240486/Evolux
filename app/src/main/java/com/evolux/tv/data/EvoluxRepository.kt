@@ -23,7 +23,16 @@ private data class ResultadoPlaylist(
 )
 
 class EvoluxRepository(
-    private val baseUrl: String = "https://renciaapp.manus.space/api/v5/apps/evolux/config"
+    // BUG CRÍTICO corrigido: o painel migrou do Manus pro Railway -- o
+    // domínio antigo (renciaapp.manus.space) não fala mais a API de
+    // verdade pra apps novos, devolvendo resposta inválida (às vezes nem
+    // JSON) em vez de um erro claro (mesma migração já feita no
+    // Rencia/Supreme e no Fusion -- ver RenciaRepository.kt deles).
+    // Railway é o domínio PRIMÁRIO agora; Manus fica só como reserva,
+    // pra MAC que por algum motivo ainda só esteja cadastrado no painel
+    // antigo.
+    private val baseUrl: String = "https://renciaapp-production.up.railway.app/api/v5/apps/evolux/config",
+    private val baseUrlFallback: String = "https://renciaapp.manus.space/api/v5/apps/evolux/config"
 ) {
     suspend fun buscarConfiguracao(mac: String): ResultadoConfiguracao = withContext(Dispatchers.IO) {
         val macNormalizado = MacAddressUtils.normalizar(mac)
@@ -146,8 +155,19 @@ class EvoluxRepository(
         }
     }
 
-    private fun requisitarConfiguracao(mac: String): String {
-        val url = URL("$baseUrl?mac=${URLEncoder.encode(mac, StandardCharsets.UTF_8.name())}")
+    /** Tenta o Railway (painel atual) primeiro; só cai pro Manus (painel
+     * antigo) se o Railway não responder nada aproveitável -- mesma ordem
+     * usada no Rencia/Supreme e no Fusion. Se os dois falharem, propaga o
+     * erro do PRIMÁRIO (Railway), que é o diagnóstico mais relevante hoje. */
+    private fun requisitarConfiguracao(mac: String): String =
+        runCatching { requisitarConfiguracaoDe(baseUrl, mac) }
+            .getOrElse { erroPrimario ->
+                runCatching { requisitarConfiguracaoDe(baseUrlFallback, mac) }
+                    .getOrElse { throw erroPrimario }
+            }
+
+    private fun requisitarConfiguracaoDe(base: String, mac: String): String {
+        val url = URL("$base?mac=${URLEncoder.encode(mac, StandardCharsets.UTF_8.name())}")
         val conexao = (url.openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             connectTimeout = 10_000
