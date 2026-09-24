@@ -34,6 +34,7 @@ fun FeaturedBanner(
     intervaloMs: Long,
     aoAssistir: (Destaque) -> Unit,
     aoVerTrailer: (Destaque) -> Unit,
+    aoBuscarSinopse: suspend (Destaque) -> String? = { null },
     modifier: Modifier = Modifier
 ) {
     if (destaques.isEmpty()) return
@@ -44,6 +45,15 @@ fun FeaturedBanner(
         }
     }
     val destaque = destaques[indice % destaques.size]
+
+    // A lista quase nunca traz sinopse de verdade -- quando vier em branco,
+    // busca no TMDB pelo nome do destaque (filme ou série) em vez de deixar
+    // a faixa de sinopse vazia.
+    val sinopseExibida by produceState(initialValue = destaque.sinopse, destaque.id) {
+        value = destaque.sinopse.ifBlank {
+            runCatching { aoBuscarSinopse(destaque) }.getOrNull().orEmpty()
+        }
+    }
 
     EvoluxClickableSurface(
         onClick = { aoAssistir(destaque) },
@@ -85,7 +95,7 @@ fun FeaturedBanner(
                     style = MaterialTheme.typography.headlineMedium
                 )
                 Text(
-                    text = destaque.sinopse,
+                    text = sinopseExibida.ifBlank { "Sinopse não disponível." },
                     color = TextoCinza,
                     style = MaterialTheme.typography.bodyMedium
                 )
