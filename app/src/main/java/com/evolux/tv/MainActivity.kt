@@ -58,6 +58,7 @@ import com.evolux.tv.data.OrdemCatalogo
 import com.evolux.tv.data.RenciaApiClient
 import com.evolux.tv.data.ResultadoConfiguracao
 import com.evolux.tv.data.TipoMidia
+import com.evolux.tv.data.TmdbRepository
 import com.evolux.tv.data.XtreamRepository
 import com.evolux.tv.data.gerarDestaques
 import com.evolux.tv.data.gerarFileirasEspeciais
@@ -128,6 +129,10 @@ fun EvoluxApp() {
         jogosDoDia = esporteRepository.buscarJogosDoDia()
     }
     val xtreamRepository = remember { XtreamRepository() }
+    // Listas M3U/Xtream quase nunca trazem sinopse de verdade -- essa
+    // instância busca sinopse de filmes e séries no TMDB pelo nome, com
+    // cache interno (não busca de novo o mesmo título).
+    val tmdbRepository = remember { TmdbRepository() }
     val escopo = rememberCoroutineScope()
     var macAutorizado by remember { mutableStateOf("") }
     var catalogo by remember { mutableStateOf<PlaylistCatalog?>(null) }
@@ -521,6 +526,10 @@ fun EvoluxApp() {
     }
 
     var serieSelecionadaFora by remember { mutableStateOf<GrupoSerie?>(null) }
+    // Filme escolhido pra mostrar pôster + sinopse (TMDB quando a lista não
+    // trouxer) antes de assistir -- mesma ideia do serieSelecionadaFora,
+    // só que pra filme (que não tem episódio pra escolher).
+    var filmeSelecionado by remember { mutableStateOf<Midia?>(null) }
 
     val abrirMidiaOuSerie: (Midia) -> Unit = { midia ->
         if (midia.tipo == TipoMidia.SERIE) {
@@ -544,14 +553,12 @@ fun EvoluxApp() {
                     .onFailure { Toast.makeText(contexto, "Não consegui abrir essa série.", Toast.LENGTH_SHORT).show() }
             }
         } else {
-            abrirConteudo(midia.titulo, midia.streamUrl, null)
+            filmeSelecionado = midia
         }
     }
 
     val abrirDestaque: (Destaque) -> Unit = { destaque ->
-        val midiaRef = if (destaque.tipo == TipoMidia.SERIE) {
-            catalogoAtual.series.firstOrNull { it.id == destaque.midiaId }
-        } else null
+        val midiaRef = (catalogoAtual.filmes + catalogoAtual.series).firstOrNull { it.id == destaque.midiaId }
         if (midiaRef != null) {
             abrirMidiaOuSerie(midiaRef)
         } else {
@@ -680,7 +687,14 @@ fun EvoluxApp() {
                 aoAbrirFilmes = { telaAtual = Tela.FILMES },
                 aoAbrirSeries = { telaAtual = Tela.SERIES },
                 ehFavorito = ehFavorito,
-                aoAlternarFavorito = aoAlternarFavorito
+                aoAlternarFavorito = aoAlternarFavorito,
+                aoBuscarSinopseDestaque = { destaque ->
+                    if (destaque.tipo == TipoMidia.SERIE) {
+                        tmdbRepository.buscarSinopseSerie(destaque.titulo)
+                    } else {
+                        tmdbRepository.buscarSinopseFilme(destaque.titulo)
+                    }
+                }
             )
 
             Tela.TV_AO_VIVO -> LiveTvScreen(
@@ -696,7 +710,7 @@ fun EvoluxApp() {
             Tela.FILMES -> GradeMidiaScreen(
                 titulo = "Filmes",
                 itens = catalogoApresentacao.filmes,
-                aoSelecionar = { abrirConteudo(it.titulo, it.streamUrl, null) },
+                aoSelecionar = abrirMidiaOuSerie,
                 ehFavorito = ehFavorito,
                 aoAlternarFavorito = aoAlternarFavorito,
                 categoriasOcultas = ocultasFilmes,
@@ -721,7 +735,8 @@ fun EvoluxApp() {
                     } else {
                         emptyList()
                     }
-                }
+                },
+                aoBuscarSinopse = { nome -> tmdbRepository.buscarSinopseSerie(nome) }
             )
 
             Tela.KIDS -> GradeMidiaScreen(
@@ -811,7 +826,20 @@ fun EvoluxApp() {
                 aoAssistir = { episodio ->
                     serieSelecionadaFora = null
                     abrirConteudo(episodio.episodioNome ?: episodio.titulo, episodio.streamUrl, null)
-                }
+                },
+                aoBuscarSinopse = { nome -> tmdbRepository.buscarSinopseSerie(nome) }
+            )
+        }
+
+        filmeSelecionado?.let { midia ->
+            MovieDetailDialog(
+                midia = midia,
+                aoFechar = { filmeSelecionado = null },
+                aoAssistir = { escolhido ->
+                    filmeSelecionado = null
+                    abrirConteudo(escolhido.titulo, escolhido.streamUrl, null)
+                },
+                aoBuscarSinopse = { nome -> tmdbRepository.buscarSinopseFilme(nome) }
             )
         }
 
