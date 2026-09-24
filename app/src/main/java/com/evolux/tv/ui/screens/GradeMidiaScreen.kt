@@ -1,5 +1,6 @@
 package com.evolux.tv.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
@@ -15,6 +17,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.tv.foundation.lazy.grid.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -22,8 +27,10 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
@@ -38,11 +45,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.tv.foundation.lazy.grid.TvGridCells
 import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
 import androidx.tv.foundation.lazy.list.TvLazyRow
 import androidx.tv.foundation.lazy.list.items as tvRowItems
+import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
@@ -335,6 +345,99 @@ private fun CardPoster(
                 style = MaterialTheme.typography.labelMedium,
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
             )
+        }
+    }
+}
+
+/**
+ * Detalhe de UM filme antes de assistir -- pôster grande, categoria e
+ * sinopse (mesmo estilo do SeriesDetailDialog). Listas M3U/Xtream quase
+ * nunca trazem sinopse de filme nenhuma; quando vier em branco, busca no
+ * TMDB pelo nome via [aoBuscarSinopse].
+ */
+@Composable
+fun MovieDetailDialog(
+    midia: Midia,
+    aoFechar: () -> Unit,
+    aoAssistir: (Midia) -> Unit,
+    aoBuscarSinopse: suspend (String) -> String? = { null }
+) {
+    val sinopseExibida by produceState(initialValue = midia.sinopse, midia.id) {
+        value = midia.sinopse.ifBlank {
+            runCatching { aoBuscarSinopse(midia.titulo) }.getOrNull().orEmpty()
+        }
+    }
+
+    Dialog(
+        onDismissRequest = aoFechar,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.82f)
+                .fillMaxHeight(0.78f)
+                .clip(RoundedCornerShape(18.dp))
+                .background(Color(0xFF0B1020))
+                .padding(24.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        AsyncImage(
+                            model = midia.imagemUrl.takeIf { it.isNotBlank() },
+                            placeholder = painterResource(R.drawable.evolux_logo),
+                            error = painterResource(R.drawable.evolux_logo),
+                            fallback = painterResource(R.drawable.evolux_logo),
+                            contentDescription = midia.titulo,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .width(130.dp)
+                                .height(180.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(midia.titulo, color = TextoClaro, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                            Text(midia.categoria.ifBlank { "Filme" }, color = Dourado)
+                            Text(
+                                sinopseExibida.ifBlank { "Sinopse não disponível." },
+                                color = TextoCinza,
+                                maxLines = 8,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                    EvoluxClickableSurface(
+                        onClick = aoFechar,
+                        containerColor = FundoCard,
+                        modifier = Modifier.width(54.dp).height(48.dp)
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Fechar", tint = TextoClaro)
+                    }
+                }
+                Spacer(Modifier.height(18.dp))
+                EvoluxClickableSurface(
+                    onClick = { aoAssistir(midia) },
+                    containerColor = Dourado,
+                    modifier = Modifier.fillMaxWidth().height(56.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color(0xFF111111))
+                        Spacer(Modifier.width(8.dp))
+                        Text("ASSISTIR", color = Color(0xFF111111), fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
         }
     }
 }

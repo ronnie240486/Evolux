@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -117,7 +118,8 @@ fun SeriesBrowserScreen(
     aoMudarOrdem: (OrdemCatalogo) -> Unit = {},
     carregarEpisodios: suspend (Midia) -> List<Midia> = { emptyList() },
     ordemCategoriasCustom: List<String> = emptyList(),
-    pinAdulto: String? = null
+    pinAdulto: String? = null,
+    aoBuscarSinopse: suspend (String) -> String? = { null }
 ) {
     val categorias = remember(itens, categoriasOcultas, ordemCategoriasCustom) {
         val brutas = itens.asSequence()
@@ -312,7 +314,7 @@ fun SeriesBrowserScreen(
                     )
                 }
                 items(gruposDaCategoria, key = { it.chave }) { grupo ->
-                    SerieCard(grupo, carregando = chaveCarregando == grupo.chave) { abrirGrupo(grupo) }
+                    SerieCard(grupo, carregando = chaveCarregando == grupo.chave, aoBuscarSinopse = aoBuscarSinopse) { abrirGrupo(grupo) }
                 }
             }
         }
@@ -322,7 +324,8 @@ fun SeriesBrowserScreen(
         SeriesDetailDialog(
             grupo = grupo,
             aoFechar = { serieSelecionada = null },
-            aoAssistir = aoAssistir
+            aoAssistir = aoAssistir,
+            aoBuscarSinopse = aoBuscarSinopse
         )
     }
 }
@@ -349,7 +352,19 @@ private fun FiltroCategoria(nome: String, selecionada: Boolean, aoClicar: () -> 
 }
 
 @Composable
-private fun SerieCard(grupo: GrupoSerie, carregando: Boolean = false, aoClicar: () -> Unit) {
+private fun SerieCard(
+    grupo: GrupoSerie,
+    carregando: Boolean = false,
+    aoBuscarSinopse: suspend (String) -> String? = { null },
+    aoClicar: () -> Unit
+) {
+    // A lista quase nunca traz sinopse pra série -- quando vier em branco,
+    // busca no TMDB pelo nome do grupo.
+    val sinopseExibida by produceState(initialValue = grupo.sinopse, grupo.chave) {
+        value = grupo.sinopse.ifBlank {
+            runCatching { aoBuscarSinopse(grupo.nome) }.getOrNull().orEmpty()
+        }
+    }
     EvoluxClickableSurface(
         onClick = aoClicar,
         containerColor = FundoCard,
@@ -392,7 +407,7 @@ private fun SerieCard(grupo: GrupoSerie, carregando: Boolean = false, aoClicar: 
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
-                    text = grupo.sinopse.ifBlank { "Sinopse não fornecida pela lista." },
+                    text = sinopseExibida.ifBlank { "Sinopse não disponível." },
                     color = TextoCinza,
                     maxLines = 4,
                     overflow = TextOverflow.Ellipsis
@@ -411,8 +426,16 @@ private fun SerieCard(grupo: GrupoSerie, carregando: Boolean = false, aoClicar: 
 fun SeriesDetailDialog(
     grupo: GrupoSerie,
     aoFechar: () -> Unit,
-    aoAssistir: (Midia) -> Unit
+    aoAssistir: (Midia) -> Unit,
+    aoBuscarSinopse: suspend (String) -> String? = { null }
 ) {
+    // A lista quase nunca traz sinopse pra série -- quando vier em branco,
+    // busca no TMDB pelo nome do grupo.
+    val sinopseExibida by produceState(initialValue = grupo.sinopse, grupo.chave) {
+        value = grupo.sinopse.ifBlank {
+            runCatching { aoBuscarSinopse(grupo.nome) }.getOrNull().orEmpty()
+        }
+    }
     val temporadas = grupo.episodios.groupBy { it.temporadaNumero ?: 1 }.toSortedMap()
     var temporadaSelecionada by remember(grupo.chave) {
         mutableStateOf(temporadas.keys.firstOrNull() ?: 1)
@@ -464,7 +487,7 @@ fun SeriesDetailDialog(
                             Text(grupo.nome, color = TextoClaro, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                             Text(grupo.categoria, color = Dourado)
                             Text(
-                                grupo.sinopse.ifBlank { "Sinopse não fornecida pela lista." },
+                                sinopseExibida.ifBlank { "Sinopse não disponível." },
                                 color = TextoCinza,
                                 maxLines = 5,
                                 overflow = TextOverflow.Ellipsis
