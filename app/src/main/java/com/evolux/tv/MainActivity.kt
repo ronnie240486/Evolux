@@ -37,6 +37,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.tv.material3.Button
 import androidx.tv.material3.Text
 import java.util.Locale
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -46,6 +49,7 @@ import com.evolux.tv.data.EsporteRepository
 import com.evolux.tv.data.Jogo
 import com.evolux.tv.data.ehCategoriaKids
 import com.evolux.tv.data.normalizarConsulta
+import com.evolux.tv.data.extrairStreamId
 import com.evolux.tv.data.EvoluxConfig
 import com.evolux.tv.data.CatalogoCache
 import com.evolux.tv.data.Canal
@@ -752,11 +756,42 @@ fun EvoluxApp() {
             Tela.JOGOS -> GamesScreen(
                 jogos = jogosDoDia,
                 aoAbrirJogo = { jogo ->
-                    val canalEncontrado = if (jogo.aoVivo) encontrarCanalDoJogo(jogo, catalogoAtual.canais) else null
-                    if (canalEncontrado != null) {
-                        abrirConteudo(canalEncontrado.nome, canalEncontrado.streamUrl, canalEncontrado)
+                    // Não existe stream por jogo -- o clique precisa achar,
+                    // entre os canais da lista, qual está transmitindo esse
+                    // jogo. Canal de transmissão (SporTV, Premiere, ESPN...)
+                    // quase nunca tem o nome do time no nome do CANAL -- quem
+                    // diz o que está passando é o guia de programação (EPG)
+                    // dele. Por isso primeiro tenta pelo nome do canal (rápido,
+                    // cobre canal "de time" tipo TV oficial de clube) e, se
+                    // não achar, busca no EPG dos canais de esporte da lista
+                    // um programa citando os dois times.
+                    val canalPorNome = encontrarCanalDoJogo(jogo, catalogoAtual.canais)
+                    if (canalPorNome != null) {
+                        abrirConteudo(canalPorNome.nome, canalPorNome.streamUrl, canalPorNome)
                     } else {
-                        abrirConteudo("${jogo.timeCasaSigla} x ${jogo.timeVisitanteSigla}", jogo.streamUrl, null)
+                        val url = playlistUrlAtual
+                        if (url != null && XtreamRepository.pareceXtream(url)) {
+                            escopo.launch {
+                                val canalPorEpg = runCatching {
+                                    encontrarCanalDoJogoViaEpg(jogo, catalogoAtual.canais, url, xtreamRepository)
+                                }.getOrNull()
+                                if (canalPorEpg != null) {
+                                    abrirConteudo(canalPorEpg.nome, canalPorEpg.streamUrl, canalPorEpg)
+                                } else {
+                                    Toast.makeText(
+                                        contexto,
+                                        "Nenhum canal da sua lista está com ${jogo.timeCasaSigla} x ${jogo.timeVisitanteSigla} na programação agora.",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                        } else {
+                            Toast.makeText(
+                                contexto,
+                                "Nenhum canal da sua lista parece transmitir ${jogo.timeCasaSigla} x ${jogo.timeVisitanteSigla}.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
                     }
                 }
             )
@@ -886,9 +921,10 @@ fun EvoluxApp() {
 }
 
 /**
- * Tenta achar, entre os canais ao vivo, um que tenha o nome de algum dos dois
- * times no nome do canal — jeito bem simples e sem garantia de acerto de
- * cruzar um jogo com a transmissão certa. Só usa quando o jogo está ao vivo.
+ * Tenta achar, entre os canais da lista, um que tenha o nome de algum dos
+ * dois times no nome do canal — jeito bem simples e sem garantia de acerto
+ * de cruzar um jogo com a transmissão certa. Usado pra qualquer jogo (ao
+ * vivo, a começar ou encerrado), não só quando a API marca como "ao vivo".
  */
 private fun encontrarCanalDoJogo(jogo: Jogo, canais: List<Canal>): Canal? {
     val nomeCasa = normalizarConsulta(jogo.timeCasaNomeCompleto.ifBlank { jogo.timeCasaSigla })
@@ -898,6 +934,74 @@ private fun encontrarCanalDoJogo(jogo: Jogo, canais: List<Canal>): Canal? {
         val nomeCanal = normalizarConsulta(canal.nome)
         (nomeCasa.isNotBlank() && nomeCanal.contains(nomeCasa)) ||
             (nomeFora.isNotBlank() && nomeCanal.contains(nomeFora))
+    }
+}
+
+/** Nomes de canais de transmissão esportiva no Brasil que RARAMENTE têm o
+ * nome do time no nome do canal (ninguém chama de "Palmeiras TV" quem
+ * transmite -- chama de "SporTV", "Premiere" etc.). Usado só pra restringir
+ * quais canais valem a pena checar o EPG -- ver o EPG de milhares de canais
+ * da lista, um por um, seria lento à toa. */
+private val PALAVRAS_CANAL_ESPORTE = listOf(
+    "sportv", "premiere", "espn", "fox sports", "band sports", "bandsports",
+    "combate", "dazn", "tnt sports", "cazetv", "caze tv", "caze play",
+    "onefootball", "star+", "star plus", "nsports", "nosso futebol"
+)
+
+private fun pareceCanalDeEsporte(canal: Canal): Boolean {
+    val categoria = normalizarConsulta(canal.categoria)
+    if (categoria.contains("esporte") || categoria.contains("sport")) return true
+    val nome = normalizarConsulta(canal.nome)
+    return PALAVRAS_CANAL_ESPORTE.any { nome.contains(it) }
+}
+
+/**
+ * Quando o nome do canal não diz nada (SporTV, Premiere, ESPN...), quem diz
+ * o que está passando é o guia de programação (EPG) de cada canal -- então
+ * busca, entre os canais que parecem ser de esporte, um cujo EPG atual/
+ * próximo cite os dois times do jogo. Só funciona em playlist Xtream (é o
+ * único jeito de EPG que o Evolux tem, ver XtreamRepository.carregarEpg);
+ * busca em paralelo pra não somar o tempo de cada canal em série.
+ */
+private suspend fun encontrarCanalDoJogoViaEpg(
+    jogo: Jogo,
+    canais: List<Canal>,
+    playlistUrl: String,
+    xtreamRepository: XtreamRepository
+): Canal? {
+    val variantesCasa = listOfNotNull(
+        jogo.timeCasaSigla.takeIf { it.isNotBlank() },
+        jogo.timeCasaNomeCompleto.takeIf { it.isNotBlank() }
+    ).map(::normalizarConsulta)
+    val variantesFora = listOfNotNull(
+        jogo.timeVisitanteSigla.takeIf { it.isNotBlank() },
+        jogo.timeVisitanteNomeCompleto.takeIf { it.isNotBlank() }
+    ).map(::normalizarConsulta)
+    if (variantesCasa.isEmpty() || variantesFora.isEmpty()) return null
+
+    val candidatos = canais
+        .filter(::pareceCanalDeEsporte)
+        .distinctBy { it.streamUrl }
+        .take(40)
+    if (candidatos.isEmpty()) return null
+
+    return coroutineScope {
+        candidatos
+            .map { canal ->
+                async {
+                    val streamId = extrairStreamId(canal.streamUrl) ?: return@async null
+                    val programas = runCatching {
+                        xtreamRepository.carregarEpg(playlistUrl, streamId, limite = 4)
+                    }.getOrDefault(emptyList())
+                    val bate = programas.any { programa ->
+                        val texto = normalizarConsulta("${programa.titulo} ${programa.descricao}")
+                        variantesCasa.any { texto.contains(it) } && variantesFora.any { texto.contains(it) }
+                    }
+                    if (bate) canal else null
+                }
+            }
+            .awaitAll()
+            .firstOrNull { it != null }
     }
 }
 
