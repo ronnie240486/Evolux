@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -47,47 +48,75 @@ fun GamesScreen(
             )
             return@Column
         }
+        // A lista já chega ordenada por horário (EsporteRepository) --
+        // agrupa só pra mostrar um cabeçalho por dia (LinkedHashMap via
+        // groupBy preserva a ordem em que as chaves aparecem, então os
+        // grupos saem na mesma ordem cronológica).
+        val gruposPorData = remember(jogos) {
+            jogos.groupBy { rotuloData(it.horarioMillis) }
+        }
         LazyColumn(
             modifier = Modifier.padding(top = 20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(jogos) { jogo ->
-                EvoluxClickableSurface(
-                    onClick = { aoAbrirJogo(jogo) },
-                    containerColor = FundoCard,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(18.dp)
+            gruposPorData.forEach { (data, jogosDoDia) ->
+                item {
+                    Text(
+                        text = data,
+                        color = Dourado,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
+                    )
+                }
+                items(jogosDoDia) { jogo ->
+                    EvoluxClickableSurface(
+                        onClick = { aoAbrirJogo(jogo) },
+                        containerColor = FundoCard,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(18.dp)
                         ) {
-                            TimeComEscudo(jogo.timeCasaLogoUrl, jogo.timeCasaSigla, Modifier.weight(1f))
-                            PlacarOuHorario(jogo)
-                            TimeComEscudo(
-                                jogo.timeVisitanteLogoUrl,
-                                jogo.timeVisitanteSigla,
-                                Modifier.weight(1f),
-                                inverterOrdem = true
-                            )
-                        }
-                        Spacer(Modifier.height(6.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                            Text(
-                                text = "${jogo.horario} • ${jogo.campeonato}",
-                                color = TextoCinza,
-                                style = MaterialTheme.typography.bodySmall
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                TimeComEscudo(jogo.timeCasaLogoUrl, jogo.timeCasaSigla, Modifier.weight(1f))
+                                PlacarOuHorario(jogo)
+                                TimeComEscudo(
+                                    jogo.timeVisitanteLogoUrl,
+                                    jogo.timeVisitanteSigla,
+                                    Modifier.weight(1f),
+                                    inverterOrdem = true
+                                )
+                            }
+                            Spacer(Modifier.height(6.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                                Text(
+                                    text = "${jogo.horario} • ${jogo.campeonato}",
+                                    color = TextoCinza,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
                         }
                     }
                 }
             }
         }
     }
+}
+
+/** Rótulo do cabeçalho de data ("Domingo, 20/09") a partir do instante do
+ * jogo; jogos sem horário reconhecido caem num grupo à parte no final
+ * (ver ordenação em EsporteRepository, que já deixa esse grupo por último). */
+private fun rotuloData(horarioMillis: Long): String {
+    if (horarioMillis <= 0L) return "Data a definir"
+    return java.text.SimpleDateFormat("EEEE, dd/MM", java.util.Locale("pt", "BR"))
+        .format(java.util.Date(horarioMillis))
+        .replaceFirstChar { it.uppercase() }
 }
 
 @Composable
