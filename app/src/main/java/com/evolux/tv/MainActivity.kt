@@ -153,6 +153,10 @@ fun EvoluxApp() {
     var playlistAtiva by remember { mutableStateOf(preferencias.getInt(CHAVE_PLAYLIST_ATIVA, 0)) }
     var playlistUrlAtual by remember { mutableStateOf<String?>(null) }
     var categoriasOcultas by remember { mutableStateOf(preferencias.getStringSet(CHAVE_CATEGORIAS_OCULTAS, emptySet()).orEmpty()) }
+    // BUG corrigido: categoria de TV ao vivo (ex.: "Globo") vivia só dentro
+    // do LiveTvScreen -- ao apertar voltar e entrar de novo, sempre voltava
+    // pra "Todos". Guardando aqui em cima, sobrevive a sair/entrar na tela.
+    var categoriaLiveSelecionada by remember { mutableStateOf("Todos") }
     var pinAdulto by remember { mutableStateOf(preferencias.getString(CHAVE_PIN_ADULTO, null)) }
     var ordemCategoriasCanais by remember { mutableStateOf(lerListaOrdenada(preferencias.getString(CHAVE_ORDEM_CAT_CANAIS, null))) }
     var ordemCategoriasFilmes by remember { mutableStateOf(lerListaOrdenada(preferencias.getString(CHAVE_ORDEM_CAT_FILMES, null))) }
@@ -729,7 +733,9 @@ fun EvoluxApp() {
                 ordemInicial = ordens["canais"] ?: OrdemCatalogo.PADRAO,
                 aoMudarOrdem = { aoMudarOrdem("canais", it) },
                 ordemCategoriasCustom = ordemCategoriasCanais,
-                pinAdulto = pinAdulto
+                pinAdulto = pinAdulto,
+                categoriaInicial = categoriaLiveSelecionada,
+                aoMudarCategoria = { categoriaLiveSelecionada = it }
             )
 
             Tela.FILMES -> GradeMidiaScreen(
