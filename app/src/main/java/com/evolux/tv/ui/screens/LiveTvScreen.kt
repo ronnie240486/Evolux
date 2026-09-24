@@ -57,7 +57,15 @@ fun LiveTvScreen(
     ordemInicial: OrdemCatalogo = OrdemCatalogo.PADRAO,
     aoMudarOrdem: (OrdemCatalogo) -> Unit = {},
     ordemCategoriasCustom: List<String> = emptyList(),
-    pinAdulto: String? = null
+    pinAdulto: String? = null,
+    // BUG corrigido: a categoria escolhida (ex.: "Globo") só existia dentro
+    // dessa tela -- ao apertar voltar (a tela é destruída) e entrar de novo
+    // em TV ao vivo, sempre resetava pra "Todos" e a pessoa tinha que
+    // procurar a categoria de novo toda vez. Igual já era feito com "ordem"
+    // (ordemInicial/aoMudarOrdem), a categoria agora também é guardada lá
+    // em cima, no MainActivity, e sobrevive a entrar/sair dessa tela.
+    categoriaInicial: String = "Todos",
+    aoMudarCategoria: (String) -> Unit = {}
 ) {
     val categorias = remember(canais, categoriasOcultas, ordemCategoriasCustom) {
         val brutas = canais
@@ -66,7 +74,7 @@ fun LiveTvScreen(
             .filter { it !in categoriasOcultas }
         listOf("Todos") + ordenarCategorias(brutas, ordemCategoriasCustom)
     }
-    var categoriaSelecionada by remember(canais) { mutableStateOf("Todos") }
+    var categoriaSelecionada by remember(canais, categoriaInicial) { mutableStateOf(categoriaInicial) }
     var busca by remember(canais) { mutableStateOf("") }
     var ordem by remember(canais, ordemInicial) { mutableStateOf(ordemInicial) }
     val canaisFiltrados = remember(canais, busca, categoriaSelecionada, ordem, categoriasOcultas) {
@@ -81,6 +89,7 @@ fun LiveTvScreen(
             categoriaAguardandoPin = categoria
         } else {
             categoriaSelecionada = categoria
+            aoMudarCategoria(categoria)
         }
     }
 
@@ -101,6 +110,7 @@ fun LiveTvScreen(
                     if (digitado == pinAdulto) {
                         categoriasDesbloqueadas = categoriasDesbloqueadas + categoria
                         categoriaSelecionada = categoria
+                        aoMudarCategoria(categoria)
                         categoriaAguardandoPin = null
                         erroPin = null
                     } else {
