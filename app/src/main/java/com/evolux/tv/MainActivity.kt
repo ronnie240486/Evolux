@@ -376,6 +376,19 @@ fun EvoluxApp() {
         }
     }
 
+    // Heartbeat imediato ao trocar de conteúdo (abrir canal/filme, ou fechar
+    // e voltar pra idle). Sem isso, só o ciclo de 60s acima reportava o que
+    // está passando -- e a primeira leitura dele, logo que o app abre, é
+    // sempre com reproducao=null (antes de escolher qualquer coisa). Quem
+    // testasse rápido só via esse heartbeat "nada tocando" e achava que o
+    // painel nunca atualizava; o canal certo só chegaria no próximo tick de
+    // 60s. Isso dispara na hora, toda vez que reproducao muda.
+    LaunchedEffect(reproducao, macAutorizado) {
+        if (macAutorizado.isNotBlank()) {
+            renciaApi.heartbeat(macAutorizado, reproducao?.titulo)
+        }
+    }
+
     LaunchedEffect(macLogico) {
         var tentativasFalhas = 0
         while (isActive) {
