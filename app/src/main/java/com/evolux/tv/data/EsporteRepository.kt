@@ -41,7 +41,15 @@ class EsporteRepository {
     )
 
     suspend fun buscarJogosDoDia(): List<Jogo> = withContext(Dispatchers.IO) {
+        // Cada liga vem numa chamada separada, então a lista concatenada sai
+        // agrupada por liga (todos os jogos do Brasileirão, depois todos da
+        // Libertadores, etc.) -- não por data/horário. Ordena pelo instante
+        // real do jogo (horarioMillis) pra ficar do mais cedo pro mais
+        // tarde, misturando as ligas na ordem certa.
+        // Jogos sem horário reconhecido (horarioMillis == 0L) vão pro final,
+        // em vez de aparecer misturados no topo como se fossem "os mais cedo".
         ligas.flatMap { liga -> buscarLiga(liga) }
+            .sortedBy { if (it.horarioMillis > 0L) it.horarioMillis else Long.MAX_VALUE }
     }
 
     private fun buscarLiga(liga: Liga): List<Jogo> {
@@ -96,6 +104,7 @@ class EsporteRepository {
                 val estado = statusObjeto?.optString("state").orEmpty()
                 val encerrado = statusObjeto?.optBoolean("completed", false) ?: false
                 val aoVivo = estado == "in"
+                val instanteMillis = parseInstanteMillis(evento.optString("date"))
 
                 resultado.add(
                     Jogo(
@@ -104,7 +113,7 @@ class EsporteRepository {
                         timeCasaLogoUrl = logoCasa,
                         timeVisitanteSigla = siglaFora,
                         timeVisitanteLogoUrl = logoFora,
-                        horario = formatarHorario(evento.optString("date")),
+                        horario = formatarHorario(instanteMillis),
                         campeonato = liga.nome,
                         streamUrl = "",
                         placarCasa = if (aoVivo || encerrado) placarCasa else null,
@@ -112,7 +121,8 @@ class EsporteRepository {
                         aoVivo = aoVivo,
                         encerrado = encerrado,
                         timeCasaNomeCompleto = nomeCasa,
-                        timeVisitanteNomeCompleto = nomeFora
+                        timeVisitanteNomeCompleto = nomeFora,
+                        horarioMillis = instanteMillis
                     )
                 )
             }
@@ -128,15 +138,25 @@ class EsporteRepository {
         }
     }
 
-    /** A API devolve o horário em UTC (ex: 2026-09-14T23:00Z); converte pro fuso do aparelho. */
-    private fun formatarHorario(dataIso: String): String {
-        if (dataIso.isBlank()) return "Horário a definir"
+    /** A API devolve o horário em UTC (ex: 2026-09-14T23:00Z); converte pra
+     * um instante absoluto (epoch millis), usado tanto pra ordenar/agrupar
+     * por data quanto pra formatar o texto exibido. 0L quando não dá pra
+     * interpretar a data (jogo sem horário definido). */
+    private fun parseInstanteMillis(dataIso: String): Long {
+        if (dataIso.isBlank()) return 0L
         return runCatching {
             val formatoEntrada = SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'", Locale.ROOT).apply {
                 timeZone = TimeZone.getTimeZone("UTC")
             }
-            val data = formatoEntrada.parse(dataIso) ?: return@runCatching "Horário a definir"
-            SimpleDateFormat("dd/MM HH:mm", Locale.ROOT).format(data)
+            formatoEntrada.parse(dataIso)?.time ?: 0L
+        }.getOrDefault(0L)
+    }
+
+    /** Formata o instante pro fuso do aparelho -- "dd/MM HH:mm". */
+    private fun formatarHorario(instanteMillis: Long): String {
+        if (instanteMillis <= 0L) return "Horário a definir"
+        return runCatching {
+            SimpleDateFormat("dd/MM HH:mm", Locale.ROOT).format(java.util.Date(instanteMillis))
         }.getOrDefault("Horário a definir")
     }
 }

@@ -59,5 +59,9 @@ data class Jogo(
     val aoVivo: Boolean = false,
     val encerrado: Boolean = false,
     val timeCasaNomeCompleto: String = "",
-    val timeVisitanteNomeCompleto: String = ""
+    val timeVisitanteNomeCompleto: String = "",
+    // Instante do jogo em milissegundos (epoch) -- usado só pra ordenar/
+    // agrupar por data na tela de Jogos; "horario" continua sendo o texto
+    // já formatado ("dd/MM HH:mm") mostrado pro usuário.
+    val horarioMillis: Long = 0L
 )
