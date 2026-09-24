@@ -62,11 +62,25 @@ class RenciaApiClient(
         val command: String?
     )
 
+    companion object {
+        // BUG corrigido: "Assistindo" no painel ficava preso pra sempre no
+        // último canal reportado, mesmo abrindo o Evolux do zero sem tocar
+        // nada -- porque o painel trata heartbeat sem current_content como
+        // "sem novidade, mantém o que já tem" (é assim que ele evita apagar
+        // o canal enquanto o app manda heartbeats repetidos do MESMO canal).
+        // Por isso omitir o parâmetro nunca vai limpar o painel: precisa
+        // avisar explicitamente que parou. O painel (rencia_app) já
+        // reconhece essa sentinela reservada em server/heartbeatContent.ts.
+        private const val SEM_CONTEUDO = "__idle__"
+    }
+
     suspend fun heartbeat(mac: String, conteudoAtual: String?): RespostaHeartbeat? = withContext(Dispatchers.IO) {
         val rota = buildString {
             append("/api/v5/heartbeat?mac=${enc(mac)}")
             if (!conteudoAtual.isNullOrBlank()) {
                 append("&current_content=${enc(conteudoAtual)}")
+            } else {
+                append("&current_content=${enc(SEM_CONTEUDO)}")
             }
         }
         val json = getJson(rota) ?: return@withContext null
