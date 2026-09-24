@@ -54,7 +54,7 @@ import com.evolux.tv.data.EvoluxConfig
 import com.evolux.tv.data.CatalogoCache
 import com.evolux.tv.data.Canal
 import com.evolux.tv.data.Destaque
-import com.evolux.tv.data.MacAddressUtils
+import com.evolux.tv.data.MacAddressProvider
 import com.evolux.tv.data.PlaylistCatalog
 import com.evolux.tv.data.PlaylistRepository
 import com.evolux.tv.data.Midia
@@ -117,9 +117,17 @@ fun EvoluxApp() {
     val preferencias = remember(contexto) {
         contexto.getSharedPreferences("evolux_preferencias", Context.MODE_PRIVATE)
     }
-    val macLogico = remember(preferencias) {
-        preferencias.getString(CHAVE_MAC_LOGICO, null) ?: MacAddressUtils.gerarMacLogico().also { novoMac ->
-            preferencias.edit().putString(CHAVE_MAC_LOGICO, novoMac).apply()
+    val macLogico = remember(contexto, preferencias) {
+        // BUG CRÍTICO corrigido: usar o MAC REAL do aparelho (mesmo que o
+        // Rencia/Supreme, Maximus, Ouro Pro e Fusion detectam), não mais um
+        // MAC aleatório exclusivo do Evolux -- ver MacAddressProvider.kt
+        // pro motivo completo (o app virava um "aparelho" separado pro
+        // painel, e o heartbeat dele nunca atualizava a linha que o
+        // usuário via, que era a do MAC de verdade usado pelos outros
+        // apps). Continua salvando em SharedPreferences só pra não repetir
+        // a detecção a cada abertura.
+        preferencias.getString(CHAVE_MAC_LOGICO, null) ?: MacAddressProvider.getFixedMac(contexto).also { macReal ->
+            preferencias.edit().putString(CHAVE_MAC_LOGICO, macReal).apply()
         }
     }
     val macInicial = macLogico
