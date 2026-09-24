@@ -135,7 +135,7 @@ fun MacLoginScreen(
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = "Este é o MAC lógico deste aparelho. Copie-o, cadastre-o no painel e depois valide o acesso.",
+                    text = "Este é o MAC deste aparelho (o mesmo usado pelos outros apps nele). Copie-o, cadastre-o no painel e depois valide o acesso.",
                     color = TextoCinza,
                     style = if (celular) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center
@@ -276,7 +276,7 @@ fun MacLoginScreen(
 
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = "O MAC permanece o mesmo nesta instalação. Se reinstalar o APK, um novo MAC será gerado.",
+                    text = "Esse MAC é o do próprio aparelho -- continua o mesmo se você reinstalar o app ou trocar de lista.",
                     color = TextoCinza,
                     style = MaterialTheme.typography.bodySmall,
                     textAlign = TextAlign.Center
