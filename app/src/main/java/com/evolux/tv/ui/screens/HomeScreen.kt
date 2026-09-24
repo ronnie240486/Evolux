@@ -33,7 +33,8 @@ fun HomeScreen(
     aoAbrirFilmes: () -> Unit,
     aoAbrirSeries: () -> Unit,
     ehFavorito: (Midia) -> Boolean,
-    aoAlternarFavorito: (Midia) -> Unit
+    aoAlternarFavorito: (Midia) -> Unit,
+    aoBuscarSinopseDestaque: suspend (Destaque) -> String? = { null }
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val compacto = maxWidth < 760.dp
@@ -63,6 +64,7 @@ fun HomeScreen(
                             intervaloMs = 8000L,
                             aoAssistir = aoAssistirDestaque,
                             aoVerTrailer = aoAssistirDestaque,
+                            aoBuscarSinopse = aoBuscarSinopseDestaque,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(220.dp)
@@ -87,6 +89,7 @@ fun HomeScreen(
                             intervaloMs = 8000L,
                             aoAssistir = aoAssistirDestaque,
                             aoVerTrailer = aoAssistirDestaque,
+                            aoBuscarSinopse = aoBuscarSinopseDestaque,
                             modifier = Modifier
                                 .weight(1f)
                                 .height(300.dp)
