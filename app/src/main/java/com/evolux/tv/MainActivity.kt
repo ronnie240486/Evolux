@@ -204,20 +204,34 @@ fun EvoluxApp() {
                     catalogo = parcial
                 }
             )
-            val seriesXtream = if (XtreamRepository.pareceXtream(urlPlaylist)) {
-                xtreamRepository.carregarSeries(urlPlaylist)
-            } else {
-                emptyList()
-            }
-            val novoCatalogo = if (seriesXtream.isNotEmpty()) {
-                catalogoM3u.copy(series = seriesXtream)
-            } else {
-                catalogoM3u
-            }
-            catalogo = novoCatalogo
+            // BUG DE VELOCIDADE corrigido: liberar a tela (catalogo pronto,
+            // carregandoCatalogo = false) não esperava só o M3U -- esperava
+            // TAMBÉM get_series_categories + get_series do Xtream, uma
+            // chamada de API separada que pode ser bem lenta em painéis com
+            // catálogo grande. Canais e Filmes (e a versão de Séries vinda
+            // do próprio M3U) já estão prontos aqui -- não faz sentido
+            // segurar a tela toda por causa só das séries "oficiais" da API.
+            // Mostra tudo já e busca as séries da API em segundo plano,
+            // sem bloquear nada -- é assim que o Maximus/Ouro Pro abrem mais
+            // rápido.
+            catalogo = catalogoM3u
             playlistAtiva = indice
             preferencias.edit().putInt(CHAVE_PLAYLIST_ATIVA, indice).apply()
-            CatalogoCache.salvar(contexto, fingerprint, novoCatalogo)
+            CatalogoCache.salvar(contexto, fingerprint, catalogoM3u)
+            if (XtreamRepository.pareceXtream(urlPlaylist)) {
+                escopo.launch {
+                    val seriesXtream = runCatching { xtreamRepository.carregarSeries(urlPlaylist) }.getOrDefault(emptyList())
+                    // Só aplica se ainda estivermos na mesma lista -- evita
+                    // misturar séries de uma lista antiga se o usuário já
+                    // trocou de lista enquanto essa busca rodava.
+                    if (seriesXtream.isNotEmpty() && playlistUrlAtual == urlPlaylist) {
+                        catalogo?.copy(series = seriesXtream)?.let { comSeries ->
+                            catalogo = comSeries
+                            CatalogoCache.salvar(contexto, fingerprint, comSeries)
+                        }
+                    }
+                }
+            }
             return null
         } catch (erro: Exception) {
             return erro.message?.takeIf { it.isNotBlank() } ?: "Não foi possível interpretar o catálogo."
@@ -744,6 +758,7 @@ fun EvoluxApp() {
 
             Tela.CONFIGURACOES -> SettingsScreen(
                 playlistUrls = fontesConfiguradas,
+                playlistNomes = configuracaoAtual?.playlistNames.orEmpty(),
                 playlistAtiva = playlistAtiva,
                 aoSelecionarPlaylist = aoSelecionarPlaylist,
                 aoRecarregarCatalogo = aoRecarregarCatalogo,
